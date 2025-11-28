@@ -20,6 +20,14 @@ data class FrequencyData(
     val dictionaryId: Long,
 )
 
+/**
+ * Grouped frequency data for display, with multiple frequencies from the same dictionary combined
+ */
+data class GroupedFrequencyData(
+    val frequencies: String,
+    val dictionaryId: Long,
+)
+
 object FrequencyFormatter {
     private val json = Json {
         ignoreUnknownKeys = true
@@ -36,6 +44,31 @@ object FrequencyFormatter {
 
         // Return all frequencies sorted by numeric value (lowest first)
         return frequencies.sortedBy { it.numericFrequency ?: Int.MAX_VALUE }
+    }
+
+    /**
+     * Parse and group frequency data by dictionary.
+     * Frequencies from the same dictionary are combined with "|" separator.
+     */
+    fun parseGroupedFrequencies(termMetaList: List<DictionaryTermMeta>): List<GroupedFrequencyData> {
+        val frequencies = parseFrequencies(termMetaList)
+
+        // Group by dictionary ID and combine frequencies
+        return frequencies
+            .groupBy { it.dictionaryId }
+            .map { (dictionaryId, freqList) ->
+                val combinedFrequencies = freqList
+                    .map { it.frequency }
+                    .distinct()
+                    .joinToString(" | ")
+                val minNumeric = freqList.mapNotNull { it.numericFrequency }.minOrNull()
+                GroupedFrequencyData(
+                    frequencies = combinedFrequencies,
+                    dictionaryId = dictionaryId,
+                ) to minNumeric
+            }
+            .sortedBy { it.second ?: Int.MAX_VALUE }
+            .map { it.first }
     }
 
     /**

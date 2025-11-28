@@ -212,15 +212,15 @@ internal fun DictionaryTermCard(
 
             Spacer(Modifier.size(6.dp))
 
-            // Display frequency indicator if available
-            val frequencyData = remember(termMeta) {
-                FrequencyFormatter.parseFrequencies(termMeta)
+            // Display frequency indicator if available (grouped by dictionary)
+            val groupedFrequencyData = remember(termMeta) {
+                FrequencyFormatter.parseGroupedFrequencies(termMeta)
             }
 
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                frequencyData.take(16).forEach { freqInfo ->
+                groupedFrequencyData.take(16).forEach { freqInfo ->
                     // Find the dictionary name for the frequency entry
                     val sourceDictName = dictionaries.find { it.id == freqInfo.dictionaryId }?.title
                         ?: dictionaryName
@@ -246,7 +246,7 @@ internal fun DictionaryTermCard(
                         )
 
                         Text(
-                            text = freqInfo.frequency,
+                            text = freqInfo.frequencies,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
