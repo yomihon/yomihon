@@ -8,7 +8,7 @@ CREATE TABLE dictionaries (
     description TEXT,
     attribution TEXT,
     is_enabled INTEGER NOT NULL DEFAULT 1, -- 1 for true, 0 for false
-    priority INTEGER NOT NULL DEFAULT 0,
+    priority INTEGER NOT NULL DEFAULT 1,
     date_added INTEGER NOT NULL,
     UNIQUE(title, revision)
 );
@@ -125,6 +125,10 @@ SET title = :title,
     is_enabled = :is_enabled,
     priority = :priority
 WHERE _id = :id;
+
+bumpAllPrioritiesUp:
+UPDATE dictionaries
+SET priority = priority + 1;
 
 deleteDictionary:
 DELETE FROM dictionaries

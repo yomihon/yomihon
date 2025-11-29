@@ -21,4 +21,15 @@ class DictionaryInteractor(
     suspend fun deleteDictionary(dictionaryId: Long) {
         dictionaryRepository.deleteDictionary(dictionaryId)
     }
+
+    /**
+     * Swaps the priority of two dictionaries.
+     * This is used to move dictionaries up or down in the list.
+     */
+    suspend fun swapDictionaryPriorities(dict1: Dictionary, dict2: Dictionary) {
+        val priority1 = dict1.priority
+        val priority2 = dict2.priority
+        dictionaryRepository.updateDictionary(dict1.copy(priority = priority2))
+        dictionaryRepository.updateDictionary(dict2.copy(priority = priority1))
+    }
 }

@@ -17,11 +17,15 @@ class ImportDictionary(
 ) {
     /**
      * Creates a dictionary record in the database.
+     * The new dictionary is assigned priority 1 (highest), and all existing
+     * dictionaries have their priorities bumped up by 1.
      *
      * @param index The parsed index.json metadata
      * @return The ID of the created dictionary
      */
     suspend fun createDictionary(index: DictionaryIndex): Long {
+        dictionaryRepository.bumpAllPrioritiesUp()
+
         val dictionary = Dictionary(
             title = index.title,
             revision = index.revision,
@@ -30,6 +34,7 @@ class ImportDictionary(
             url = index.url,
             description = index.description,
             attribution = index.attribution,
+            priority = 1,
         )
         return dictionaryRepository.insertDictionary(dictionary)
     }

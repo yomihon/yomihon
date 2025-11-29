@@ -12,6 +12,7 @@ interface DictionaryRepository {
     // Dictionary operations
     suspend fun insertDictionary(dictionary: Dictionary): Long
     suspend fun updateDictionary(dictionary: Dictionary)
+    suspend fun bumpAllPrioritiesUp()
     suspend fun deleteDictionary(dictionaryId: Long)
     suspend fun getDictionary(dictionaryId: Long): Dictionary?
     suspend fun getAllDictionaries(): List<Dictionary>

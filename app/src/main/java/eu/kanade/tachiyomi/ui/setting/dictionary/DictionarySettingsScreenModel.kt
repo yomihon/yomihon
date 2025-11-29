@@ -189,6 +189,42 @@ class DictionarySettingsScreenModel(
         }
     }
 
+    fun moveDictionaryUp(dictionary: Dictionary) {
+        screenModelScope.launch {
+            try {
+                val dictionaries = state.value.dictionaries
+                val currentIndex = dictionaries.indexOfFirst { it.id == dictionary.id }
+
+                // Can't move up if already at the top (index 0 = highest priority)
+                if (currentIndex <= 0) return@launch
+
+                val aboveDictionary = dictionaries[currentIndex - 1]
+                dictionaryInteractor.swapDictionaryPriorities(dictionary, aboveDictionary)
+                loadDictionaries()
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Failed to move dictionary up" }
+            }
+        }
+    }
+
+    fun moveDictionaryDown(dictionary: Dictionary) {
+        screenModelScope.launch {
+            try {
+                val dictionaries = state.value.dictionaries
+                val currentIndex = dictionaries.indexOfFirst { it.id == dictionary.id }
+
+                // Can't move down if already at the bottom
+                if (currentIndex < 0 || currentIndex >= dictionaries.size - 1) return@launch
+
+                val belowDictionary = dictionaries[currentIndex + 1]
+                dictionaryInteractor.swapDictionaryPriorities(dictionary, belowDictionary)
+                loadDictionaries()
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Failed to move dictionary down" }
+            }
+        }
+    }
+
     fun deleteDictionary(context: Context, dictionaryId: Long) {
         screenModelScope.launch {
             mutableState.update { it.copy(isDeleting = true, error = null) }

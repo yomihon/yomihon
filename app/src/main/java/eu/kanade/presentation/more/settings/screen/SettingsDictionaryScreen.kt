@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -214,15 +216,23 @@ object SettingsDictionaryScreen : Screen {
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        items(
+                        itemsIndexed(
                             items = state.dictionaries,
-                            key = { it.id },
-                        ) { dictionary ->
+                            key = { _, dict -> dict.id },
+                        ) { index, dictionary ->
                             DictionaryItem(
                                 dictionary = dictionary,
                                 isOperationInProgress = state.isImporting || state.isDeleting,
+                                isFirst = index == 0,
+                                isLast = index == state.dictionaries.size - 1,
                                 onToggleEnabled = { enabled ->
                                     screenModel.updateDictionary(context, dictionary.copy(isEnabled = enabled))
+                                },
+                                onMoveUp = {
+                                    screenModel.moveDictionaryUp(dictionary)
+                                },
+                                onMoveDown = {
+                                    screenModel.moveDictionaryDown(dictionary)
                                 },
                                 onDelete = {
                                     screenModel.deleteDictionary(context, dictionary.id)
@@ -240,7 +250,11 @@ object SettingsDictionaryScreen : Screen {
 private fun DictionaryItem(
     dictionary: Dictionary,
     isOperationInProgress: Boolean,
+    isFirst: Boolean,
+    isLast: Boolean,
     onToggleEnabled: (Boolean) -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
     onDelete: () -> Unit,
 ) {
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
@@ -305,6 +319,27 @@ private fun DictionaryItem(
                     contentDescription = stringResource(MR.strings.action_delete),
                 )
             }
+
+            Column {
+                IconButton(
+                    onClick = onMoveUp,
+                    enabled = !isOperationInProgress && !isFirst,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.KeyboardArrowUp,
+                        contentDescription = stringResource(MR.strings.action_move_up),
+                    )
+                }
+                IconButton(
+                    onClick = onMoveDown,
+                    enabled = !isOperationInProgress && !isLast,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.KeyboardArrowDown,
+                        contentDescription = stringResource(MR.strings.action_move_down),
+                    )
+                }
+            }
         }
 
         var showDetails by rememberSaveable { mutableStateOf(false) }
@@ -331,6 +366,16 @@ private fun DictionaryItem(
                     .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+                Text(
+                    text = buildAnnotatedString {
+                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                            append(stringResource(MR.strings.label_priority))
+                        }
+                        append(" ${dictionary.priority}")
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Text(
                     text = buildAnnotatedString {
                         withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
