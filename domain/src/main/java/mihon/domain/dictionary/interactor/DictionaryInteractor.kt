@@ -19,7 +19,15 @@ class DictionaryInteractor(
     }
 
     suspend fun deleteDictionary(dictionaryId: Long) {
+        val dictionary = dictionaryRepository.getDictionary(dictionaryId)
+        val priorityToAdjust = dictionary?.priority
+        
         dictionaryRepository.deleteDictionary(dictionaryId)
+        
+        // Bump down priorities for dictionaries that were above
+        if (priorityToAdjust != null) {
+            dictionaryRepository.bumpDownPrioritiesAbove(priorityToAdjust)
+        }
     }
 
     /**

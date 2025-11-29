@@ -130,6 +130,11 @@ bumpAllPrioritiesUp:
 UPDATE dictionaries
 SET priority = priority + 1;
 
+bumpDownPrioritiesAbove:
+UPDATE dictionaries
+SET priority = priority - 1
+WHERE priority > :priority;
+
 deleteDictionary:
 DELETE FROM dictionaries
 WHERE _id = :id;

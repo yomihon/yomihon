@@ -65,6 +65,12 @@ class DictionaryRepositoryImpl(
         }
     }
 
+    override suspend fun bumpDownPrioritiesAbove(priority: Int) {
+        handler.await(inTransaction = true) {
+            dictionaryQueries.bumpDownPrioritiesAbove(priority.toLong())
+        }
+    }
+
     override suspend fun deleteDictionary(dictionaryId: Long) {
         handler.await(inTransaction = true) {
             dictionaryQueries.deleteDictionary(dictionaryId)
