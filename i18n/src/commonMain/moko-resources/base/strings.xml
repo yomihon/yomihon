@@ -1049,6 +1049,10 @@
     <string name="importing_dictionary">Importing Dictionary</string>
     <string name="deleting_dictionary">Deleting Dictionary</string>
     <string name="deleting_dictionary">Deleting Dictionary</string>
+    <string name="exit_screen">Unfinished Operation</string>
+    <string name="confirm_exit_while_busy">Leaving now might pause or cancel the current dictionary operation.</string>
+    <string name="action_leave">Leave</string>
+    <string name="action_stay">Stay</string>
     <string name="installed_dictionaries">Installed Dictionaries</string>
     <string name="no_dictionaries">No Dictionaries Installed</string>
     <string name="dictionary_delete_success">Dictionary Successfully Deleted</string>

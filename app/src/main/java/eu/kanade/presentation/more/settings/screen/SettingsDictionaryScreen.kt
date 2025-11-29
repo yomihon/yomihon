@@ -1,6 +1,7 @@
 package eu.kanade.presentation.more.settings.screen
 
 import android.content.ActivityNotFoundException
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -89,6 +90,19 @@ object SettingsDictionaryScreen : Screen {
         val scope = rememberCoroutineScope()
         val lazyListState = rememberLazyListState()
 
+        // State to control the exit confirmation dialog
+        var showExitConfirmation by rememberSaveable { mutableStateOf(false) }
+        val isOperationInProgress = state.isImporting || state.isDeleting
+
+        // Intercept System Back Button
+        BackHandler(enabled = true) {
+            if (isOperationInProgress) {
+                showExitConfirmation = true
+            } else {
+                backPress()
+            }
+        }
+
         // Scroll to highlighted dictionary when it changes
         LaunchedEffect(state.highlightedDictionaryId, state.dictionaries) {
             val highlightedId = state.highlightedDictionaryId
@@ -98,7 +112,7 @@ object SettingsDictionaryScreen : Screen {
                     val visibleItems = lazyListState.layoutInfo.visibleItemsInfo
                     val isVisible = visibleItems.any { it.index == index }
                     if (!isVisible) {
-                    lazyListState.animateScrollToItem(index)
+                        lazyListState.animateScrollToItem(index)
                     }
                 }
             }
@@ -129,7 +143,14 @@ object SettingsDictionaryScreen : Screen {
             topBar = {
                 AppBar(
                     title = stringResource(MR.strings.pref_category_dictionaries),
-                    navigateUp = backPress::invoke,
+                    // Check if busy before navigating up
+                    navigateUp = {
+                        if (isOperationInProgress) {
+                            showExitConfirmation = true
+                        } else {
+                            backPress()
+                        }
+                    },
                     scrollBehavior = it,
                 )
             },
@@ -269,6 +290,30 @@ object SettingsDictionaryScreen : Screen {
                     }
                 }
             }
+        }
+
+        // Exit Confirmation Dialog
+        if (showExitConfirmation) {
+            AlertDialog(
+                onDismissRequest = { showExitConfirmation = false },
+                title = { Text(stringResource(MR.strings.exit_screen)) },
+                text = { Text(stringResource(MR.strings.confirm_exit_while_busy)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showExitConfirmation = false
+                            backPress()
+                        },
+                    ) {
+                        Text(stringResource(MR.strings.action_leave))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExitConfirmation = false }) {
+                        Text(stringResource(MR.strings.action_stay))
+                    }
+                },
+            )
         }
     }
 }
