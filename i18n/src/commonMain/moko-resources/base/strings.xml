@@ -1056,9 +1056,14 @@
     <string name="dictionary_update_success">Dictionary Successfully Updated</string>
     <string name="dictionary_update_fail">Dictionary Update Failed</string>
     <string name="dictionary_info">Dictionary Info</string>
-    <string name="label_version">Version</string>
-    <string name="label_author">Author</string>
-    <string name="label_date">Date Added</string>
+    <string name="label_version">Version:</string>
+    <string name="label_author">Author:</string>
+    <string name="label_date">Date Added:</string>
+    <string name="label_url">URL:</string>
+    <string name="label_attribution">Attribution:</string>
+    <string name="label_description">Description:</string>
+    <string name="action_show_details">Show details</string>
+    <string name="action_hide_details">Hide details</string>
     <string name="delete_confirmation">Are you sure you want to delete "%1$s"?</string>
     <string name="label_dictionary">Dictionary</string>
     <string name="label_dictionaries">Dictionaries</string>

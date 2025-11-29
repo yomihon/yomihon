@@ -3,6 +3,9 @@ package eu.kanade.presentation.more.settings.screen
 import android.content.ActivityNotFoundException
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -41,7 +44,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
@@ -237,6 +244,7 @@ private fun DictionaryItem(
     onDelete: () -> Unit,
 ) {
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -246,7 +254,7 @@ private fun DictionaryItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(enabled = !isOperationInProgress) { onToggleEnabled(!dictionary.isEnabled) }
-                .padding(16.dp),
+                .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -269,20 +277,15 @@ private fun DictionaryItem(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Medium,
                     )
-                    Text(
-                        text = "${stringResource(MR.strings.label_version)}: ${dictionary.version} (${dictionary.revision})",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                     dictionary.author?.let { author ->
                         Text(
-                            text = "${stringResource(MR.strings.label_author)}: $author",
+                            text = "${stringResource(MR.strings.label_author)} $author",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Text(
-                        text = "${stringResource(MR.strings.label_date)}: ${formatDate(dictionary.dateAdded)}",
+                        text = "${stringResource(MR.strings.label_date)} ${formatDate(dictionary.dateAdded)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -304,15 +307,87 @@ private fun DictionaryItem(
             }
         }
 
-        dictionary.description?.let { description ->
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        var showDetails by rememberSaveable { mutableStateOf(false) }
+
+        Text(
+            text = stringResource(
+                if (showDetails) MR.strings.action_hide_details else MR.strings.action_show_details,
+            ),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .clickable { showDetails = !showDetails }
+                .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp),
+        )
+
+        AnimatedVisibility(
+            visible = showDetails,
+            enter = expandVertically(),
+            exit = shrinkVertically(),
+        ) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-            )
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = buildAnnotatedString {
+                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                            append(stringResource(MR.strings.label_version))
+                        }
+                        append(" ${dictionary.revision}")
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                dictionary.description?.let { description ->
+                    Text(
+                        text = buildAnnotatedString {
+                            withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                                append(stringResource(MR.strings.label_description))
+                            }
+                            append(" $description")
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                dictionary.url?.let { url ->
+                    Text(
+                        text = buildAnnotatedString {
+                            withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                                append(stringResource(MR.strings.label_url))
+                            }
+                            append(" ")
+                            withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary)) {
+                                append(url)
+                            }
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clickable {
+                            try {
+                                uriHandler.openUri(url)
+                            } catch (_: Exception) {
+                                // Handle cases where no browser is installed
+                            }
+                        },
+                    )
+                }
+                dictionary.attribution?.let { attribution ->
+                    Text(
+                        text = buildAnnotatedString {
+                            withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                                append(stringResource(MR.strings.label_attribution))
+                            }
+                            append(" $attribution")
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
     }
 
@@ -348,6 +423,6 @@ private fun DictionaryItem(
 }
 
 private fun formatDate(timestamp: Long): String {
-    val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     return sdf.format(Date(timestamp))
 }
