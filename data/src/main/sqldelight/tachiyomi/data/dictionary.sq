@@ -8,7 +8,7 @@ CREATE TABLE dictionaries (
     description TEXT,
     attribution TEXT,
     is_enabled INTEGER NOT NULL DEFAULT 1, -- 1 for true, 0 for false
-    priority INTEGER NOT NULL DEFAULT 1,
+    priority INTEGER NOT NULL DEFAULT 0,
     date_added INTEGER NOT NULL,
     UNIQUE(title, revision)
 );
@@ -104,7 +104,7 @@ WHERE _id = :id;
 getAllDictionaries:
 SELECT *
 FROM dictionaries
-ORDER BY priority DESC, title ASC;
+ORDER BY priority ASC, title ASC;
 
 selectLastInsertedRowId:
 SELECT last_insert_rowid();
@@ -156,7 +156,7 @@ searchTerms:
 SELECT _id, dictionary_id, expression, reading, definition_tags, rules, score, glossary, sequence, term_tags
 FROM (
   -- Exact expression match (highest priority)
-  SELECT T.*, 0 AS match_priority
+  SELECT T.*, 0 AS match_priority, D.priority AS dict_priority
   FROM dictionary_terms AS T
   JOIN dictionaries AS D ON T.dictionary_id = D._id
   WHERE T.expression = :query
@@ -166,7 +166,7 @@ FROM (
   UNION
 
   -- Exact reading match (second priority)
-  SELECT T.*, 1 AS match_priority
+  SELECT T.*, 1 AS match_priority, D.priority AS dict_priority
   FROM dictionary_terms AS T
   JOIN dictionaries AS D ON T.dictionary_id = D._id
   WHERE T.reading = :query
@@ -174,7 +174,7 @@ FROM (
     AND D.is_enabled = 1
     AND T.expression != :query
 
-  ORDER BY match_priority ASC, score DESC
+  ORDER BY match_priority ASC, dict_priority ASC, score DESC
   LIMIT :limit
 );
 
@@ -185,7 +185,7 @@ JOIN dictionaries AS D ON T.dictionary_id = D._id
 WHERE T.expression = :expression
   AND T.dictionary_id IN :dictionaryIds
   AND D.is_enabled = 1
-ORDER BY T.score DESC;
+ORDER BY D.priority ASC, T.score DESC;
 
 insertTerm:
 INSERT INTO dictionary_terms(dictionary_id, expression, reading, definition_tags, rules, score, glossary, sequence, term_tags)
