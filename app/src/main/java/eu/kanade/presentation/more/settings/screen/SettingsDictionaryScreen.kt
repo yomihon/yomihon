@@ -7,6 +7,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -45,6 +49,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.SpanStyle
@@ -52,6 +58,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntSize
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -60,6 +67,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.tachiyomi.ui.setting.dictionary.DictionarySettingsScreenModel
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import mihon.domain.dictionary.model.Dictionary
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -79,6 +87,22 @@ object SettingsDictionaryScreen : Screen {
         val state by screenModel.state.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
+        val lazyListState = rememberLazyListState()
+
+        // Scroll to highlighted dictionary when it changes
+        LaunchedEffect(state.highlightedDictionaryId, state.dictionaries) {
+            val highlightedId = state.highlightedDictionaryId
+            if (highlightedId != null) {
+                val index = state.dictionaries.indexOfFirst { it.id == highlightedId }
+                if (index >= 0) {
+                    val visibleItems = lazyListState.layoutInfo.visibleItemsInfo
+                    val isVisible = visibleItems.any { it.index == index }
+                    if (!isVisible) {
+                    lazyListState.animateScrollToItem(index)
+                    }
+                }
+            }
+        }
 
         // File picker for dictionary import
         val pickDictionary = rememberLauncherForActivityResult(
@@ -214,6 +238,7 @@ object SettingsDictionaryScreen : Screen {
                     )
 
                     LazyColumn(
+                        state = lazyListState,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         itemsIndexed(
@@ -225,6 +250,8 @@ object SettingsDictionaryScreen : Screen {
                                 isOperationInProgress = state.isImporting || state.isDeleting,
                                 isFirst = index == 0,
                                 isLast = index == state.dictionaries.size - 1,
+                                isHighlighted = dictionary.id == state.highlightedDictionaryId,
+                                onHighlightConsumed = { screenModel.clearHighlight() },
                                 onToggleEnabled = { enabled ->
                                     screenModel.updateDictionary(context, dictionary.copy(isEnabled = enabled))
                                 },
@@ -252,6 +279,8 @@ private fun DictionaryItem(
     isOperationInProgress: Boolean,
     isFirst: Boolean,
     isLast: Boolean,
+    isHighlighted: Boolean,
+    onHighlightConsumed: () -> Unit,
     onToggleEnabled: (Boolean) -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
@@ -260,14 +289,42 @@ private fun DictionaryItem(
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
 
+    // Create an interaction source to control the ripple
+    val interactionSource = remember { MutableInteractionSource() }
+
+    // Store the size of the clickable area for centering the ripple
+    var rowSize by remember { mutableStateOf(IntSize.Zero) }
+
+    // Trigger the ripple programmatically
+    LaunchedEffect(isHighlighted) {
+        if (isHighlighted) {
+            val center = Offset(rowSize.width / 2f, rowSize.height / 2f)
+            val press = PressInteraction.Press(center)
+            interactionSource.emit(press)
+            delay(300)
+            interactionSource.emit(PressInteraction.Release(press))
+
+            onHighlightConsumed()
+        }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(enabled = !isOperationInProgress) { onToggleEnabled(!dictionary.isEnabled) }
+                .onSizeChanged { rowSize = it }
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = LocalIndication.current,
+                    enabled = !isOperationInProgress,
+                    onClick = { onToggleEnabled(!dictionary.isEnabled) }
+                )
                 .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,

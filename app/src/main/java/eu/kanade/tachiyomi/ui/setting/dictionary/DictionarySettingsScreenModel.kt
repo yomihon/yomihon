@@ -73,7 +73,10 @@ class DictionarySettingsScreenModel(
 
                     // Extract and parse dictionary
                     file.archiveReader(context).use { reader ->
-                        extractAndImportDictionary(reader)
+                        val importedId = extractAndImportDictionary(reader)
+                        mutableState.update {
+                            it.copy(highlightedDictionaryId = importedId)
+                        }
                     }
                 }
 
@@ -100,7 +103,7 @@ class DictionarySettingsScreenModel(
         }
     }
 
-    private suspend fun extractAndImportDictionary(reader: ArchiveReader) {
+    private suspend fun extractAndImportDictionary(reader: ArchiveReader): Long {
         mutableState.update { it.copy(importProgress = "Reading index.json...") }
 
         // Parse index.json
@@ -174,6 +177,8 @@ class DictionarySettingsScreenModel(
                 logcat(LogPriority.WARN, e) { "Failed to parse or import $fileName" }
             }
         }
+
+        return dictionaryId
     }
 
     fun updateDictionary(context: Context, dictionary: Dictionary) {
@@ -200,6 +205,7 @@ class DictionarySettingsScreenModel(
 
                 val aboveDictionary = dictionaries[currentIndex - 1]
                 dictionaryInteractor.swapDictionaryPriorities(dictionary, aboveDictionary)
+                mutableState.update { it.copy(highlightedDictionaryId = dictionary.id) }
                 loadDictionaries()
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "Failed to move dictionary up" }
@@ -218,6 +224,7 @@ class DictionarySettingsScreenModel(
 
                 val belowDictionary = dictionaries[currentIndex + 1]
                 dictionaryInteractor.swapDictionaryPriorities(dictionary, belowDictionary)
+                mutableState.update { it.copy(highlightedDictionaryId = dictionary.id) }
                 loadDictionaries()
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "Failed to move dictionary down" }
@@ -245,6 +252,10 @@ class DictionarySettingsScreenModel(
         mutableState.update { it.copy(error = null) }
     }
 
+    fun clearHighlight() {
+        mutableState.update { it.copy(highlightedDictionaryId = null) }
+    }
+
     @Immutable
     data class State(
         val dictionaries: List<Dictionary> = emptyList(),
@@ -253,5 +264,6 @@ class DictionarySettingsScreenModel(
         val importProgress: String? = null,
         val isDeleting: Boolean = false,
         val error: String? = null,
+        val highlightedDictionaryId: Long? = null,
     )
 }
