@@ -40,4 +40,13 @@ class DictionaryInteractor(
         dictionaryRepository.updateDictionary(dict1.copy(priority = priority2))
         dictionaryRepository.updateDictionary(dict2.copy(priority = priority1))
     }
+
+    /**
+     * Checks if a dictionary with the same title and revision already exists.
+     */
+    suspend fun isDictionaryAlreadyImported(title: String, revision: String): Boolean {
+        return dictionaryRepository.getAllDictionaries().any {
+            it.title == title && it.revision == revision
+        }
+    }
 }

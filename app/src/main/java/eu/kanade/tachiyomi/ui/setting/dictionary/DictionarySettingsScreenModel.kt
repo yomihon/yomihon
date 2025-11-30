@@ -90,6 +90,19 @@ class DictionarySettingsScreenModel(
 
                 // Reload dictionaries
                 loadDictionaries()
+            } catch (e: DictionaryImportException) {
+                if (e.message == "already_imported") {
+                    context.toast(MR.strings.dictionary_already_exists.getString(context))
+                } else {
+                    logcat(LogPriority.ERROR, e) { "Failed to import dictionary" }
+                    context.toast(e.message ?: MR.strings.dictionary_import_fail.getString(context))
+                }
+                mutableState.update {
+                    it.copy(
+                        isImporting = false,
+                        importProgress = null,
+                    )
+                }
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "Failed to import dictionary" }
                 context.toast(e.message ?: MR.strings.dictionary_import_fail.getString(context))
@@ -114,6 +127,11 @@ class DictionarySettingsScreenModel(
             dictionaryParser.parseIndex(indexJson)
         } catch (e: Exception) {
             throw DictionaryParseException("Failed to parse index.json", e)
+        }
+
+        // Check if dictionary is already imported
+        if (dictionaryInteractor.isDictionaryAlreadyImported(index.title, index.revision)) {
+            throw DictionaryImportException("already_imported")
         }
 
         mutableState.update { it.copy(importProgress = "Importing dictionary info...") }

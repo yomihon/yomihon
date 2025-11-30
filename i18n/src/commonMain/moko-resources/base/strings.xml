@@ -1045,6 +1045,7 @@
     <string name="pref_category_dictionaries">Dictionaries</string>
     <string name="dictionary_import_success">Dictionary Successfully Imported</string>
     <string name="dictionary_import_fail">Dictionary Import Failed</string>
+    <string name="dictionary_already_exists">Dictionary Already Exists</string>
     <string name="import_dictionary">Import Dictionary</string>
     <string name="importing_dictionary">Importing Dictionary</string>
     <string name="deleting_dictionary">Deleting Dictionary</string>
