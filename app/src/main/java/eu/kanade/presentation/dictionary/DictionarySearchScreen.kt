@@ -212,11 +212,18 @@ internal fun DictionaryTermCard(
 
             Spacer(Modifier.size(6.dp))
 
+            // Display pitch accent graphs if available
+            PitchAccentSection(
+                termMeta = termMeta,
+                dictionaries = dictionaries,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             // Display frequency indicator if available (grouped by dictionary)
             val groupedFrequencyData = remember(termMeta) {
                 FrequencyFormatter.parseGroupedFrequencies(termMeta)
             }
-
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -284,13 +291,23 @@ internal fun DictionaryTermCard(
                 },
             )
 
-            // Dictionary source
+
+            // Pitch and term dictionary sources
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = dictionaryName,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            val pitchDictNames = getPitchAccentDictionaryNames(termMeta, dictionaries)
+            if (pitchDictNames.isNotEmpty()) {
+                Text(
+                    text = pitchDictNames.joinToString(", "),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
