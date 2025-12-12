@@ -1049,13 +1049,13 @@
     <string name="import_dictionary">Import Dictionary</string>
     <string name="importing_dictionary">Importing Dictionary</string>
     <string name="deleting_dictionary">Deleting Dictionary</string>
-    <string name="deleting_dictionary">Deleting Dictionary</string>
     <string name="exit_screen">Unfinished Operation</string>
     <string name="confirm_exit_while_busy">Leaving now might pause or cancel the current dictionary operation.</string>
     <string name="action_leave">Leave</string>
     <string name="action_stay">Stay</string>
     <string name="installed_dictionaries">Installed Dictionaries</string>
     <string name="no_dictionaries">No Dictionaries Installed</string>
+    <string name="learn_add_dictionaries">Learn how to add dictionaries</string>
     <string name="dictionary_delete_success">Dictionary Successfully Deleted</string>
     <string name="dictionary_delete_fail">Dictionary Deletion Failed</string>
     <string name="dictionary_update_success">Dictionary Successfully Updated</string>
@@ -1073,9 +1073,6 @@
     <string name="label_dictionary">Dictionary</string>
     <string name="label_dictionaries">Dictionaries</string>
     <string name="information_empty_dictionary_search">Search for terms in your dictionaries</string>
-    <string name="dictionary_no_enabled">No dictionaries are enabled.</string>
-    <string name="no_dictionaries_enabled">No Dictionaries Enabled</string>
-    <string name="dictionary_manage_settings">Manage dictionaries in settings</string>
     <string name="dictionary_no_enabled">No dictionaries are enabled.</string>
     <string name="no_dictionaries_enabled">No Dictionaries Enabled</string>
     <string name="dictionary_manage_settings">Manage dictionaries in settings</string>

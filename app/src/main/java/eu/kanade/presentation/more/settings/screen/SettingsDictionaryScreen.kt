@@ -245,12 +245,25 @@ object SettingsDictionaryScreen : Screen {
                         modifier = Modifier.align(Alignment.CenterHorizontally),
                     )
                 } else if (state.dictionaries.isEmpty()) {
-                    Text(
-                        text = stringResource(MR.strings.no_dictionaries),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    val uriHandler = LocalUriHandler.current
+                    Column(
                         modifier = Modifier.padding(vertical = 32.dp),
-                    )
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = stringResource(MR.strings.no_dictionaries),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = stringResource(MR.strings.learn_add_dictionaries),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable {
+                                uriHandler.openUri("https://mihon-ocr.github.io/docs/guides/dictionaries")
+                            },
+                        )
+                    }
                 } else {
                     Text(
                         text = stringResource(MR.strings.installed_dictionaries),
