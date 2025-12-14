@@ -92,8 +92,8 @@ class DictionarySearchScreenModel(
     }
 
     fun search() {
-        val query = state.value.query
-        if (query.isBlank()) {
+        val sentence = state.value.query
+        if (sentence.isBlank()) {
             mutableState.update { it.copy(searchResults = emptyList(), termMetaMap = emptyMap()) }
             return
         }
@@ -109,12 +109,15 @@ class DictionarySearchScreenModel(
                     return@launch
                 }
 
-                val cacheKey = "$query|${enabledDictionaryIds.joinToString(",")}"
+                // Get the longest dictionary match starting from the first character
+                val word = searchDictionaryTerms.getWord(sentence, enabledDictionaryIds)
+
+                val cacheKey = "$word|${enabledDictionaryIds.joinToString(",")}"
 
                 // Check cache before searching
                 val cachedEntry = searchCache[cacheKey]
                 if (cachedEntry != null) {
-                    logcat(LogPriority.DEBUG) { "Using cached results for: $query" }
+                    logcat(LogPriority.DEBUG) { "Using cached results for: $word" }
                     mutableState.update {
                         it.copy(
                             searchResults = cachedEntry.results,
@@ -126,7 +129,7 @@ class DictionarySearchScreenModel(
                 }
 
                 // Fetch term results and meta (frequency data) for all results
-                val results = searchDictionaryTerms.search(query, enabledDictionaryIds)
+                val results = searchDictionaryTerms.search(word, enabledDictionaryIds)
                 val expressions = results.map { it.expression }.distinct()
                 val termMetaMap = searchDictionaryTerms.getTermMeta(expressions, enabledDictionaryIds)
 

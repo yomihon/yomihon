@@ -25,12 +25,8 @@ class SearchDictionaryTerms(
         val candidateQueries = JapaneseDeinflector.deinflect(formattedQuery)
         if (candidateQueries.isEmpty()) return emptyList()
 
-        val candidatesByTerm = candidateQueries.associateBy(
-            keySelector = { it.term },
-            valueTransform = { candidate ->
-                candidateQueries.filter { it.term == candidate.term }
-            }
-        )
+        // Group candidates with the same word result, but different inflection reasons
+        val candidatesByTerm = candidateQueries.groupBy { it.term }
 
         val results = LinkedHashMap<Long, DictionaryTerm>(minOf(candidateQueries.size * 4, MAX_RESULTS * 2))
 
@@ -56,6 +52,50 @@ class SearchDictionaryTerms(
         }
 
         return results.values.toList()
+    }
+
+
+    /**
+     * Parses the first word of a "sentence" based on the longest dictionary match.
+     */
+    suspend fun getWord(sentence: String, dictionaryIds: List<Long>): String {
+        if (sentence.isBlank() || dictionaryIds.isEmpty()) return ""
+
+        // Remove leading punctuation and brackets
+        val sanitized = sentence.trimStart { it in LEADING_PUNCTUATION }
+        if (sanitized.isEmpty()) return ""
+
+        // Convert romaji to kana
+        val normalized = sanitized.let {
+            if (Wanakana.isRomaji(it) || Wanakana.isMixed(it)) Wanakana.toKana(it) else it
+        }
+
+        val maxLength = minOf(normalized.length, MAX_WORD_LENGTH)
+
+        for (len in maxLength downTo 1) {
+            val substring = normalized.substring(0, len)
+            val candidates = JapaneseDeinflector.deinflect(substring)
+
+            for (candidate in candidates) {
+                val term = candidate.term
+                if (term.isBlank()) continue
+
+                // Check if this candidate exists in the dictionary
+                val matches = dictionaryRepository.getTermsByExpression(term, dictionaryIds)
+                if (matches.isNotEmpty()) {
+                    val validMatch = matches.any { dbTerm ->
+                        isValidMatch(dbTerm, candidates.filter { it.term == term })
+                    }
+                    if (validMatch) {
+                        return term
+                    }
+                }
+            }
+        }
+
+        // No dictionary match found - return the first character as fallback
+        // TODO: handle this better
+        return normalized.take(1)
     }
 
     /**
@@ -90,3 +130,12 @@ class SearchDictionaryTerms(
 }
 
 private const val MAX_RESULTS = 100
+private const val MAX_WORD_LENGTH = 20
+private val LEADING_PUNCTUATION = setOf(
+    '「', '」', '『', '』', '（', '）', '(', ')', '【', '】',
+    '〔', '〕', '《', '》', '〈', '〉',
+    '・', '、', '。', '！', '？', '：', '；',
+    ' ', '\u3000',      // space characters
+    '\u201C', '\u201D', // quotation marks
+    '\u2018', '\u2019', // single quotation marks
+)
