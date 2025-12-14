@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CropFree
+import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,7 +65,7 @@ fun BottomReaderBar(
 
         IconButton(onClick = onClickOcr) {
             Icon(
-                imageVector = Icons.Outlined.CropFree,
+                imageVector = Icons.Outlined.DocumentScanner,
                 contentDescription = stringResource(MR.strings.action_ocr),
             )
         }
