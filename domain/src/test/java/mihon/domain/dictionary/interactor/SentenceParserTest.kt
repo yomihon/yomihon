@@ -35,7 +35,7 @@ class SentenceParserTest {
         dictionaryRepository = mockk()
 
         // Default: return empty for any query
-        coEvery { dictionaryRepository.getTermsByExpression(any(), any()) } returns emptyList()
+        coEvery { dictionaryRepository.searchTerms(any(), any()) } returns emptyList()
 
         searchDictionaryTerms = SearchDictionaryTerms(dictionaryRepository)
     }
@@ -43,7 +43,7 @@ class SentenceParserTest {
     @Test
     fun `gets the word from sentence`() = runTest {
         // Setup: "食べる" exists in dictionary
-        coEvery { dictionaryRepository.getTermsByExpression("食べる", testDictionaryIds) } returns listOf(
+        coEvery { dictionaryRepository.searchTerms("食べる", testDictionaryIds) } returns listOf(
             mockTerm("食べる", "たべる", "v1"),
         )
 
@@ -55,7 +55,7 @@ class SentenceParserTest {
     @Test
     fun `gets the word when romaji input`() = runTest {
         // Setup: "たべる" (kana form) exists in dictionary
-        coEvery { dictionaryRepository.getTermsByExpression("たべる", testDictionaryIds) } returns listOf(
+        coEvery { dictionaryRepository.searchTerms("たべる", testDictionaryIds) } returns listOf(
             mockTerm("たべる", "たべる", "v1"),
         )
 
@@ -67,13 +67,13 @@ class SentenceParserTest {
     @Test
     fun `gets the longest word match`() = runTest {
         // Setup: both "食べ" "食べる" and "食べ物" exist, but "食べ物" is longer
-        coEvery { dictionaryRepository.getTermsByExpression("食べ物", testDictionaryIds) } returns listOf(
+        coEvery { dictionaryRepository.searchTerms("食べ物", testDictionaryIds) } returns listOf(
             mockTerm("食べ物", "たべもの", "n"),
         )
-        coEvery { dictionaryRepository.getTermsByExpression("食べ", testDictionaryIds) } returns listOf(
+        coEvery { dictionaryRepository.searchTerms("食べ", testDictionaryIds) } returns listOf(
             mockTerm("食べ", "たべ", "v1"),
         )
-        coEvery { dictionaryRepository.getTermsByExpression("食べる", testDictionaryIds) } returns listOf(
+        coEvery { dictionaryRepository.searchTerms("食べる", testDictionaryIds) } returns listOf(
             mockTerm("食べる", "たべる", "v1"),
         )
 
@@ -85,7 +85,7 @@ class SentenceParserTest {
     @Test
     fun `handles word with leading brackets`() = runTest {
         // Setup: "食べる" exists in dictionary
-        coEvery { dictionaryRepository.getTermsByExpression("食べる", testDictionaryIds) } returns listOf(
+        coEvery { dictionaryRepository.searchTerms("食べる", testDictionaryIds) } returns listOf(
             mockTerm("食べる", "たべる", "v1"),
         )
 
@@ -120,12 +120,24 @@ class SentenceParserTest {
     @Test
     fun `handles deinflection for longest match`() = runTest {
         // Setup: "食べる" (dictionary form of 食べた) exists
-        coEvery { dictionaryRepository.getTermsByExpression("食べる", testDictionaryIds) } returns listOf(
+        coEvery { dictionaryRepository.searchTerms("食べる", testDictionaryIds) } returns listOf(
             mockTerm("食べる", "たべる", "v1"),
         )
 
         val word = searchDictionaryTerms.getWord("食べたって言ったよ", testDictionaryIds)
 
-        word shouldBe "食べる"
+        // Returns the original substring "食べた", not the deinflected form "食べる"
+        word shouldBe "食べた"
+    }
+
+    @Test
+    fun `matches word by reading when expression is different`() = runTest {
+        coEvery { dictionaryRepository.searchTerms("わたし", testDictionaryIds) } returns listOf(
+            mockTerm(expression = "私", reading = "わたし", rules = "n"),
+        )
+
+        val word = searchDictionaryTerms.getWord("わたしはです", testDictionaryIds)
+
+        word shouldBe "わたし"
     }
 }

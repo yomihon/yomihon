@@ -19,7 +19,7 @@ class SearchDictionaryTerms(
         if (dictionaryIds.isEmpty()) return emptyList()
 
         // Converts romaji to kana to support romaji input
-        val formattedQuery = query.trim().let { if (Wanakana.isRomaji(it) || Wanakana.isMixed(it)) Wanakana.toKana(it) else it}
+        val formattedQuery = convertToKana(query.trim())
 
         // Gather possible deinflections for the term
         val candidateQueries = JapaneseDeinflector.deinflect(formattedQuery)
@@ -54,7 +54,6 @@ class SearchDictionaryTerms(
         return results.values.toList()
     }
 
-
     /**
      * Parses the first word of a "sentence" based on the longest dictionary match.
      */
@@ -66,14 +65,12 @@ class SearchDictionaryTerms(
         if (sanitized.isEmpty()) return ""
 
         // Convert romaji to kana
-        val normalized = sanitized.let {
-            if (Wanakana.isRomaji(it) || Wanakana.isMixed(it)) Wanakana.toKana(it) else it
-        }
+        val normalized = convertToKana(sanitized)
 
         val maxLength = minOf(normalized.length, MAX_WORD_LENGTH)
 
         for (len in maxLength downTo 1) {
-            val substring = normalized.substring(0, len)
+            val substring = normalized.take(len)
             val candidates = JapaneseDeinflector.deinflect(substring)
 
             for (candidate in candidates) {
@@ -81,13 +78,17 @@ class SearchDictionaryTerms(
                 if (term.isBlank()) continue
 
                 // Check if this candidate exists in the dictionary
-                val matches = dictionaryRepository.getTermsByExpression(term, dictionaryIds)
+                val matches = dictionaryRepository.searchTerms(term, dictionaryIds)
                 if (matches.isNotEmpty()) {
+                    val candidatesForTerm = candidates.filter { c ->
+                        c.term == term || matches.any { m -> m.reading == c.term }
+                    }
                     val validMatch = matches.any { dbTerm ->
-                        isValidMatch(dbTerm, candidates.filter { it.term == term })
+                        isValidMatch(dbTerm, candidatesForTerm)
                     }
                     if (validMatch) {
-                        return term
+                        // Returns the matched word text
+                        return normalized.take(term.length)
                     }
                 }
             }
@@ -126,6 +127,10 @@ class SearchDictionaryTerms(
         }
 
         return allMeta
+    }
+
+    private fun convertToKana(input: String): String {
+        return input.trim().let { if (Wanakana.isRomaji(it) || Wanakana.isMixed(it)) Wanakana.toKana(it) else it }
     }
 }
 
