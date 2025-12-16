@@ -47,7 +47,7 @@ class SentenceParserTest {
             mockTerm("食べる", "たべる", "v1"),
         )
 
-        val word = searchDictionaryTerms.getWord("食べるって言ったよ", testDictionaryIds)
+        val word = searchDictionaryTerms.findFirstWord("食べるって言ったよ", testDictionaryIds)
 
         word shouldBe "食べる"
     }
@@ -59,7 +59,7 @@ class SentenceParserTest {
             mockTerm("たべる", "たべる", "v1"),
         )
 
-        val word = searchDictionaryTerms.getWord("taberutte itta yo", testDictionaryIds)
+        val word = searchDictionaryTerms.findFirstWord("taberutte itta yo", testDictionaryIds)
 
         word shouldBe "たべる"
     }
@@ -77,7 +77,7 @@ class SentenceParserTest {
             mockTerm("食べる", "たべる", "v1"),
         )
 
-        val word = searchDictionaryTerms.getWord("食べ物っていいね", testDictionaryIds)
+        val word = searchDictionaryTerms.findFirstWord("食べ物っていいね", testDictionaryIds)
 
         word shouldBe "食べ物"
     }
@@ -89,7 +89,7 @@ class SentenceParserTest {
             mockTerm("食べる", "たべる", "v1"),
         )
 
-        val word = searchDictionaryTerms.getWord("「食べる」って言ったよ", testDictionaryIds)
+        val word = searchDictionaryTerms.findFirstWord("「食べる」って言ったよ", testDictionaryIds)
 
         word shouldBe "食べる"
     }
@@ -98,21 +98,21 @@ class SentenceParserTest {
     fun `returns first character when no match found`() = runTest {
         // No dictionary entries configured, so a match is impossible
 
-        val word = searchDictionaryTerms.getWord("あいうえお", testDictionaryIds)
+        val word = searchDictionaryTerms.findFirstWord("あいうえお", testDictionaryIds)
 
         word shouldBe "あ"
     }
 
     @Test
     fun `returns empty string for blank input`() = runTest {
-        val word = searchDictionaryTerms.getWord("   ", testDictionaryIds)
+        val word = searchDictionaryTerms.findFirstWord("   ", testDictionaryIds)
 
         word shouldBe ""
     }
 
     @Test
     fun `returns empty string for empty dictionary ids`() = runTest {
-        val word = searchDictionaryTerms.getWord("食べる", emptyList())
+        val word = searchDictionaryTerms.findFirstWord("食べる", emptyList())
 
         word shouldBe ""
     }
@@ -124,7 +124,7 @@ class SentenceParserTest {
             mockTerm("食べる", "たべる", "v1"),
         )
 
-        val word = searchDictionaryTerms.getWord("食べたって言ったよ", testDictionaryIds)
+        val word = searchDictionaryTerms.findFirstWord("食べたって言ったよ", testDictionaryIds)
 
         // Returns the original substring "食べた", not the deinflected form "食べる"
         word shouldBe "食べた"
@@ -136,7 +136,7 @@ class SentenceParserTest {
             mockTerm(expression = "私", reading = "わたし", rules = "n"),
         )
 
-        val word = searchDictionaryTerms.getWord("わたしはです", testDictionaryIds)
+        val word = searchDictionaryTerms.findFirstWord("わたしはです", testDictionaryIds)
 
         word shouldBe "わたし"
     }

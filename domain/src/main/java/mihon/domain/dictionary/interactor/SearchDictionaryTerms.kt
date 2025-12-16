@@ -57,7 +57,7 @@ class SearchDictionaryTerms(
     /**
      * Parses the first word of a "sentence" based on the longest dictionary match.
      */
-    suspend fun getWord(sentence: String, dictionaryIds: List<Long>): String {
+    suspend fun findFirstWord(sentence: String, dictionaryIds: List<Long>): String {
         if (sentence.isBlank() || dictionaryIds.isEmpty()) return ""
 
         // Remove leading punctuation and brackets

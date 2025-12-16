@@ -110,7 +110,7 @@ class DictionarySearchScreenModel(
                 }
 
                 // Get the longest dictionary match starting from the first character
-                val word = searchDictionaryTerms.getWord(sentence, enabledDictionaryIds)
+                val word = searchDictionaryTerms.findFirstWord(sentence, enabledDictionaryIds)
 
                 val cacheKey = "$word|${enabledDictionaryIds.joinToString(",")}"
 
