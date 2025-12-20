@@ -21,9 +21,10 @@ class ImportDictionary(
      * dictionaries have their priorities bumped up by 1.
      *
      * @param index The parsed index.json metadata
+     * @param styles Optional CSS styles from the dictionary's styles.css file
      * @return The ID of the created dictionary
      */
-    suspend fun createDictionary(index: DictionaryIndex): Long {
+    suspend fun createDictionary(index: DictionaryIndex, styles: String? = null): Long {
         dictionaryRepository.bumpAllPrioritiesUp()
 
         val dictionary = Dictionary(
@@ -34,6 +35,7 @@ class ImportDictionary(
             url = index.url,
             description = index.description,
             attribution = index.attribution,
+            styles = styles,
             priority = 1,
         )
         return dictionaryRepository.insertDictionary(dictionary)

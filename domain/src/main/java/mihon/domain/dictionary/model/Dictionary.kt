@@ -12,6 +12,7 @@ data class Dictionary(
     val url: String? = null,
     val description: String? = null,
     val attribution: String? = null,
+    val styles: String? = null,
     val isEnabled: Boolean = true,
     val priority: Int = 0,
     val dateAdded: Long = System.currentTimeMillis(),

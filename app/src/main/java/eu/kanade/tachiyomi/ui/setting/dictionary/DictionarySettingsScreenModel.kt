@@ -136,7 +136,9 @@ class DictionarySettingsScreenModel(
 
         mutableState.update { it.copy(importProgress = "Importing dictionary info...") }
 
-        val dictionaryId = importDictionary.createDictionary(index)
+        val styles = reader.getInputStream("styles.css")?.bufferedReader()?.use { it.readText() }
+
+        val dictionaryId = importDictionary.createDictionary(index, styles)
 
         importDictionary.importIndexTags(index, dictionaryId)
 

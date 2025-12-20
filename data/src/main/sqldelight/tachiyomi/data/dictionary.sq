@@ -7,6 +7,7 @@ CREATE TABLE dictionaries (
     url TEXT,
     description TEXT,
     attribution TEXT,
+    styles TEXT,
     is_enabled INTEGER NOT NULL DEFAULT 1, -- 1 for true, 0 for false
     priority INTEGER NOT NULL DEFAULT 0,
     date_added INTEGER NOT NULL,
@@ -110,8 +111,8 @@ selectLastInsertedRowId:
 SELECT last_insert_rowid();
 
 insertDictionary:
-INSERT INTO dictionaries(title, revision, version, author, url, description, attribution, is_enabled, priority, date_added)
-VALUES (:title, :revision, :version, :author, :url, :description, :attribution, :is_enabled, :priority, :date_added);
+INSERT INTO dictionaries(title, revision, version, author, url, description, attribution, styles, is_enabled, priority, date_added)
+VALUES (:title, :revision, :version, :author, :url, :description, :attribution, :styles, :is_enabled, :priority, :date_added);
 
 updateDictionary:
 UPDATE dictionaries
@@ -122,6 +123,7 @@ SET title = :title,
     url = :url,
     description = :description,
     attribution = :attribution,
+    styles = :styles,
     is_enabled = :is_enabled,
     priority = :priority
 WHERE _id = :id;
