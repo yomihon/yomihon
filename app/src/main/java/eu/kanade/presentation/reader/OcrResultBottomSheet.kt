@@ -4,16 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
@@ -74,67 +70,52 @@ fun OcrResultBottomSheet(
             val isSheetExpanded = expansionFraction >= SHEET_EXPANSION_THRESHOLD
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .padding(horizontal = 24.dp)
-                    .padding(bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.medium),
+                    .padding(bottom = 16.dp, top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
             ) {
                 if (isSheetExpanded) {
-                    Row(
+                    androidx.compose.foundation.layout.Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.LibraryBooks,
-                            contentDescription = null,
-                            modifier = Modifier.padding(end = 8.dp),
+                        // Dictionary search bar (editable, initialized with OCR text)
+                        SearchBar(
+                            query = searchState.query,
+                            onQueryChange = { query ->
+                                searchScreenModel.updateQuery(query)
+                            },
+                            onSearch = {
+                                searchScreenModel.search()
+                            },
+                            modifier = Modifier.weight(1f),
                         )
-                        Text(
-                            text = stringResource(MR.strings.label_dictionary),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
+
+                        FilledTonalButton(
+                            onClick = {
+                                onCopyText()
+                            },
+                            contentPadding = PaddingValues(vertical = 12.dp, horizontal = 12.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.ContentCopy,
+                                contentDescription = stringResource(MR.strings.action_copy),
+                            )
+                        }
                     }
 
-                    // Dictionary search bar (editable, initialized with OCR text)
-                    SearchBar(
-                        query = searchState.query,
-                        onQueryChange = { query ->
-                            searchScreenModel.updateQuery(query)
-                        },
-                        onSearch = {
-                            searchScreenModel.search()
-                        },
-                        modifier = Modifier,
-                    )
-
-                    FilledTonalButton(
-                        onClick = {
-                            onCopyText()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.ContentCopy,
-                            contentDescription = null,
-                        )
-                        Text(
-                            text = stringResource(MR.strings.action_copy),
-                            modifier = Modifier.padding(start = 8.dp),
-                        )
-                    }
-
-                    // Dictionary search results section
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider()
                 }
 
                 // Dictionary results
+                val resultModifier = Modifier.fillMaxWidth().weight(1f)
                 when {
                     searchState.isLoading -> {
                         // Initial state - loading dictionaries
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(100.dp),
+                            modifier = resultModifier,
                             contentAlignment = Alignment.Center,
                         ) {
                             CircularProgressIndicator()
@@ -143,9 +124,7 @@ fun OcrResultBottomSheet(
                     searchState.dictionaries.isEmpty() || searchState.enabledDictionaryIds.isEmpty() -> {
                         // No dictionaries enabled
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(150.dp),
+                            modifier = resultModifier,
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
@@ -158,9 +137,7 @@ fun OcrResultBottomSheet(
                     }
                     searchState.isSearching -> {
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp),
+                            modifier = resultModifier,
                             contentAlignment = Alignment.Center,
                         ) {
                             CircularProgressIndicator()
@@ -168,9 +145,7 @@ fun OcrResultBottomSheet(
                     }
                     searchState.searchResults.isEmpty() && searchState.hasSearched -> {
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(150.dp),
+                            modifier = resultModifier,
                         ) {
                             EmptyScreen(
                                 stringRes = MR.strings.no_results_found,
@@ -182,12 +157,10 @@ fun OcrResultBottomSheet(
                         LazyColumn(
                             contentPadding = PaddingValues(bottom = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(400.dp),
+                            modifier = resultModifier,
                         ) {
                             items(
-                                items = searchState.searchResults.take(10), // Limit to first 10 results
+                                items = searchState.searchResults,
                                 key = { it.id },
                             ) { term ->
                                 DictionaryTermCard(
