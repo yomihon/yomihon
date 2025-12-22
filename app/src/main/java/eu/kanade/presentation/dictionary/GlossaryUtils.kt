@@ -5,6 +5,9 @@
  */
 package eu.kanade.presentation.dictionary
 
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import mihon.domain.dictionary.model.GlossaryEntry
 import mihon.domain.dictionary.model.GlossaryNode
 import mihon.domain.dictionary.model.GlossaryTag
@@ -104,4 +107,70 @@ internal fun GlossaryNode.containsLink(): Boolean {
 
 internal fun List<GlossaryNode>.containsLink(): Boolean {
     return any { it.containsLink() }
+}
+
+/**
+ * Applies typography styles to a TextStyle.
+ * Ignores color properties to maintain theme compatibility.
+ */
+internal fun applyTypography(
+    baseStyle: TextStyle,
+    styleMap: Map<String, String>,
+): TextStyle {
+    return styleMap.entries.fold(baseStyle) { newStyle, (key, value) ->
+        when (key) {
+            "fontStyle" -> if (value == "italic") {
+                newStyle.copy(fontStyle = FontStyle.Italic)
+            } else {
+                newStyle
+            }
+
+            "fontWeight" -> if (value == "bold") {
+                newStyle.copy(fontWeight = FontWeight.Bold)
+            } else {
+                newStyle
+            }
+
+            else -> newStyle
+        }
+    }
+}
+
+/**
+ * Checks if the dictionary node has a box style.
+ * 
+ * @param style Inline style properties from the element
+ * @param dataAttributes Data attributes from the element (e.g., "content", "class")
+ * @param cssBoxSelectors Selectors that have box styles, as parsed from the dictionary's styles.css
+ */
+internal fun hasBoxStyle(
+    style: Map<String, String>,
+    dataAttributes: Map<String, String>,
+    cssBoxSelectors: Set<String> = emptySet(),
+): Boolean {
+    // Check inline style properties for background/border
+    val hasStyleBox = style.keys.any { key ->
+        key.startsWith("background") || key.startsWith("border")
+    }
+    
+    // Check if any dataAttribute value matches a selector that has box styles in CSS
+    val hasDataAttrBox = dataAttributes.values.any { value ->
+        value in cssBoxSelectors
+    }
+    
+    return hasStyleBox || hasDataAttrBox
+}
+
+private val RULE_PATTERN = Regex("""([^{}]+)\{([^{}]*)\}""", RegexOption.DOT_MATCHES_ALL)
+private val SELECTOR_ATTR_PATTERN = Regex("""\[data-sc-(?:content|class)=["']([^"']+)["']]""")
+private val BOX_PROPERTY_PATTERN = Regex("""(?:^|\s|;)(background(?:-color)?|border(?:-[a-z]+)?)\s*:""", RegexOption.IGNORE_CASE)
+
+internal fun getBoxSelectors(cssText: String?): Set<String> {
+    if (cssText.isNullOrBlank()) return emptySet()
+    
+    return RULE_PATTERN.findAll(cssText)
+        .filter { match -> match.groupValues[2].contains(BOX_PROPERTY_PATTERN) }
+        .flatMap { match -> SELECTOR_ATTR_PATTERN.findAll(match.groupValues[1]) }
+        .map { it.groupValues[1] }
+        .toSet()
 }

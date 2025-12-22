@@ -1,5 +1,6 @@
 package eu.kanade.presentation.dictionary
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +36,7 @@ fun GlossarySection(
     entries: List<GlossaryEntry>,
     isFormsEntry: Boolean,
     modifier: Modifier = Modifier,
+    cssBoxSelectors: Set<String> = emptySet(),
     onLinkClick: (String) -> Unit,
 ) {
     if (entries.isEmpty()) return
@@ -48,7 +51,7 @@ fun GlossarySection(
 
     Column(modifier = modifier) {
         entries.forEach { entry ->
-            GlossaryEntryItem(entry = entry, onLinkClick = onLinkClick)
+            GlossaryEntryItem(entry = entry, cssBoxSelectors = cssBoxSelectors, onLinkClick = onLinkClick)
         }
     }
 }
@@ -81,11 +84,12 @@ private fun FormsRow(forms: List<String>, modifier: Modifier = Modifier) {
 private fun GlossaryEntryItem(
     entry: GlossaryEntry,
     indentLevel: Int = 0,
+    cssBoxSelectors: Set<String> = emptySet(),
     onLinkClick: (String) -> Unit,
 ) {
     when (entry) {
         is GlossaryEntry.TextDefinition -> DefinitionRow(text = entry.text, indentLevel = indentLevel)
-        is GlossaryEntry.StructuredContent -> StructuredDefinition(entry.nodes, indentLevel, onLinkClick)
+        is GlossaryEntry.StructuredContent -> StructuredDefinition(entry.nodes, indentLevel, cssBoxSelectors, onLinkClick)
         is GlossaryEntry.ImageDefinition -> ImageEntryRow(entry.image, indentLevel)
         is GlossaryEntry.Deinflection -> DeinflectionRow(entry, indentLevel)
         is GlossaryEntry.Unknown -> Unit
@@ -117,6 +121,7 @@ private fun DefinitionRow(text: String, indentLevel: Int) {
 private fun StructuredDefinition(
     nodes: List<GlossaryNode>,
     indentLevel: Int,
+    cssBoxSelectors: Set<String>,
     onLinkClick: (String) -> Unit,
 ) {
     if (nodes.isEmpty()) return
@@ -132,7 +137,7 @@ private fun StructuredDefinition(
     Column(
         modifier = Modifier.padding(start = bulletIndent(indentLevel), top = 2.dp, bottom = 2.dp),
     ) {
-        nodes.forEach { node -> StructuredNode(node, indentLevel, onLinkClick) }
+        nodes.forEach { node -> StructuredNode(node, indentLevel, cssBoxSelectors, onLinkClick) }
     }
 }
 
@@ -176,7 +181,7 @@ private fun DeinflectionRow(entry: GlossaryEntry.Deinflection, indentLevel: Int)
 }
 
 @Composable
-private fun StructuredNode(node: GlossaryNode, indentLevel: Int, onLinkClick: (String) -> Unit) {
+private fun StructuredNode(node: GlossaryNode, indentLevel: Int, cssBoxSelectors: Set<String>, onLinkClick: (String) -> Unit) {
     when (node) {
         is GlossaryNode.Text -> Text(
             text = node.text,
@@ -184,7 +189,7 @@ private fun StructuredNode(node: GlossaryNode, indentLevel: Int, onLinkClick: (S
             modifier = Modifier.padding(bottom = 2.dp),
         )
         is GlossaryNode.LineBreak -> Spacer(modifier = Modifier.height(4.dp))
-        is GlossaryNode.Element -> StructuredElement(node, indentLevel, onLinkClick)
+        is GlossaryNode.Element -> StructuredElement(node, indentLevel, cssBoxSelectors, onLinkClick)
     }
 }
 
@@ -192,37 +197,70 @@ private fun StructuredNode(node: GlossaryNode, indentLevel: Int, onLinkClick: (S
 private fun StructuredElement(
     node: GlossaryNode.Element,
     indentLevel: Int,
+    cssBoxSelectors: Set<String>,
     onLinkClick: (String) -> Unit,
 ) {
     when (node.tag) {
-        GlossaryTag.UnorderedList -> StructuredList(node.children, indentLevel, ListType.Unordered, onLinkClick)
-        GlossaryTag.OrderedList -> StructuredList(node.children, indentLevel, ListType.Ordered, onLinkClick)
-        GlossaryTag.ListItem -> StructuredListItem(node, indentLevel, 0, ListType.Unordered, onLinkClick)
+        GlossaryTag.UnorderedList -> StructuredList(node.children, indentLevel, ListType.Unordered, cssBoxSelectors, onLinkClick)
+        GlossaryTag.OrderedList -> StructuredList(node.children, indentLevel, ListType.Ordered, cssBoxSelectors, onLinkClick)
+        GlossaryTag.ListItem -> StructuredListItem(node, indentLevel, 0, ListType.Unordered, cssBoxSelectors, onLinkClick)
         GlossaryTag.Ruby -> RubyNode(node)
         GlossaryTag.Link -> LinkNode(node, onLinkClick)
         GlossaryTag.Image -> Unit // Ignore images
-        GlossaryTag.Details -> DetailsNode(node, indentLevel, onLinkClick)
+        GlossaryTag.Details -> DetailsNode(node, indentLevel, cssBoxSelectors, onLinkClick)
         GlossaryTag.Summary -> SummaryNode(node, indentLevel)
-        GlossaryTag.Table -> TableNode(node, indentLevel, onLinkClick)
+        GlossaryTag.Table -> TableNode(node, indentLevel, cssBoxSelectors, onLinkClick)
         GlossaryTag.Div -> {
+            val hasBackground = hasBoxStyle(node.attributes.style, node.attributes.dataAttributes, cssBoxSelectors)
+            val backgroundModifier = if (hasBackground) {
+                Modifier
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(4.dp)
+                    )
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            } else {
+                Modifier
+            }
+
             when (node.attributes.dataAttributes["content"]) {
-                "example-sentence" -> ExampleSentenceNode(node, indentLevel, onLinkClick)
+                "example-sentence" -> ExampleSentenceNode(node, indentLevel, cssBoxSelectors, onLinkClick)
                 "attribution" -> Unit // Hide attribution links (for cleanness)
                 else -> {
-                    Column {
-                        node.children.forEach { child -> StructuredNode(child, indentLevel, onLinkClick) }
+                    Column(modifier = backgroundModifier) {
+                        node.children.forEach { child -> StructuredNode(child, indentLevel, cssBoxSelectors, onLinkClick) }
                     }
                 }
             }
         }
         GlossaryTag.Span -> {
-            // Span is an inline container - render its children in the current layout context
-            node.children.forEach { child -> StructuredNode(child, indentLevel, onLinkClick) }
+            // Span applies schema styles to inline content
+            val textStyle = applyTypography(
+                MaterialTheme.typography.bodyMedium,
+                node.attributes.style
+            )
+            val hasBackground = hasBoxStyle(node.attributes.style, node.attributes.dataAttributes, cssBoxSelectors)
+            val backgroundModifier = if (hasBackground) {
+                Modifier
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(2.dp)
+                    )
+                    .padding(horizontal = 4.dp)
+            } else {
+                Modifier
+            }
+
+            FlowRow(modifier = backgroundModifier) {
+                node.children.forEach { child ->
+                    InlineNode(child, onLinkClick, textStyle = textStyle)
+                }
+            }
         }
         GlossaryTag.Thead, GlossaryTag.Tbody, GlossaryTag.Tfoot, GlossaryTag.Tr,
         GlossaryTag.Td, GlossaryTag.Th, GlossaryTag.Unknown, GlossaryTag.Rt, GlossaryTag.Rp -> {
             Column {
-                node.children.forEach { child -> StructuredNode(child, indentLevel, onLinkClick) }
+                node.children.forEach { child -> StructuredNode(child, indentLevel, cssBoxSelectors, onLinkClick) }
             }
         }
     }
@@ -233,6 +271,7 @@ private fun StructuredList(
     children: List<GlossaryNode>,
     indentLevel: Int,
     type: ListType,
+    cssBoxSelectors: Set<String>,
     onLinkClick: (String) -> Unit,
 ) {
     if (children.isEmpty()) return
@@ -240,10 +279,10 @@ private fun StructuredList(
     Column(modifier = Modifier.padding(start = bulletIndent(1))) {
         children.forEach { child ->
             if (child is GlossaryNode.Element && child.tag == GlossaryTag.ListItem) {
-                StructuredListItem(child, indentLevel + 1, itemIndex, type, onLinkClick)
+                StructuredListItem(child, indentLevel + 1, itemIndex, type, cssBoxSelectors, onLinkClick)
                 itemIndex += 1
             } else {
-                StructuredNode(child, indentLevel, onLinkClick)
+                StructuredNode(child, indentLevel, cssBoxSelectors, onLinkClick)
             }
         }
     }
@@ -255,6 +294,7 @@ private fun StructuredListItem(
     indentLevel: Int,
     index: Int,
     type: ListType,
+    cssBoxSelectors: Set<String>,
     onLinkClick: (String) -> Unit,
 ) {
     val inlineText = if (node.children.any { child -> child.hasBlockContent() }) {
@@ -301,7 +341,7 @@ private fun StructuredListItem(
                         modifier = Modifier.padding(bottom = 4.dp),
                     ) {
                         inlineChildren.forEach { child ->
-                            StructuredNode(child, indentLevel, onLinkClick)
+                            StructuredNode(child, indentLevel, cssBoxSelectors, onLinkClick)
                             Spacer(Modifier.width(6.dp))
                         }
                     }
@@ -309,7 +349,7 @@ private fun StructuredListItem(
 
                 if (blockChildren.isNotEmpty()) {
                     blockChildren.forEach { child ->
-                        StructuredNode(child, indentLevel, onLinkClick)
+                        StructuredNode(child, indentLevel, cssBoxSelectors, onLinkClick)
                     }
                 }
             }
@@ -432,12 +472,13 @@ private fun LinkNode(
 private fun DetailsNode(
     node: GlossaryNode.Element,
     indentLevel: Int,
+    cssBoxSelectors: Set<String>,
     onLinkClick: (String) -> Unit,
 ) {
     Column(
         modifier = Modifier.padding(start = bulletIndent(indentLevel)),
     ) {
-        node.children.forEach { child -> StructuredNode(child, indentLevel + 1, onLinkClick) }
+        node.children.forEach { child -> StructuredNode(child, indentLevel + 1, cssBoxSelectors, onLinkClick) }
     }
 }
 
@@ -456,6 +497,7 @@ private fun SummaryNode(node: GlossaryNode.Element, indentLevel: Int) {
 private fun ExampleSentenceNode(
     node: GlossaryNode.Element,
     indentLevel: Int,
+    cssBoxSelectors: Set<String>,
     onLinkClick: (String) -> Unit,
 ) {
     val sentenceANode = node.children.filterIsInstance<GlossaryNode.Element>().find {
@@ -511,15 +553,18 @@ internal fun InlineNode(
         is GlossaryNode.LineBreak -> { /* Ignore in inline context */ }
         is GlossaryNode.Element -> {
             val isChildKeyword = isKeyword || node.attributes.dataAttributes["content"] == "example-keyword"
+
+            val styledTextStyle = applyTypography(textStyle, node.attributes.style)
+
             val effectiveTextStyle = if (isChildKeyword) {
-                textStyle.copy(fontWeight = FontWeight.SemiBold)
+                styledTextStyle.copy(fontWeight = FontWeight.SemiBold)
             } else {
-                textStyle
+                styledTextStyle
             }
             when (node.tag) {
                 GlossaryTag.Ruby -> RubyNode(node, modifier = Modifier, textStyle = effectiveTextStyle)
                 GlossaryTag.Span -> {
-                    node.children.forEach { InlineNode(it, onLinkClick, isChildKeyword, textStyle) }
+                    node.children.forEach { InlineNode(it, onLinkClick, isChildKeyword, effectiveTextStyle) }
                 }
                 GlossaryTag.Link -> LinkNode(node, onLinkClick, modifier = Modifier, textStyle = effectiveTextStyle)
                 else -> {

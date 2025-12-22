@@ -278,10 +278,17 @@ internal fun DictionaryTermCard(
                 )
             }
 
+            // Get dictionary CSS styles for box style detection
+            val dictionary = dictionaries.find { it.id == term.dictionaryId }
+            val cssBoxSelectors = remember(dictionary?.styles) {
+                getBoxSelectors(dictionary?.styles)
+            }
+
             GlossarySection(
                 entries = term.glossary,
                 isFormsEntry = isFormsEntry,
                 modifier = Modifier.padding(vertical = 2.dp),
+                cssBoxSelectors = cssBoxSelectors,
                 onLinkClick = { linkText ->
                     val query = linkText.trim()
                     if (query.isNotEmpty()) {
