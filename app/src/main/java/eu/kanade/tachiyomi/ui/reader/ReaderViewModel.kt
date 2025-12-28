@@ -298,6 +298,10 @@ class ReaderViewModel @JvmOverloads constructor(
                     loader = ChapterLoader(context, downloadManager, downloadProvider, manga, source)
 
                     loadChapter(loader!!, chapterList.first { chapterId == it.chapter.id })
+
+                    // Initialize OCR model early - avoids delay on first text-recognition
+                    OcrModule.provideOcrProcessor(application)
+
                     Result.success(true)
                 } else {
                     // Unlikely but okay
