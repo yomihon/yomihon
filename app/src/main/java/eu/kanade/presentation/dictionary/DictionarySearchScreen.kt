@@ -1,5 +1,6 @@
 package eu.kanade.presentation.dictionary
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -33,7 +34,10 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -188,6 +192,8 @@ internal fun DictionaryTermCard(
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
 ) {
+    var showAttribution by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -299,21 +305,43 @@ internal fun DictionaryTermCard(
             )
 
 
-            // Pitch and term dictionary sources
+            // Dictionary sources
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = dictionaryName,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.clickable { showAttribution = !showAttribution },
             )
 
             val pitchDictNames = getPitchAccentDictionaryNames(termMeta, dictionaries)
-            if (pitchDictNames.isNotEmpty()) {
-                Text(
-                    text = pitchDictNames.joinToString(", "),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+
+            // Attribution section (hidden by default, expands on dictionary name click)
+            val attributionText = remember(term.glossary) {
+                extractAttributionText(term.glossary)
+            }
+            if (attributionText != null) {
+                AnimatedVisibility(visible = showAttribution) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showAttribution = false },
+                    ) {
+                        if (pitchDictNames.isNotEmpty()) {
+                            Text(
+                                text = pitchDictNames.joinToString(", "),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
+                            text = attributionText,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
             }
         }
     }

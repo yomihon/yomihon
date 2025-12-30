@@ -225,7 +225,7 @@ private fun StructuredElement(
 
             when (node.attributes.dataAttributes["content"]) {
                 "example-sentence" -> ExampleSentenceNode(node, indentLevel, cssBoxSelectors, onLinkClick)
-                "attribution" -> Unit // Hide attribution links (for cleanness)
+                "attribution" -> Unit // Hidden - shown at card bottom via collapsable section
                 else -> {
                     Column(modifier = backgroundModifier) {
                         node.children.forEach { child -> StructuredNode(child, indentLevel, cssBoxSelectors, onLinkClick) }

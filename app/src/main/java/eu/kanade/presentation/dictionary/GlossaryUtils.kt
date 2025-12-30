@@ -26,6 +26,35 @@ internal fun extractForms(entries: List<GlossaryEntry>): List<String> {
         .distinct()
 }
 
+/**
+ * Extracts attribution text from glossary entries.
+ * Attribution content is identified by data-content="attribution" in div elements.
+ */
+internal fun extractAttributionText(entries: List<GlossaryEntry>): String? {
+    for (entry in entries) {
+        if (entry is GlossaryEntry.StructuredContent) {
+            val text = extractAttributionFromNodes(entry.nodes)
+            if (text != null) return text
+        }
+    }
+    return null
+}
+
+private fun extractAttributionFromNodes(nodes: List<GlossaryNode>): String? {
+    for (node in nodes) {
+        if (node is GlossaryNode.Element) {
+            if (node.tag == GlossaryTag.Div &&
+                node.attributes.dataAttributes["content"] == "attribution") {
+                return collectText(node.children).takeIf { it.isNotBlank() }
+            }
+            // Recurse into children
+            val result = extractAttributionFromNodes(node.children)
+            if (result != null) return result
+        }
+    }
+    return null
+}
+
 internal fun collectText(nodes: List<GlossaryNode>): String {
     val builder = StringBuilder()
     nodes.forEach { node -> builder.appendNodeText(node) }
@@ -138,7 +167,7 @@ internal fun applyTypography(
 
 /**
  * Checks if the dictionary node has a box style.
- * 
+ *
  * @param style Inline style properties from the element
  * @param dataAttributes Data attributes from the element (e.g., "content", "class")
  * @param cssBoxSelectors Selectors that have box styles, as parsed from the dictionary's styles.css
@@ -152,12 +181,12 @@ internal fun hasBoxStyle(
     val hasStyleBox = style.keys.any { key ->
         key.startsWith("background") || key.startsWith("border")
     }
-    
+
     // Check if any dataAttribute value matches a selector that has box styles in CSS
     val hasDataAttrBox = dataAttributes.values.any { value ->
         value in cssBoxSelectors
     }
-    
+
     return hasStyleBox || hasDataAttrBox
 }
 
@@ -167,7 +196,7 @@ private val BOX_PROPERTY_PATTERN = Regex("""(?:^|\s|;)(background(?:-color)?|bor
 
 internal fun getBoxSelectors(cssText: String?): Set<String> {
     if (cssText.isNullOrBlank()) return emptySet()
-    
+
     return RULE_PATTERN.findAll(cssText)
         .filter { match -> match.groupValues[2].contains(BOX_PROPERTY_PATTERN) }
         .flatMap { match -> SELECTOR_ATTR_PATTERN.findAll(match.groupValues[1]) }
