@@ -456,16 +456,12 @@ private fun DivNode(
     onLinkClick: (String) -> Unit,
 ) {
     val hasBackground = hasBoxStyle(node.attributes.style, node.attributes.dataAttributes, cssBoxSelectors)
-    val backgroundModifier = if (hasBackground) {
-        Modifier
-            .background(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(4.dp)
-            )
-            .padding(horizontal = 6.dp, vertical = 2.dp)
-    } else {
-        Modifier
-    }
+    val backgroundModifier = getBgModifier(
+        hasBackground = hasBackground,
+        cornerRadius = 8.dp,
+        horizontalPadding = 6.dp,
+        verticalPadding = 2.dp,
+    )
 
     when (node.attributes.dataAttributes["content"]) {
         "example-sentence" -> ExampleSentenceNode(node, indentLevel, cssBoxSelectors, onLinkClick)
@@ -490,16 +486,12 @@ private fun SpanNode(
         node.attributes.style
     )
     val hasBackground = hasBoxStyle(node.attributes.style, node.attributes.dataAttributes, cssBoxSelectors)
-    val backgroundModifier = if (hasBackground) {
-        Modifier
-            .background(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(2.dp)
-            )
-            .padding(horizontal = 4.dp)
-    } else {
-        Modifier
-    }
+    val backgroundModifier = getBgModifier(
+        hasBackground = hasBackground,
+        cornerRadius = 4.dp,
+        horizontalPadding = 4.dp,
+        verticalPadding = 0.dp,
+    )
 
     FlowRow(modifier = backgroundModifier) {
         node.children.forEach { child ->
@@ -629,4 +621,23 @@ internal fun bulletIndent(indentLevel: Int): Dp {
 private enum class ListType {
     Unordered,
     Ordered,
+}
+
+@Composable
+private fun getBgModifier(
+    hasBackground: Boolean,
+    cornerRadius: Dp,
+    horizontalPadding: Dp,
+    verticalPadding: Dp,
+): Modifier {
+    return if (hasBackground) {
+        Modifier
+            .background(
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(cornerRadius)
+            )
+            .padding(horizontal = horizontalPadding, vertical = verticalPadding)
+    } else {
+        Modifier
+    }
 }
