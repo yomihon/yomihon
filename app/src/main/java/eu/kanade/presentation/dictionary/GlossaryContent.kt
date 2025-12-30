@@ -210,53 +210,8 @@ private fun StructuredElement(
         GlossaryTag.Details -> DetailsNode(node, indentLevel, cssBoxSelectors, onLinkClick)
         GlossaryTag.Summary -> SummaryNode(node, indentLevel)
         GlossaryTag.Table -> TableNode(node, indentLevel, cssBoxSelectors, onLinkClick)
-        GlossaryTag.Div -> {
-            val hasBackground = hasBoxStyle(node.attributes.style, node.attributes.dataAttributes, cssBoxSelectors)
-            val backgroundModifier = if (hasBackground) {
-                Modifier
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(4.dp)
-                    )
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            } else {
-                Modifier
-            }
-
-            when (node.attributes.dataAttributes["content"]) {
-                "example-sentence" -> ExampleSentenceNode(node, indentLevel, cssBoxSelectors, onLinkClick)
-                "attribution" -> Unit // Hidden - shown at card bottom via collapsable section
-                else -> {
-                    Column(modifier = backgroundModifier) {
-                        node.children.forEach { child -> StructuredNode(child, indentLevel, cssBoxSelectors, onLinkClick) }
-                    }
-                }
-            }
-        }
-        GlossaryTag.Span -> {
-            // Span applies schema styles to inline content
-            val textStyle = applyTypography(
-                MaterialTheme.typography.bodyMedium,
-                node.attributes.style
-            )
-            val hasBackground = hasBoxStyle(node.attributes.style, node.attributes.dataAttributes, cssBoxSelectors)
-            val backgroundModifier = if (hasBackground) {
-                Modifier
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(2.dp)
-                    )
-                    .padding(horizontal = 4.dp)
-            } else {
-                Modifier
-            }
-
-            FlowRow(modifier = backgroundModifier) {
-                node.children.forEach { child ->
-                    InlineNode(child, onLinkClick, textStyle = textStyle)
-                }
-            }
-        }
+        GlossaryTag.Div -> DivNode(node, indentLevel, cssBoxSelectors, onLinkClick)
+        GlossaryTag.Span -> SpanNode(node, cssBoxSelectors, onLinkClick)
         GlossaryTag.Thead, GlossaryTag.Tbody, GlossaryTag.Tfoot, GlossaryTag.Tr,
         GlossaryTag.Td, GlossaryTag.Th, GlossaryTag.Unknown, GlossaryTag.Rt, GlossaryTag.Rp -> {
             Column {
@@ -491,6 +446,66 @@ private fun SummaryNode(node: GlossaryNode.Element, indentLevel: Int) {
         furiganaFontSize = MaterialTheme.typography.bodyMedium.fontSize * 0.65f,
         modifier = Modifier.padding(start = bulletIndent(indentLevel), bottom = 2.dp),
     )
+}
+
+@Composable
+private fun DivNode(
+    node: GlossaryNode.Element,
+    indentLevel: Int,
+    cssBoxSelectors: Set<String>,
+    onLinkClick: (String) -> Unit,
+) {
+    val hasBackground = hasBoxStyle(node.attributes.style, node.attributes.dataAttributes, cssBoxSelectors)
+    val backgroundModifier = if (hasBackground) {
+        Modifier
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(4.dp)
+            )
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+    } else {
+        Modifier
+    }
+
+    when (node.attributes.dataAttributes["content"]) {
+        "example-sentence" -> ExampleSentenceNode(node, indentLevel, cssBoxSelectors, onLinkClick)
+        "attribution" -> Unit // Hidden - shown at card bottom via collapsable section
+        else -> {
+            Column(modifier = backgroundModifier) {
+                node.children.forEach { child -> StructuredNode(child, indentLevel, cssBoxSelectors, onLinkClick) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SpanNode(
+    node: GlossaryNode.Element,
+    cssBoxSelectors: Set<String>,
+    onLinkClick: (String) -> Unit,
+) {
+    // Span applies schema styles to inline content
+    val textStyle = applyTypography(
+        MaterialTheme.typography.bodyMedium,
+        node.attributes.style
+    )
+    val hasBackground = hasBoxStyle(node.attributes.style, node.attributes.dataAttributes, cssBoxSelectors)
+    val backgroundModifier = if (hasBackground) {
+        Modifier
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(2.dp)
+            )
+            .padding(horizontal = 4.dp)
+    } else {
+        Modifier
+    }
+
+    FlowRow(modifier = backgroundModifier) {
+        node.children.forEach { child ->
+            InlineNode(child, onLinkClick, textStyle = textStyle)
+        }
+    }
 }
 
 @Composable
