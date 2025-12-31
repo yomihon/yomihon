@@ -134,7 +134,7 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
                     val item = adapter.items.getOrNull(position)
                     if (item is ReaderPage) {
                         if (config.longTapOcr) {
-                            activity.viewModel.enterOcrMode()
+                            activity.enterOcrMode()
                         } else {
                             activity.onPageLongTap(item)
                         }

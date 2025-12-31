@@ -454,7 +454,7 @@ class ReaderActivity : BaseActivity() {
                     menuToggleToast = toast(if (enabled) MR.strings.on else MR.strings.off)
                 },
                 onClickSettings = viewModel::openSettingsDialog,
-                onClickOcr = viewModel::enterOcrMode,
+                onClickOcr = ::enterOcrMode,
             )
 
             // OCR selection overlay
@@ -463,7 +463,7 @@ class ReaderActivity : BaseActivity() {
                     onRegionSelected = { rect ->
                         captureRegionAndProcessOcr(rect)
                     },
-                    onCancel = viewModel::exitOcrMode,
+                    onCancel = ::exitOcrMode,
                 )
             }
 
@@ -794,10 +794,14 @@ class ReaderActivity : BaseActivity() {
 
                 // Process OCR (the ViewModel takes ownership of the bitmap)
                 viewModel.processOcrRegion(croppedBitmap)
+
+                withUIContext {
+                    exitOcrMode()
+                }
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "Failed to capture region for OCR" }
                 withUIContext {
-                    viewModel.exitOcrMode()
+                    exitOcrMode()
                     toast(MR.strings.action_cancel)
                 }
             }
@@ -835,6 +839,33 @@ class ReaderActivity : BaseActivity() {
     fun hideMenu() {
         if (viewModel.state.value.menuVisible) {
             setMenuVisibility(false)
+        }
+    }
+
+    /**
+     * Enters OCR selection with hidden system bars to prevent system gestures from interfering with region selection.
+     * Temporarily applies fullscreen insets to prevent layout shift in non-fullscreen mode.
+     */
+    fun enterOcrMode() {
+        if (!readerPreferences.fullscreen().get()) {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            updateViewerInset(fullscreen = true)
+        }
+        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+        windowInsetsController.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        viewModel.enterOcrMode()
+    }
+
+    /**
+     * Exits OCR selection mode and restores system bar visibility and insets.
+     */
+    fun exitOcrMode() {
+        viewModel.exitOcrMode()
+        if (!readerPreferences.fullscreen().get()) {
+            WindowCompat.setDecorFitsSystemWindows(window, true)
+            updateViewerInset(fullscreen = false)
+            windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
         }
     }
 

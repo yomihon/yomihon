@@ -123,7 +123,7 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
                 val item = adapter.items.getOrNull(pager.currentItem)
                 if (item is ReaderPage) {
                     if (config.longTapOcr) {
-                        activity.viewModel.enterOcrMode()
+                        activity.enterOcrMode()
                     } else {
                         activity.onPageLongTap(item)
                     }
