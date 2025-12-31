@@ -8,6 +8,8 @@ package eu.kanade.presentation.dictionary
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.sp
 import mihon.domain.dictionary.model.GlossaryEntry
 import mihon.domain.dictionary.model.GlossaryNode
 import mihon.domain.dictionary.model.GlossaryTag
@@ -160,6 +162,22 @@ internal fun applyTypography(
                 newStyle
             }
 
+            "fontSize" -> {
+                val baseFontSize = baseStyle.fontSize.let {
+                    if (it == TextUnit.Unspecified) 14.sp else it
+                }
+                val scale = when {
+                    value.endsWith("em") -> value.removeSuffix("em").toFloatOrNull()
+                    value.endsWith("%") -> value.removeSuffix("%").toFloatOrNull()?.div(100f)
+                    else -> null
+                }
+                if (scale != null) {
+                    newStyle.copy(fontSize = baseFontSize * scale)
+                } else {
+                    newStyle
+                }
+            }
+
             else -> newStyle
         }
     }
@@ -202,4 +220,31 @@ internal fun getBoxSelectors(cssText: String?): Set<String> {
         .flatMap { match -> SELECTOR_ATTR_PATTERN.findAll(match.groupValues[1]) }
         .map { it.groupValues[1] }
         .toSet()
+}
+
+private val FONT_SIZE_PATTERN = Regex("""font-size\s*:\s*([^;}\s]+)""", RegexOption.IGNORE_CASE)
+
+internal fun getFontStyleSelectors(cssText: String?): Map<String, Map<String, String>> {
+    if (cssText.isNullOrBlank()) return emptyMap()
+
+    val result = mutableMapOf<String, MutableMap<String, String>>()
+
+    RULE_PATTERN.findAll(cssText).forEach { match ->
+        val selectorPart = match.groupValues[1]
+        val propertyPart = match.groupValues[2]
+
+        // Extract font-size if present
+        val fontSizeMatch = FONT_SIZE_PATTERN.find(propertyPart)
+        if (fontSizeMatch != null) {
+            val fontSize = fontSizeMatch.groupValues[1].trim()
+
+            // Find all matching selectors in the selector part
+            SELECTOR_ATTR_PATTERN.findAll(selectorPart).forEach { selectorMatch ->
+                val selectorName = selectorMatch.groupValues[1]
+                result.getOrPut(selectorName) { mutableMapOf() }["fontSize"] = fontSize
+            }
+        }
+    }
+
+    return result
 }

@@ -289,12 +289,16 @@ internal fun DictionaryTermCard(
             val cssBoxSelectors = remember(dictionary?.styles) {
                 getBoxSelectors(dictionary?.styles)
             }
+            val cssFontStyles = remember(dictionary?.styles) {
+                getFontStyleSelectors(dictionary?.styles)
+            }
 
             GlossarySection(
                 entries = term.glossary,
                 isFormsEntry = isFormsEntry,
                 modifier = Modifier.padding(vertical = 2.dp),
                 cssBoxSelectors = cssBoxSelectors,
+                cssFontStyles = cssFontStyles,
                 onLinkClick = { linkText ->
                     val query = linkText.trim()
                     if (query.isNotEmpty()) {
