@@ -121,6 +121,8 @@ class ReaderPreferences(
 
     fun readWithLongTap() = preferenceStore.getBoolean("reader_long_tap", true)
 
+    fun longTapOcr() = preferenceStore.getBoolean("reader_long_tap_ocr", true)
+
     fun readWithVolumeKeys() = preferenceStore.getBoolean("reader_volume_keys", false)
 
     fun readWithVolumeKeysInverted() = preferenceStore.getBoolean("reader_volume_keys_inverted", false)

@@ -133,7 +133,11 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
                     val position = recycler.getChildAdapterPosition(child)
                     val item = adapter.items.getOrNull(position)
                     if (item is ReaderPage) {
-                        activity.onPageLongTap(item)
+                        if (config.longTapOcr) {
+                            activity.viewModel.enterOcrMode()
+                        } else {
+                            activity.onPageLongTap(item)
+                        }
                         return@f true
                     }
                 }

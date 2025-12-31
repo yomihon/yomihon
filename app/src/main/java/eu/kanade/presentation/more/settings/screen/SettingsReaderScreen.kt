@@ -423,12 +423,20 @@ object SettingsReaderScreen : SearchableSettings {
 
     @Composable
     private fun getActionsGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
+        val readWithLongTapPref = readerPreferences.readWithLongTap()
+        val readWithLongTap by readWithLongTapPref.collectAsState()
+
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_reader_actions),
             preferenceItems = persistentListOf(
                 Preference.PreferenceItem.SwitchPreference(
-                    preference = readerPreferences.readWithLongTap(),
+                    preference = readWithLongTapPref,
                     title = stringResource(MR.strings.pref_read_with_long_tap),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.longTapOcr(),
+                    title = stringResource(MR.strings.pref_long_tap_ocr),
+                    enabled = readWithLongTap,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.folderPerManga(),
