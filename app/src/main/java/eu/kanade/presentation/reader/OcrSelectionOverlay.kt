@@ -4,6 +4,7 @@ import android.graphics.RectF
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -42,6 +43,11 @@ fun OcrSelectionOverlay(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.5f))
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { onCancel() }
+                )
+            }
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { offset ->
