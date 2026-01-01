@@ -11,10 +11,15 @@ import mihon.domain.dictionary.repository.DictionaryRepository
 
 /**
  * Interactor for importing compatible dictionaries.
+ * Uses streaming with batched database inserts for memory efficiency.
  */
 class ImportDictionary(
     private val dictionaryRepository: DictionaryRepository,
 ) {
+    companion object {
+        private const val BATCH_SIZE = 500
+    }
+
     /**
      * Creates a dictionary record in the database.
      * The new dictionary is assigned priority 1 (highest), and all existing
@@ -41,12 +46,9 @@ class ImportDictionary(
         return dictionaryRepository.insertDictionary(dictionary)
     }
 
-    /**
-     * Imports tags into the dictionary.
-     */
-    suspend fun importTags(tags: List<DictionaryTag>, dictionaryId: Long) {
-        if (tags.isNotEmpty()) {
-            val tagsWithDictId = tags.map { it.copy(dictionaryId = dictionaryId) }
+    suspend fun importTags(tags: Sequence<DictionaryTag>, dictionaryId: Long) {
+        tags.chunked(BATCH_SIZE).forEach { chunk ->
+            val tagsWithDictId = chunk.map { it.copy(dictionaryId = dictionaryId) }
             dictionaryRepository.insertTags(tagsWithDictId)
         }
     }
@@ -71,42 +73,30 @@ class ImportDictionary(
         }
     }
 
-    /**
-     * Imports terms into the dictionary.
-     */
-    suspend fun importTerms(terms: List<DictionaryTerm>, dictionaryId: Long) {
-        if (terms.isNotEmpty()) {
-            val termsWithDictId = terms.map { it.copy(dictionaryId = dictionaryId) }
+    suspend fun importTerms(terms: Sequence<DictionaryTerm>, dictionaryId: Long) {
+        terms.chunked(BATCH_SIZE).forEach { chunk ->
+            val termsWithDictId = chunk.map { it.copy(dictionaryId = dictionaryId) }
             dictionaryRepository.insertTerms(termsWithDictId)
         }
     }
 
-    /**
-     * Imports kanji into the dictionary.
-     */
-    suspend fun importKanji(kanji: List<DictionaryKanji>, dictionaryId: Long) {
-        if (kanji.isNotEmpty()) {
-            val kanjiWithDictId = kanji.map { it.copy(dictionaryId = dictionaryId) }
+    suspend fun importKanji(kanji: Sequence<DictionaryKanji>, dictionaryId: Long) {
+        kanji.chunked(BATCH_SIZE).forEach { chunk ->
+            val kanjiWithDictId = chunk.map { it.copy(dictionaryId = dictionaryId) }
             dictionaryRepository.insertKanji(kanjiWithDictId)
         }
     }
 
-    /**
-     * Imports term metadata into the dictionary.
-     */
-    suspend fun importTermMeta(termMeta: List<DictionaryTermMeta>, dictionaryId: Long) {
-        if (termMeta.isNotEmpty()) {
-            val termMetaWithDictId = termMeta.map { it.copy(dictionaryId = dictionaryId) }
+    suspend fun importTermMeta(termMeta: Sequence<DictionaryTermMeta>, dictionaryId: Long) {
+        termMeta.chunked(BATCH_SIZE).forEach { chunk ->
+            val termMetaWithDictId = chunk.map { it.copy(dictionaryId = dictionaryId) }
             dictionaryRepository.insertTermMeta(termMetaWithDictId)
         }
     }
 
-    /**
-     * Imports kanji metadata into the dictionary.
-     */
-    suspend fun importKanjiMeta(kanjiMeta: List<DictionaryKanjiMeta>, dictionaryId: Long) {
-        if (kanjiMeta.isNotEmpty()) {
-            val kanjiMetaWithDictId = kanjiMeta.map { it.copy(dictionaryId = dictionaryId) }
+    suspend fun importKanjiMeta(kanjiMeta: Sequence<DictionaryKanjiMeta>, dictionaryId: Long) {
+        kanjiMeta.chunked(BATCH_SIZE).forEach { chunk ->
+            val kanjiMetaWithDictId = chunk.map { it.copy(dictionaryId = dictionaryId) }
             dictionaryRepository.insertKanjiMeta(kanjiMetaWithDictId)
         }
     }

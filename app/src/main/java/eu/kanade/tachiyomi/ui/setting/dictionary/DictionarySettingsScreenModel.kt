@@ -159,33 +159,31 @@ class DictionarySettingsScreenModel(
             // Skip index.json as it's already processed
             if (fileName == "index.json") return@useEntriesAndStreams
 
-            val dataJson = stream.bufferedReader().readText()
-
             try {
                 var imported = false
                 when {
                     fileName.matches(termMetaRegex) -> {
-                        val termMeta = dictionaryParser.parseTermMetaBank(dataJson)
+                        val termMeta = dictionaryParser.parseTermMetaBank(stream)
                         importDictionary.importTermMeta(termMeta, dictionaryId)
                         imported = true
                     }
                     fileName.matches(kanjiMetaRegex) -> {
-                        val kanjiMeta = dictionaryParser.parseKanjiMetaBank(dataJson)
+                        val kanjiMeta = dictionaryParser.parseKanjiMetaBank(stream)
                         importDictionary.importKanjiMeta(kanjiMeta, dictionaryId)
                         imported = true
                     }
                     fileName.matches(termRegex) -> {
-                        val terms = dictionaryParser.parseTermBank(dataJson, index.effectiveVersion)
+                        val terms = dictionaryParser.parseTermBank(stream, index.effectiveVersion)
                         importDictionary.importTerms(terms, dictionaryId)
                         imported = true
                     }
                     fileName.matches(kanjiRegex) -> {
-                        val kanji = dictionaryParser.parseKanjiBank(dataJson, index.effectiveVersion)
+                        val kanji = dictionaryParser.parseKanjiBank(stream, index.effectiveVersion)
                         importDictionary.importKanji(kanji, dictionaryId)
                         imported = true
                     }
                     fileName.matches(tagRegex) -> {
-                        val tags = dictionaryParser.parseTagBank(dataJson)
+                        val tags = dictionaryParser.parseTagBank(stream)
                         importDictionary.importTags(tags, dictionaryId)
                         imported = true
                     }
