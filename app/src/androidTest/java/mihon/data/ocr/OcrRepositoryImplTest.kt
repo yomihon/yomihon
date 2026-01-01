@@ -13,13 +13,14 @@ import mihon.domain.ocr.interactor.OcrProcessor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
  * Integration test for OCR repository that runs against the device/emulator assets and native inference libraries.
- * TODO: Since, this requires a real Android runtime/device it's disabled by default
  */
+@Ignore("Requires real Android runtime/device, potentially lengthy to run.")
 @RunWith(AndroidJUnit4::class)
 class OcrRepositoryImplTest {
     private lateinit var ocrRepository: OcrRepositoryImpl
