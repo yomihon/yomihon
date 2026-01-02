@@ -223,7 +223,7 @@ private fun StructuredElement(
         GlossaryTag.Summary -> SummaryNode(node, indentLevel)
         GlossaryTag.Table -> TableNode(node, indentLevel, cssBoxSelectors, onLinkClick)
         GlossaryTag.Div -> DivNode(node, indentLevel, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle)
-        GlossaryTag.Span -> SpanNode(node, cssBoxSelectors, onLinkClick, textStyle)
+        GlossaryTag.Span -> SpanNode(node, indentLevel, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle)
         GlossaryTag.Thead, GlossaryTag.Tbody, GlossaryTag.Tfoot, GlossaryTag.Tr,
         GlossaryTag.Td, GlossaryTag.Th, GlossaryTag.Unknown, GlossaryTag.Rt, GlossaryTag.Rp -> {
             Column {
@@ -448,9 +448,7 @@ private fun DetailsNode(
     onLinkClick: (String) -> Unit,
     textStyle: TextStyle,
 ) {
-    Column(
-        modifier = Modifier.padding(start = bulletIndent(indentLevel)),
-    ) {
+    Column {
         node.children.forEach { child -> StructuredNode(child, indentLevel + 1, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle) }
     }
 }
@@ -505,14 +503,24 @@ private fun DivNode(
 @Composable
 private fun SpanNode(
     node: GlossaryNode.Element,
+    indentLevel: Int,
     cssBoxSelectors: Set<String>,
+    cssFontStyles: Map<String, Map<String, String>>,
     onLinkClick: (String) -> Unit,
     baseTextStyle: TextStyle = MaterialTheme.typography.bodyMedium,
 ) {
-    // Span applies schema styles to inline content
+    // Merge CSS font styles from matching data attributes
+    val cssStyleMap = node.attributes.dataAttributes.values
+        .mapNotNull { cssFontStyles[it] }
+        .fold(emptyMap<String, String>()) { acc, map -> acc + map }
+
+    // Combine inline styles with CSS-derived styles (inline takes precedence)
+    val combinedStyleMap = cssStyleMap + node.attributes.style
+
+    // Apply typography from combined styles
     val textStyle = applyTypography(
         baseTextStyle,
-        node.attributes.style
+        combinedStyleMap
     )
     val hasBackground = hasBoxStyle(node.attributes.style, node.attributes.dataAttributes, cssBoxSelectors)
     val backgroundModifier = getBgModifier(
