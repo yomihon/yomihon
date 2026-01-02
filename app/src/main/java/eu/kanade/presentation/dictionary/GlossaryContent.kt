@@ -18,6 +18,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
@@ -76,7 +79,7 @@ private fun FormsRow(forms: List<String>, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontStyle = FontStyle.Italic,
-            furiganaFontSize = MaterialTheme.typography.bodySmall.fontSize * 0.60f,
+            furiganaFontSize = MaterialTheme.typography.bodySmall.fontSize * 0.65f,
         )
     }
 }
@@ -530,14 +533,43 @@ private fun SpanNode(
         verticalPadding = 0.dp,
     )
 
-    FlowRow(modifier = backgroundModifier) {
-        node.children.forEach { child ->
-            InlineNode(child, onLinkClick, textStyle = textStyle)
+    // Build annotated text for proper character-level wrapping
+    val annotatedResult = remember(node.children) { buildAnnotatedText(node.children) }
+
+    if (annotatedResult.linkRanges.isEmpty()) {
+        // No links - simple text rendering
+        TextWithReading(
+            formattedText = annotatedResult.text,
+            style = textStyle,
+            furiganaFontSize = textStyle.fontSize * 0.60f,
+            modifier = backgroundModifier,
+        )
+    } else {
+        val linkColor = MaterialTheme.colorScheme.primary
+        val annotatedString = remember(annotatedResult, textStyle, linkColor) {
+            buildAnnotatedString {
+                append(annotatedResult.text)
+                annotatedResult.linkRanges.forEach { link ->
+                    addStyle(
+                        SpanStyle(color = linkColor, fontWeight = FontWeight.Medium),
+                        start = link.start,
+                        end = link.end,
+                    )
+                    addLink(
+                        LinkAnnotation.Clickable(link.target) { onLinkClick(link.target) },
+                        start = link.start,
+                        end = link.end,
+                    )
+                }
+            }
         }
+        Text(
+            text = annotatedString,
+            style = textStyle,
+            modifier = backgroundModifier,
+        )
     }
 }
-
-
 
 @Composable
 internal fun InlineNode(

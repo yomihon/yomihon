@@ -93,11 +93,7 @@ internal fun StringBuilder.appendRubyInline(node: GlossaryNode.Element) {
     val readingText = collectText(readingNodes)
 
     if (readingText.isNotBlank()) {
-        append("[")
-        append(baseText)
-        append("[")
-        append(readingText)
-        append("]]")
+        append("[$baseText[$readingText]]")
     } else {
         append(baseText)
     }
@@ -111,6 +107,98 @@ internal fun StringBuilder.appendLinkInline(node: GlossaryNode.Element) {
         append(href)
         append(')')
     }
+}
+
+/**
+ * Represents a clickable link range within annotated text.
+ */
+internal data class LinkRange(
+    val start: Int,
+    val end: Int,
+    val target: String,
+)
+
+/**
+ * Result of building annotated text from GlossaryNode tree.
+ */
+internal data class AnnotatedTextResult(
+    val text: String,
+    val linkRanges: List<LinkRange>,
+)
+
+/**
+ * Builds annotated text from GlossaryNode children with link tracking.
+ * Ruby text is formatted using `[Base \[Reading]]` for furiganable.
+ * Link positions are tracked for click handling.
+ */
+internal fun buildAnnotatedText(nodes: List<GlossaryNode>): AnnotatedTextResult {
+    val builder = StringBuilder()
+    val linkRanges = mutableListOf<LinkRange>()
+
+    fun appendNode(node: GlossaryNode) {
+        when (node) {
+            is GlossaryNode.Text -> builder.append(node.text)
+            is GlossaryNode.LineBreak -> builder.append(' ')
+            is GlossaryNode.Element -> when (node.tag) {
+                GlossaryTag.Ruby -> {
+                    val baseNodes = node.children.filterNot { child ->
+                        child is GlossaryNode.Element && (child.tag == GlossaryTag.Rt || child.tag == GlossaryTag.Rp)
+                    }
+                    val readingNodes = node.children.filterIsInstance<GlossaryNode.Element>()
+                        .filter { it.tag == GlossaryTag.Rt }
+                        .flatMap { it.children }
+
+                    val baseText = collectText(baseNodes)
+                    val readingText = collectText(readingNodes)
+
+                    if (readingText.isNotBlank()) {
+                        builder.append("[$baseText[$readingText]]")
+                    } else {
+                        builder.append(baseText)
+                    }
+                }
+                GlossaryTag.Link -> {
+                    val href = node.attributes.properties["href"]
+                    val linkText = collectText(node.children).ifBlank { href ?: "" }
+                    
+                    // Extract query parameter for dictionary links
+                    val target = if (href?.startsWith("?") == true) {
+                        href.drop(1).split("&")
+                            .find { it.startsWith("query=") }
+                            ?.substringAfter("query=")
+                            ?.let { rawValue ->
+                                try {
+                                    java.net.URLDecoder.decode(rawValue, "UTF-8")
+                                } catch (e: Exception) {
+                                    rawValue
+                                }
+                            }
+                            ?: href
+                    } else {
+                        href ?: linkText
+                    }
+
+                    val start = builder.length
+                    builder.append(linkText)
+                    val end = builder.length
+
+                    if (target.isNotBlank()) {
+                        linkRanges.add(LinkRange(start, end, target))
+                    }
+                }
+                GlossaryTag.Image -> Unit // Ignore images
+                GlossaryTag.Rt, GlossaryTag.Rp -> Unit // Handled by Ruby
+                else -> node.children.forEach { child -> appendNode(child) }
+            }
+        }
+    }
+
+    nodes.forEach { node -> appendNode(node) }
+
+    return AnnotatedTextResult(
+        text = builder.toString(),
+        linkRanges = linkRanges.toList(),
+    )
 }
 
 internal fun GlossaryNode.hasBlockContent(): Boolean {
