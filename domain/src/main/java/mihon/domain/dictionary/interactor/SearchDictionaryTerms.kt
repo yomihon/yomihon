@@ -88,14 +88,13 @@ class SearchDictionaryTerms(
                     }
                     if (validMatch) {
                         // Returns the matched word text
-                        return normalized.take(term.length)
+                        return substring
                     }
                 }
             }
         }
 
         // No dictionary match found - return the first character as fallback
-        // TODO: handle this better
         return normalized.take(1)
     }
 
