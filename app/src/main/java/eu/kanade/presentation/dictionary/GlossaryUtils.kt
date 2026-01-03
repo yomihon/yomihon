@@ -272,16 +272,208 @@ internal fun applyTypography(
 }
 
 /**
+ * Parsed CSS data from a dictionary's styles.css file.
+ * Contains both box selectors (for background/border styling) and
+ * selector styles (for font properties like font-size).
+ */
+data class ParsedCss(
+    val boxSelectors: Set<String>,
+    val selectorStyles: Map<String, Map<String, String>>,
+) {
+    companion object {
+        val EMPTY = ParsedCss(emptySet(), emptyMap())
+    }
+}
+
+/**
+ * Parses CSS text from a dictionary's styles.css into a structured format.
+ * Uses a simple tokenizer approach instead of regex for cleaner parsing.
+ *
+ * Extracts:
+ * - Box selectors: data-sc-content/class values that have background/border properties
+ * - Selector styles: All CSS properties mapped by data-sc-content/class selector values
+ */
+internal fun parseDictionaryCss(cssText: String?): ParsedCss {
+    if (cssText.isNullOrBlank()) return ParsedCss.EMPTY
+
+    val cleanedCss = stripCssComments(cssText)
+    if (cleanedCss.isBlank()) return ParsedCss.EMPTY
+
+    val boxSelectors = mutableSetOf<String>()
+    val selectorStyles = mutableMapOf<String, MutableMap<String, String>>()
+
+    // Parse CSS rules by finding { } blocks
+    var i = 0
+    while (i < cleanedCss.length) {
+        // Find the start of a rule block
+        val braceStart = cleanedCss.indexOf('{', i)
+        if (braceStart == -1) break
+
+        // Extract selector part (before '{')
+        val selectorPart = cleanedCss.substring(i, braceStart).trim()
+
+        // Find the end of the rule block
+        val braceEnd = cleanedCss.indexOf('}', braceStart)
+        if (braceEnd == -1) break
+
+        // Extract properties part (between '{' and '}')
+        val propertiesPart = cleanedCss.substring(braceStart + 1, braceEnd)
+
+        // Parse properties into key-value pairs
+        val properties = parseProperties(propertiesPart)
+
+        // Extract data-sc-content and data-sc-class selector values
+        val dataSelectors = extractDataSelectors(selectorPart)
+
+        // Check if this rule has box-related properties
+        val hasBoxProperty = properties.keys.any { key ->
+            key.startsWith("background") ||
+            key.startsWith("border") ||
+            key.startsWith("padding") ||
+            key.startsWith("margin") ||
+            key == "clip-path"
+        }
+
+        // Store results for each selector
+        for (selector in dataSelectors) {
+            if (hasBoxProperty) {
+                boxSelectors.add(selector)
+            }
+            // Store all properties for this selector
+            val existingStyles = selectorStyles.getOrPut(selector) { mutableMapOf() }
+            // Convert CSS property names to camelCase for consistency
+            properties.forEach { (key, value) ->
+                existingStyles[toCamelCase(key)] = value
+            }
+        }
+
+        i = braceEnd + 1
+    }
+
+    return ParsedCss(boxSelectors, selectorStyles)
+}
+
+/**
+ * Strips CSS block comments (/* ... */) from the input string.
+ */
+private fun stripCssComments(css: String): String {
+    val result = StringBuilder()
+    var i = 0
+    while (i < css.length) {
+        if (i + 1 < css.length && css[i] == '/' && css[i + 1] == '*') {
+            // Find end of comment
+            val endIndex = css.indexOf("*/", i + 2)
+            if (endIndex == -1) {
+                // Unclosed comment, skip the rest
+                break
+            }
+            i = endIndex + 2
+        } else {
+            result.append(css[i])
+            i++
+        }
+    }
+    return result.toString()
+}
+
+/**
+ * Parses CSS property declarations from a properties block.
+ * E.g., "font-size: 0.8em; color: red" -> {"font-size" to "0.8em", "color" to "red"}
+ */
+private fun parseProperties(propertiesPart: String): Map<String, String> {
+    val result = mutableMapOf<String, String>()
+
+    propertiesPart.split(';').forEach { declaration ->
+        val colonIndex = declaration.indexOf(':')
+        if (colonIndex != -1) {
+            val key = declaration.take(colonIndex).trim().lowercase()
+            val value = declaration.substring(colonIndex + 1).trim()
+            if (key.isNotEmpty() && value.isNotEmpty()) {
+                result[key] = value
+            }
+        }
+    }
+
+    return result
+}
+
+/**
+ * Extracts data-sc-content and data-sc-class selector values from a CSS selector string.
+ * E.g., "[data-sc-content='example']" -> ["example"]
+ */
+private fun extractDataSelectors(selectorPart: String): List<String> {
+    val result = mutableListOf<String>()
+    var i = 0
+
+    while (i < selectorPart.length) {
+        // Look for [data-sc-content= or [data-sc-class=
+        val attrStart = selectorPart.indexOf("[data-sc-", i)
+        if (attrStart == -1) break
+
+        // Find the attribute name end (=)
+        val equalsIndex = selectorPart.indexOf('=', attrStart)
+        if (equalsIndex == -1) {
+            i = attrStart + 1
+            continue
+        }
+
+        // Only content and class attribute names are supported
+        val attrName = selectorPart.substring(attrStart + 1, equalsIndex)
+        if (attrName != "data-sc-content" && attrName != "data-sc-class") {
+            i = equalsIndex + 1
+            continue
+        }
+
+        val valueStart = equalsIndex + 1
+        if (valueStart >= selectorPart.length) break
+
+        val quote = selectorPart[valueStart]
+        if (quote != '\'' && quote != '"') {
+            i = valueStart + 1
+            continue
+        }
+
+        val valueEnd = selectorPart.indexOf(quote, valueStart + 1)
+        if (valueEnd == -1) break
+
+        val value = selectorPart.substring(valueStart + 1, valueEnd)
+        if (value.isNotEmpty()) {
+            result.add(value)
+        }
+
+        i = valueEnd + 1
+    }
+
+    return result
+}
+
+private fun toCamelCase(cssProperty: String): String {
+    val parts = cssProperty.split('-')
+    if (parts.size == 1) return parts[0]
+
+    return buildString {
+        append(parts[0])
+        for (i in 1 until parts.size) {
+            val part = parts[i]
+            if (part.isNotEmpty()) {
+                append(part[0].uppercaseChar())
+                append(part.substring(1))
+            }
+        }
+    }
+}
+
+/**
  * Checks if the dictionary node has a box style.
  *
  * @param style Inline style properties from the element
  * @param dataAttributes Data attributes from the element (e.g., "content", "class")
- * @param cssBoxSelectors Selectors that have box styles, as parsed from the dictionary's styles.css
+ * @param parsedCss Parsed CSS from the dictionary's styles.css
  */
 internal fun hasBoxStyle(
     style: Map<String, String>,
     dataAttributes: Map<String, String>,
-    cssBoxSelectors: Set<String> = emptySet(),
+    parsedCss: ParsedCss,
 ): Boolean {
     // Check inline style properties for background/border
     val hasStyleBox = style.keys.any { key ->
@@ -290,49 +482,24 @@ internal fun hasBoxStyle(
 
     // Check if any dataAttribute value matches a selector that has box styles in CSS
     val hasDataAttrBox = dataAttributes.values.any { value ->
-        value in cssBoxSelectors
+        value in parsedCss.boxSelectors
     }
 
     return hasStyleBox || hasDataAttrBox
 }
 
-private val RULE_PATTERN = Regex("""([^{}]+)\{([^{}]*)\}""", RegexOption.DOT_MATCHES_ALL)
-private val SELECTOR_ATTR_PATTERN = Regex("""\[data-sc-(?:content|class)=["']([^"']+)["']]""")
-private val BOX_PROPERTY_PATTERN = Regex("""(?:^|\s|;)(background(?:-color)?|border(?:-[a-z]+)?)\s*:""", RegexOption.IGNORE_CASE)
-
-internal fun getBoxSelectors(cssText: String?): Set<String> {
-    if (cssText.isNullOrBlank()) return emptySet()
-
-    return RULE_PATTERN.findAll(cssText)
-        .filter { match -> match.groupValues[2].contains(BOX_PROPERTY_PATTERN) }
-        .flatMap { match -> SELECTOR_ATTR_PATTERN.findAll(match.groupValues[1]) }
-        .map { it.groupValues[1] }
-        .toSet()
-}
-
-private val FONT_SIZE_PATTERN = Regex("""font-size\s*:\s*([^;}\s]+)""", RegexOption.IGNORE_CASE)
-
-internal fun getFontStyleSelectors(cssText: String?): Map<String, Map<String, String>> {
-    if (cssText.isNullOrBlank()) return emptyMap()
-
-    val result = mutableMapOf<String, MutableMap<String, String>>()
-
-    RULE_PATTERN.findAll(cssText).forEach { match ->
-        val selectorPart = match.groupValues[1]
-        val propertyPart = match.groupValues[2]
-
-        // Extract font-size if present
-        val fontSizeMatch = FONT_SIZE_PATTERN.find(propertyPart)
-        if (fontSizeMatch != null) {
-            val fontSize = fontSizeMatch.groupValues[1].trim()
-
-            // Find all matching selectors in the selector part
-            SELECTOR_ATTR_PATTERN.findAll(selectorPart).forEach { selectorMatch ->
-                val selectorName = selectorMatch.groupValues[1]
-                result.getOrPut(selectorName) { mutableMapOf() }["fontSize"] = fontSize
-            }
-        }
-    }
-
-    return result
+/**
+ * Gets merged CSS styles for an element based on its data attributes.
+ *
+ * @param dataAttributes Data attributes from the element
+ * @param parsedCss Parsed CSS from the dictionary's styles.css
+ * @return Merged style map from all matching selectors
+ */
+internal fun getCssStyles(
+    dataAttributes: Map<String, String>,
+    parsedCss: ParsedCss,
+): Map<String, String> {
+    return dataAttributes.values
+        .mapNotNull { parsedCss.selectorStyles[it] }
+        .fold(emptyMap()) { acc, map -> acc + map }
 }

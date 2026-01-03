@@ -30,7 +30,6 @@ import com.turtlekazu.furiganable.compose.m3.TextWithReading
 internal fun TableNode(
     node: GlossaryNode.Element,
     indentLevel: Int,
-    cssBoxSelectors: Set<String>,
     onLinkClick: (String) -> Unit,
 ) {
     val model = remember(node) { buildTableModel(node) }

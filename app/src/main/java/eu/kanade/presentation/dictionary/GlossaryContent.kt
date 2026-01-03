@@ -39,8 +39,7 @@ fun GlossarySection(
     entries: List<GlossaryEntry>,
     isFormsEntry: Boolean,
     modifier: Modifier = Modifier,
-    cssBoxSelectors: Set<String> = emptySet(),
-    cssFontStyles: Map<String, Map<String, String>> = emptyMap(),
+    parsedCss: ParsedCss = ParsedCss.EMPTY,
     onLinkClick: (String) -> Unit,
 ) {
     if (entries.isEmpty()) return
@@ -55,7 +54,7 @@ fun GlossarySection(
 
     Column(modifier = modifier) {
         entries.forEach { entry ->
-            GlossaryEntryItem(entry = entry, cssBoxSelectors = cssBoxSelectors, cssFontStyles = cssFontStyles, onLinkClick = onLinkClick)
+            GlossaryEntryItem(entry = entry, parsedCss = parsedCss, onLinkClick = onLinkClick)
         }
     }
 }
@@ -79,7 +78,7 @@ private fun FormsRow(forms: List<String>, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontStyle = FontStyle.Italic,
-            furiganaFontSize = MaterialTheme.typography.bodySmall.fontSize * 0.65f,
+            furiganaFontSize = MaterialTheme.typography.bodySmall.fontSize * 0.60f,
         )
     }
 }
@@ -88,13 +87,12 @@ private fun FormsRow(forms: List<String>, modifier: Modifier = Modifier) {
 private fun GlossaryEntryItem(
     entry: GlossaryEntry,
     indentLevel: Int = 0,
-    cssBoxSelectors: Set<String> = emptySet(),
-    cssFontStyles: Map<String, Map<String, String>> = emptyMap(),
+    parsedCss: ParsedCss = ParsedCss.EMPTY,
     onLinkClick: (String) -> Unit,
 ) {
     when (entry) {
         is GlossaryEntry.TextDefinition -> DefinitionRow(text = entry.text, indentLevel = indentLevel)
-        is GlossaryEntry.StructuredContent -> StructuredDefinition(entry.nodes, indentLevel, cssBoxSelectors, cssFontStyles, onLinkClick)
+        is GlossaryEntry.StructuredContent -> StructuredDefinition(entry.nodes, indentLevel, parsedCss, onLinkClick)
         is GlossaryEntry.ImageDefinition -> ImageEntryRow(entry.image, indentLevel)
         is GlossaryEntry.Deinflection -> DeinflectionRow(entry, indentLevel)
         is GlossaryEntry.Unknown -> Unit
@@ -126,8 +124,7 @@ private fun DefinitionRow(text: String, indentLevel: Int) {
 private fun StructuredDefinition(
     nodes: List<GlossaryNode>,
     indentLevel: Int,
-    cssBoxSelectors: Set<String>,
-    cssFontStyles: Map<String, Map<String, String>>,
+    parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
 ) {
     if (nodes.isEmpty()) return
@@ -143,7 +140,7 @@ private fun StructuredDefinition(
     Column(
         modifier = Modifier.padding(start = bulletIndent(indentLevel), top = 2.dp, bottom = 2.dp),
     ) {
-        nodes.forEach { node -> StructuredNode(node, indentLevel, cssBoxSelectors, cssFontStyles, onLinkClick) }
+        nodes.forEach { node -> StructuredNode(node, indentLevel, parsedCss, onLinkClick) }
     }
 }
 
@@ -190,8 +187,7 @@ private fun DeinflectionRow(entry: GlossaryEntry.Deinflection, indentLevel: Int)
 private fun StructuredNode(
     node: GlossaryNode,
     indentLevel: Int,
-    cssBoxSelectors: Set<String>,
-    cssFontStyles: Map<String, Map<String, String>>,
+    parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
     textStyle: TextStyle = MaterialTheme.typography.bodyMedium,
 ) {
@@ -202,7 +198,7 @@ private fun StructuredNode(
             modifier = Modifier.padding(bottom = 2.dp),
         )
         is GlossaryNode.LineBreak -> Spacer(modifier = Modifier.height(4.dp))
-        is GlossaryNode.Element -> StructuredElement(node, indentLevel, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle)
+        is GlossaryNode.Element -> StructuredElement(node, indentLevel, parsedCss, onLinkClick, textStyle)
     }
 }
 
@@ -210,27 +206,26 @@ private fun StructuredNode(
 private fun StructuredElement(
     node: GlossaryNode.Element,
     indentLevel: Int,
-    cssBoxSelectors: Set<String>,
-    cssFontStyles: Map<String, Map<String, String>>,
+    parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
     textStyle: TextStyle = MaterialTheme.typography.bodyMedium,
 ) {
     when (node.tag) {
-        GlossaryTag.UnorderedList -> StructuredList(node.children, indentLevel, ListType.Unordered, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle)
-        GlossaryTag.OrderedList -> StructuredList(node.children, indentLevel, ListType.Ordered, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle)
-        GlossaryTag.ListItem -> StructuredListItem(node, indentLevel, 0, ListType.Unordered, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle)
+        GlossaryTag.UnorderedList -> StructuredList(node.children, indentLevel, ListType.Unordered, parsedCss, onLinkClick, textStyle)
+        GlossaryTag.OrderedList -> StructuredList(node.children, indentLevel, ListType.Ordered, parsedCss, onLinkClick, textStyle)
+        GlossaryTag.ListItem -> StructuredListItem(node, indentLevel, 0, ListType.Unordered, parsedCss, onLinkClick, textStyle)
         GlossaryTag.Ruby -> RubyNode(node, textStyle = textStyle)
         GlossaryTag.Link -> LinkNode(node, onLinkClick, textStyle = textStyle)
         GlossaryTag.Image -> Unit // Ignore images
-        GlossaryTag.Details -> DetailsNode(node, indentLevel, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle)
+        GlossaryTag.Details -> DetailsNode(node, indentLevel, parsedCss, onLinkClick, textStyle)
         GlossaryTag.Summary -> SummaryNode(node, indentLevel)
-        GlossaryTag.Table -> TableNode(node, indentLevel, cssBoxSelectors, onLinkClick)
-        GlossaryTag.Div -> DivNode(node, indentLevel, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle)
-        GlossaryTag.Span -> SpanNode(node, indentLevel, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle)
+        GlossaryTag.Table -> TableNode(node, indentLevel, onLinkClick)
+        GlossaryTag.Div -> DivNode(node, indentLevel, parsedCss, onLinkClick, textStyle)
+        GlossaryTag.Span -> SpanNode(node, indentLevel, parsedCss, onLinkClick, textStyle)
         GlossaryTag.Thead, GlossaryTag.Tbody, GlossaryTag.Tfoot, GlossaryTag.Tr,
         GlossaryTag.Td, GlossaryTag.Th, GlossaryTag.Unknown, GlossaryTag.Rt, GlossaryTag.Rp -> {
             Column {
-                node.children.forEach { child -> StructuredNode(child, indentLevel, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle) }
+                node.children.forEach { child -> StructuredNode(child, indentLevel, parsedCss, onLinkClick, textStyle) }
             }
         }
     }
@@ -241,8 +236,7 @@ private fun StructuredList(
     children: List<GlossaryNode>,
     indentLevel: Int,
     type: ListType,
-    cssBoxSelectors: Set<String>,
-    cssFontStyles: Map<String, Map<String, String>>,
+    parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
     textStyle: TextStyle,
 ) {
@@ -251,10 +245,10 @@ private fun StructuredList(
     Column(modifier = Modifier.padding(start = bulletIndent(1))) {
         children.forEach { child ->
             if (child is GlossaryNode.Element && child.tag == GlossaryTag.ListItem) {
-                StructuredListItem(child, indentLevel + 1, itemIndex, type, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle)
+                StructuredListItem(child, indentLevel + 1, itemIndex, type, parsedCss, onLinkClick, textStyle)
                 itemIndex += 1
             } else {
-                StructuredNode(child, indentLevel, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle)
+                StructuredNode(child, indentLevel, parsedCss, onLinkClick, textStyle)
             }
         }
     }
@@ -266,8 +260,7 @@ private fun StructuredListItem(
     indentLevel: Int,
     index: Int,
     type: ListType,
-    cssBoxSelectors: Set<String>,
-    cssFontStyles: Map<String, Map<String, String>>,
+    parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
     textStyle: TextStyle,
 ) {
@@ -315,7 +308,7 @@ private fun StructuredListItem(
                         modifier = Modifier.padding(bottom = 4.dp),
                     ) {
                         inlineChildren.forEach { child ->
-                            StructuredNode(child, indentLevel, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle)
+                            StructuredNode(child, indentLevel, parsedCss, onLinkClick, textStyle)
                             Spacer(Modifier.width(6.dp))
                         }
                     }
@@ -323,7 +316,7 @@ private fun StructuredListItem(
 
                 if (blockChildren.isNotEmpty()) {
                     blockChildren.forEach { child ->
-                        StructuredNode(child, indentLevel, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle)
+                        StructuredNode(child, indentLevel, parsedCss, onLinkClick, textStyle)
                     }
                 }
             }
@@ -446,13 +439,12 @@ private fun LinkNode(
 private fun DetailsNode(
     node: GlossaryNode.Element,
     indentLevel: Int,
-    cssBoxSelectors: Set<String>,
-    cssFontStyles: Map<String, Map<String, String>>,
+    parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
     textStyle: TextStyle,
 ) {
     Column {
-        node.children.forEach { child -> StructuredNode(child, indentLevel + 1, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle) }
+        node.children.forEach { child -> StructuredNode(child, indentLevel + 1, parsedCss, onLinkClick, textStyle) }
     }
 }
 
@@ -462,7 +454,7 @@ private fun SummaryNode(node: GlossaryNode.Element, indentLevel: Int) {
     TextWithReading(
         formattedText = summary,
         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-        furiganaFontSize = MaterialTheme.typography.bodyMedium.fontSize * 0.65f,
+        furiganaFontSize = MaterialTheme.typography.bodyMedium.fontSize * 0.60f,
         modifier = Modifier.padding(start = bulletIndent(indentLevel), bottom = 2.dp),
     )
 }
@@ -471,8 +463,7 @@ private fun SummaryNode(node: GlossaryNode.Element, indentLevel: Int) {
 private fun DivNode(
     node: GlossaryNode.Element,
     indentLevel: Int,
-    cssBoxSelectors: Set<String>,
-    cssFontStyles: Map<String, Map<String, String>>,
+    parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
     baseTextStyle: TextStyle,
 ) {
@@ -480,9 +471,7 @@ private fun DivNode(
     if (node.attributes.dataAttributes["content"] == "attribution") return
 
     // Merge CSS font styles from matching data attributes
-    val cssStyleMap = node.attributes.dataAttributes.values
-        .mapNotNull { cssFontStyles[it] }
-        .fold(emptyMap<String, String>()) { acc, map -> acc + map }
+    val cssStyleMap = getCssStyles(node.attributes.dataAttributes, parsedCss)
 
     // Combine inline styles with CSS-derived styles (inline takes precedence)
     val combinedStyleMap = cssStyleMap + node.attributes.style
@@ -490,7 +479,7 @@ private fun DivNode(
     // Apply typography from combined styles
     val textStyle = applyTypography(baseTextStyle, combinedStyleMap)
 
-    val hasBackground = hasBoxStyle(node.attributes.style, node.attributes.dataAttributes, cssBoxSelectors)
+    val hasBackground = hasBoxStyle(node.attributes.style, node.attributes.dataAttributes, parsedCss)
     val backgroundModifier = getBgModifier(
         hasBackground = hasBackground,
         cornerRadius = 8.dp,
@@ -499,7 +488,7 @@ private fun DivNode(
     )
 
     Column(modifier = backgroundModifier) {
-        node.children.forEach { child -> StructuredNode(child, indentLevel, cssBoxSelectors, cssFontStyles, onLinkClick, textStyle) }
+        node.children.forEach { child -> StructuredNode(child, indentLevel, parsedCss, onLinkClick, textStyle) }
     }
 }
 
@@ -507,15 +496,12 @@ private fun DivNode(
 private fun SpanNode(
     node: GlossaryNode.Element,
     indentLevel: Int,
-    cssBoxSelectors: Set<String>,
-    cssFontStyles: Map<String, Map<String, String>>,
+    parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
     baseTextStyle: TextStyle = MaterialTheme.typography.bodyMedium,
 ) {
     // Merge CSS font styles from matching data attributes
-    val cssStyleMap = node.attributes.dataAttributes.values
-        .mapNotNull { cssFontStyles[it] }
-        .fold(emptyMap<String, String>()) { acc, map -> acc + map }
+    val cssStyleMap = getCssStyles(node.attributes.dataAttributes, parsedCss)
 
     // Combine inline styles with CSS-derived styles (inline takes precedence)
     val combinedStyleMap = cssStyleMap + node.attributes.style
@@ -525,7 +511,7 @@ private fun SpanNode(
         baseTextStyle,
         combinedStyleMap
     )
-    val hasBackground = hasBoxStyle(node.attributes.style, node.attributes.dataAttributes, cssBoxSelectors)
+    val hasBackground = hasBoxStyle(node.attributes.style, node.attributes.dataAttributes, parsedCss)
     val backgroundModifier = getBgModifier(
         hasBackground = hasBackground,
         cornerRadius = 4.dp,
@@ -599,7 +585,7 @@ internal fun InlineNode(
                         TextWithReading(
                             formattedText = text,
                             style = styledTextStyle,
-                            furiganaFontSize = textStyle.fontSize * 0.65f,
+                            furiganaFontSize = textStyle.fontSize * 0.60f,
                         )
                     }
                 }
