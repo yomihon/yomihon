@@ -73,31 +73,51 @@ class ImportDictionary(
         }
     }
 
-    suspend fun importTerms(terms: Sequence<DictionaryTerm>, dictionaryId: Long) {
+    suspend fun importTerms(
+        terms: Sequence<DictionaryTerm>,
+        dictionaryId: Long,
+        onProgress: (suspend (Int) -> Unit)? = null,
+    ) {
         terms.chunked(BATCH_SIZE).forEach { chunk ->
             val termsWithDictId = chunk.map { it.copy(dictionaryId = dictionaryId) }
             dictionaryRepository.insertTerms(termsWithDictId)
+            onProgress?.invoke(chunk.size)
         }
     }
 
-    suspend fun importKanji(kanji: Sequence<DictionaryKanji>, dictionaryId: Long) {
+    suspend fun importKanji(
+        kanji: Sequence<DictionaryKanji>,
+        dictionaryId: Long,
+        onProgress: (suspend (Int) -> Unit)? = null,
+    ) {
         kanji.chunked(BATCH_SIZE).forEach { chunk ->
             val kanjiWithDictId = chunk.map { it.copy(dictionaryId = dictionaryId) }
             dictionaryRepository.insertKanji(kanjiWithDictId)
+            onProgress?.invoke(chunk.size)
         }
     }
 
-    suspend fun importTermMeta(termMeta: Sequence<DictionaryTermMeta>, dictionaryId: Long) {
+    suspend fun importTermMeta(
+        termMeta: Sequence<DictionaryTermMeta>,
+        dictionaryId: Long,
+        onProgress: (suspend (Int) -> Unit)? = null,
+    ) {
         termMeta.chunked(BATCH_SIZE).forEach { chunk ->
             val termMetaWithDictId = chunk.map { it.copy(dictionaryId = dictionaryId) }
             dictionaryRepository.insertTermMeta(termMetaWithDictId)
+            onProgress?.invoke(chunk.size)
         }
     }
 
-    suspend fun importKanjiMeta(kanjiMeta: Sequence<DictionaryKanjiMeta>, dictionaryId: Long) {
+    suspend fun importKanjiMeta(
+        kanjiMeta: Sequence<DictionaryKanjiMeta>,
+        dictionaryId: Long,
+        onProgress: (suspend (Int) -> Unit)? = null,
+    ) {
         kanjiMeta.chunked(BATCH_SIZE).forEach { chunk ->
             val kanjiMetaWithDictId = chunk.map { it.copy(dictionaryId = dictionaryId) }
             dictionaryRepository.insertKanjiMeta(kanjiMetaWithDictId)
+            onProgress?.invoke(chunk.size)
         }
     }
 }

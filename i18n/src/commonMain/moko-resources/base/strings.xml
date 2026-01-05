@@ -1050,6 +1050,7 @@
     <string name="dictionary_already_exists">Dictionary Already Exists</string>
     <string name="import_dictionary">Import Dictionary</string>
     <string name="importing_dictionary">Importing Dictionary</string>
+    <string name="dictionary_import_progress">Imported %1$d entries…</string>
     <string name="deleting_dictionary">Deleting Dictionary</string>
     <string name="exit_screen">Unfinished Operation</string>
     <string name="confirm_exit_while_busy">Leaving now might pause or cancel the current dictionary operation.</string>

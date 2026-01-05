@@ -203,12 +203,20 @@ object SettingsDictionaryScreen : Screen {
                             LinearProgressIndicator(
                                 modifier = Modifier.fillMaxWidth(),
                             )
-                            state.importProgress?.let { progress ->
+                            if (state.importedCount > 0) {
                                 Text(
-                                    text = progress,
+                                    text = stringResource(MR.strings.dictionary_import_progress, state.importedCount),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
+                            } else {
+                                state.importProgress?.let { progress ->
+                                    Text(
+                                        text = progress,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                         }
                     }

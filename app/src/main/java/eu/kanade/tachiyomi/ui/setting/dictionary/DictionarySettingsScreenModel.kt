@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.compose.runtime.Immutable
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -60,7 +61,7 @@ class DictionarySettingsScreenModel(
 
     fun importDictionaryFromUri(context: Context, uri: Uri) {
         screenModelScope.launch {
-            mutableState.update { it.copy(isImporting = true, importProgress = null, error = null) }
+            mutableState.update { it.copy(isImporting = true, importProgress = null, importedCount = 0, error = null) }
 
             try {
                 withContext(Dispatchers.IO) {
@@ -85,6 +86,7 @@ class DictionarySettingsScreenModel(
                     it.copy(
                         isImporting = false,
                         importProgress = null,
+                        importedCount = 0,
                     )
                 }
 
@@ -101,6 +103,7 @@ class DictionarySettingsScreenModel(
                     it.copy(
                         isImporting = false,
                         importProgress = null,
+                        importedCount = 0,
                     )
                 }
             } catch (e: Exception) {
@@ -110,6 +113,7 @@ class DictionarySettingsScreenModel(
                     it.copy(
                         isImporting = false,
                         importProgress = null,
+                        importedCount = 0,
                     )
                 }
             }
@@ -150,6 +154,14 @@ class DictionarySettingsScreenModel(
         val termMetaRegex = Regex("^term_meta_bank_\\d+\\.json$")
         val kanjiMetaRegex = Regex("^kanji_meta_bank_\\d+\\.json$")
 
+        val totalEntries = AtomicInteger(0)
+
+        // Entry count progress updater
+        val onProgress: suspend (Int) -> Unit = { batchCount ->
+            val newTotal = totalEntries.addAndGet(batchCount)
+            mutableState.update { it.copy(importedCount = newTotal) }
+        }
+
         reader.useEntriesAndStreams { entry, stream ->
             if (!entry.isFile) return@useEntriesAndStreams
 
@@ -164,22 +176,22 @@ class DictionarySettingsScreenModel(
                 when {
                     fileName.matches(termMetaRegex) -> {
                         val termMeta = dictionaryParser.parseTermMetaBank(stream)
-                        importDictionary.importTermMeta(termMeta, dictionaryId)
+                        importDictionary.importTermMeta(termMeta, dictionaryId, onProgress)
                         imported = true
                     }
                     fileName.matches(kanjiMetaRegex) -> {
                         val kanjiMeta = dictionaryParser.parseKanjiMetaBank(stream)
-                        importDictionary.importKanjiMeta(kanjiMeta, dictionaryId)
+                        importDictionary.importKanjiMeta(kanjiMeta, dictionaryId, onProgress)
                         imported = true
                     }
                     fileName.matches(termRegex) -> {
                         val terms = dictionaryParser.parseTermBank(stream, index.effectiveVersion)
-                        importDictionary.importTerms(terms, dictionaryId)
+                        importDictionary.importTerms(terms, dictionaryId, onProgress)
                         imported = true
                     }
                     fileName.matches(kanjiRegex) -> {
                         val kanji = dictionaryParser.parseKanjiBank(stream, index.effectiveVersion)
-                        importDictionary.importKanji(kanji, dictionaryId)
+                        importDictionary.importKanji(kanji, dictionaryId, onProgress)
                         imported = true
                     }
                     fileName.matches(tagRegex) -> {
@@ -280,6 +292,7 @@ class DictionarySettingsScreenModel(
         val isLoading: Boolean = true,
         val isImporting: Boolean = false,
         val importProgress: String? = null,
+        val importedCount: Int = 0,
         val isDeleting: Boolean = false,
         val error: String? = null,
         val highlightedDictionaryId: Long? = null,
