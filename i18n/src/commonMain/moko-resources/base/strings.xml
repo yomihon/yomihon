@@ -1051,6 +1051,9 @@
     <string name="import_dictionary">Import Dictionary</string>
     <string name="importing_dictionary">Importing Dictionary</string>
     <string name="dictionary_import_progress">Imported %1$d entries…</string>
+    <string name="dictionary_import_reading_index">Reading dictionary info…</string>
+    <string name="dictionary_import_importing_info">Importing dictionary info…</string>
+    <string name="dictionary_import_parsing_files">Parsing and importing dictionary entries…</string>
     <string name="deleting_dictionary">Deleting Dictionary</string>
     <string name="exit_screen">Unfinished Operation</string>
     <string name="confirm_exit_while_busy">Leaving now might pause or cancel the current dictionary operation.</string>

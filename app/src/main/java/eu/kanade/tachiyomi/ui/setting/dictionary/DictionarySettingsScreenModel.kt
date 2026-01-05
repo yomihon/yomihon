@@ -74,7 +74,7 @@ class DictionarySettingsScreenModel(
 
                     // Extract and parse dictionary
                     file.archiveReader(context).use { reader ->
-                        val importedId = extractAndImportDictionary(reader)
+                        val importedId = extractAndImportDictionary(context, reader)
                         mutableState.update {
                             it.copy(highlightedDictionaryId = importedId)
                         }
@@ -120,8 +120,8 @@ class DictionarySettingsScreenModel(
         }
     }
 
-    private suspend fun extractAndImportDictionary(reader: ArchiveReader): Long {
-        mutableState.update { it.copy(importProgress = "Reading index.json...") }
+    private suspend fun extractAndImportDictionary(context: Context, reader: ArchiveReader): Long {
+        mutableState.update { it.copy(importProgress = MR.strings.dictionary_import_reading_index.getString(context)) }
 
         // Parse index.json
         val indexJson = reader.getInputStream("index.json")?.bufferedReader()?.use { it.readText() }
@@ -138,7 +138,7 @@ class DictionarySettingsScreenModel(
             throw DictionaryImportException("already_imported")
         }
 
-        mutableState.update { it.copy(importProgress = "Importing dictionary info...") }
+        mutableState.update { it.copy(importProgress = MR.strings.dictionary_import_importing_info.getString(context)) }
 
         val styles = reader.getInputStream("styles.css")?.bufferedReader()?.use { it.readText() }
 
@@ -146,7 +146,7 @@ class DictionarySettingsScreenModel(
 
         importDictionary.importIndexTags(index, dictionaryId)
 
-        mutableState.update { it.copy(importProgress = "Parsing and importing dictionary files...") }
+        mutableState.update { it.copy(importProgress = MR.strings.dictionary_import_parsing_files.getString(context)) }
 
         val tagRegex = Regex("^tag_bank_\\d+\\.json$")
         val termRegex = Regex("^term_bank_\\d+\\.json$")
