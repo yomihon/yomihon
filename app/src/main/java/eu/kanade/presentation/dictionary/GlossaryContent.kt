@@ -2,8 +2,10 @@ package eu.kanade.presentation.dictionary
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -218,10 +220,10 @@ private fun StructuredElement(
         GlossaryTag.Link -> LinkNode(node, onLinkClick, textStyle = textStyle)
         GlossaryTag.Image -> Unit // Ignore images
         GlossaryTag.Details -> DetailsNode(node, indentLevel, parsedCss, onLinkClick, textStyle)
-        GlossaryTag.Summary -> SummaryNode(node, indentLevel)
-        GlossaryTag.Table -> TableNode(node, indentLevel, onLinkClick)
+        GlossaryTag.Summary -> SummaryNode(node, indentLevel, parsedCss, textStyle)
+        GlossaryTag.Table -> TableNode(node, indentLevel, parsedCss, onLinkClick, textStyle)
         GlossaryTag.Div -> DivNode(node, indentLevel, parsedCss, onLinkClick, textStyle)
-        GlossaryTag.Span -> SpanNode(node, indentLevel, parsedCss, onLinkClick, textStyle)
+        GlossaryTag.Span -> SpanNode(node, parsedCss, onLinkClick, textStyle)
         GlossaryTag.Thead, GlossaryTag.Tbody, GlossaryTag.Tfoot, GlossaryTag.Tr,
         GlossaryTag.Td, GlossaryTag.Th, GlossaryTag.Unknown, GlossaryTag.Rt, GlossaryTag.Rp -> {
             Column {
@@ -245,7 +247,7 @@ private fun StructuredList(
     Column(modifier = Modifier.padding(start = bulletIndent(1))) {
         children.forEach { child ->
             if (child is GlossaryNode.Element && child.tag == GlossaryTag.ListItem) {
-                StructuredListItem(child, indentLevel + 1, itemIndex, type, parsedCss, onLinkClick, textStyle)
+                StructuredListItem(child, indentLevel + 1, itemIndex, type, parsedCss, onLinkClick, baseTextStyle = textStyle)
                 itemIndex += 1
             } else {
                 StructuredNode(child, indentLevel, parsedCss, onLinkClick, textStyle)
@@ -262,8 +264,12 @@ private fun StructuredListItem(
     type: ListType,
     parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
-    textStyle: TextStyle,
+    baseTextStyle: TextStyle,
 ) {
+    val cssStyleMap = getCssStyles(node.attributes.dataAttributes, parsedCss)
+    val combinedStyleMap = cssStyleMap + node.attributes.style
+    val textStyle = applyTypography(baseTextStyle, combinedStyleMap)
+
     val inlineText = if (node.children.any { child -> child.hasBlockContent() }) {
         null
     } else {
@@ -364,6 +370,7 @@ private fun LinkNode(
     val href = node.attributes.properties["href"]
     val linkText = collectText(node.children).ifBlank { href ?: "" }
 
+    // There are other link parameters, but they're currently unused
     var queryParam: String? = null
     var typeParam: String? = null
     var primaryReadingParam: String? = null
@@ -449,12 +456,24 @@ private fun DetailsNode(
 }
 
 @Composable
-private fun SummaryNode(node: GlossaryNode.Element, indentLevel: Int) {
+private fun SummaryNode(
+    node: GlossaryNode.Element,
+    indentLevel: Int,
+    parsedCss: ParsedCss,
+    baseTextStyle: TextStyle,
+) {
+    val cssStyleMap = getCssStyles(node.attributes.dataAttributes, parsedCss)
+    val combinedStyleMap = cssStyleMap + node.attributes.style
+    val textStyle = applyTypography(
+        baseTextStyle.copy(fontWeight = FontWeight.SemiBold),
+        combinedStyleMap,
+    )
+
     val summary = collectText(node.children)
     TextWithReading(
         formattedText = summary,
-        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-        furiganaFontSize = MaterialTheme.typography.bodyMedium.fontSize * 0.60f,
+        style = textStyle,
+        furiganaFontSize = textStyle.fontSize * 0.60f,
         modifier = Modifier.padding(start = bulletIndent(indentLevel), bottom = 2.dp),
     )
 }
@@ -470,24 +489,31 @@ private fun DivNode(
     // Skip attribution - shown at card bottom via collapsible section
     if (node.attributes.dataAttributes["content"] == "attribution") return
 
-    // Merge CSS font styles from matching data attributes
     val cssStyleMap = getCssStyles(node.attributes.dataAttributes, parsedCss)
-
-    // Combine inline styles with CSS-derived styles (inline takes precedence)
     val combinedStyleMap = cssStyleMap + node.attributes.style
-
-    // Apply typography from combined styles
     val textStyle = applyTypography(baseTextStyle, combinedStyleMap)
 
-    val hasBackground = hasBoxStyle(node.attributes.style, node.attributes.dataAttributes, parsedCss)
-    val backgroundModifier = getBgModifier(
-        hasBackground = hasBackground,
-        cornerRadius = 8.dp,
-        horizontalPadding = 6.dp,
-        verticalPadding = 2.dp,
+    val baseFontSizeSp = baseTextStyle.fontSize.let { if(it.isSp) it.value else 14f }
+    val boxStyle = parseBoxStyle(combinedStyleMap, baseFontSizeSp)
+
+    fun GlossaryNode.hasFurigana(): Boolean =
+        this is GlossaryNode.Element && (tag == GlossaryTag.Ruby || children.any { it.hasFurigana() })
+
+    // If needed, apply extra top padding so furigana doesn't get cut off
+    val defaultPadding = if ((boxStyle.hasBackground || boxStyle.hasBorder) && node.children.any { it.hasFurigana() }) {
+        PaddingValues(start = 6.dp, end = 6.dp, top = 10.dp, bottom = 2.dp)
+    } else {
+        PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+    }
+
+    val boxModifier = applyBoxStyle(
+        boxStyle,
+        defaultCornerRadius = 8.dp,
+        defaultPadding = defaultPadding,
+        defaultMargin = PaddingValues(vertical = 2.dp)
     )
 
-    Column(modifier = backgroundModifier) {
+    Column(modifier = boxModifier) {
         node.children.forEach { child -> StructuredNode(child, indentLevel, parsedCss, onLinkClick, textStyle) }
     }
 }
@@ -495,29 +521,20 @@ private fun DivNode(
 @Composable
 private fun SpanNode(
     node: GlossaryNode.Element,
-    indentLevel: Int,
     parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
     baseTextStyle: TextStyle = MaterialTheme.typography.bodyMedium,
 ) {
-    // Merge CSS font styles from matching data attributes
     val cssStyleMap = getCssStyles(node.attributes.dataAttributes, parsedCss)
-
-    // Combine inline styles with CSS-derived styles (inline takes precedence)
     val combinedStyleMap = cssStyleMap + node.attributes.style
-
-    // Apply typography from combined styles
     val textStyle = applyTypography(
         baseTextStyle,
         combinedStyleMap
     )
-    val hasBackground = hasBoxStyle(node.attributes.style, node.attributes.dataAttributes, parsedCss)
-    val backgroundModifier = getBgModifier(
-        hasBackground = hasBackground,
-        cornerRadius = 4.dp,
-        horizontalPadding = 4.dp,
-        verticalPadding = 0.dp,
-    )
+
+    val baseFontSizeSp = baseTextStyle.fontSize.let { if(it.isSp) it.value else 14f }
+    val boxStyle = parseBoxStyle(combinedStyleMap, baseFontSizeSp)
+    val boxModifier = applyBoxStyle(boxStyle, defaultCornerRadius = 4.dp, defaultPadding = PaddingValues(horizontal = 4.dp))
 
     // Build annotated text for proper character-level wrapping
     val annotatedResult = remember(node.children) { buildAnnotatedText(node.children) }
@@ -528,7 +545,7 @@ private fun SpanNode(
             formattedText = annotatedResult.text,
             style = textStyle,
             furiganaFontSize = textStyle.fontSize * 0.60f,
-            modifier = backgroundModifier,
+            modifier = boxModifier,
         )
     } else {
         val linkColor = MaterialTheme.colorScheme.primary
@@ -552,7 +569,7 @@ private fun SpanNode(
         Text(
             text = annotatedString,
             style = textStyle,
-            modifier = backgroundModifier,
+            modifier = boxModifier,
         )
     }
 }
@@ -570,7 +587,6 @@ internal fun InlineNode(
         )
         is GlossaryNode.LineBreak -> { /* Ignore in inline context */ }
         is GlossaryNode.Element -> {
-            // Apply schema-defined styles (fontStyle, fontWeight) via applyTypography
             val styledTextStyle = applyTypography(textStyle, node.attributes.style)
 
             when (node.tag) {
@@ -628,21 +644,55 @@ private enum class ListType {
     Ordered,
 }
 
+/**
+ * Applies box styling using the user theme for color compatibility.
+ */
 @Composable
-private fun getBgModifier(
-    hasBackground: Boolean,
-    cornerRadius: Dp,
-    horizontalPadding: Dp,
-    verticalPadding: Dp,
+private fun applyBoxStyle(
+    boxStyle: BoxStyle,
+    defaultCornerRadius: Dp = 0.dp,
+    defaultPadding: PaddingValues = PaddingValues(),
+    defaultMargin: PaddingValues = PaddingValues(),
 ): Modifier {
-    return if (hasBackground) {
-        Modifier
-            .background(
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-                shape = RoundedCornerShape(cornerRadius)
-            )
-            .padding(horizontal = horizontalPadding, vertical = verticalPadding)
-    } else {
-        Modifier
+    if (!boxStyle.hasAnyStyle) return Modifier
+
+    val backgroundColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+    val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+    val cornerRadius = boxStyle.borderRadius?.dp ?: defaultCornerRadius
+    val shape = RoundedCornerShape(cornerRadius)
+
+    var modifier: Modifier = Modifier
+
+    // Apply margin (as outer padding)
+    if (boxStyle.hasMargin) {
+        modifier = modifier.padding(
+            start = boxStyle.marginStart?.dp ?: 0.dp,
+            end = boxStyle.marginEnd?.dp ?: 0.dp,
+            top = boxStyle.marginTop?.dp ?: 0.dp,
+            bottom = boxStyle.marginBottom?.dp ?: 0.dp,
+        )
+    } else if (boxStyle.hasBackground || boxStyle.hasBorder) {
+        modifier = modifier.padding(defaultMargin)
     }
+
+    if (boxStyle.hasBorder) {
+        modifier = modifier.border(1.dp, borderColor, shape)
+    }
+
+    if (boxStyle.hasBackground) {
+        modifier = modifier.background(backgroundColor, shape)
+    }
+
+    if (boxStyle.hasPadding) {
+        modifier = modifier.padding(
+            start = boxStyle.paddingStart?.dp ?: 0.dp,
+            end = boxStyle.paddingEnd?.dp ?: 0.dp,
+            top = boxStyle.paddingTop?.dp ?: 0.dp,
+            bottom = boxStyle.paddingBottom?.dp ?: 0.dp,
+        )
+    } else if (boxStyle.hasBackground || boxStyle.hasBorder) {
+        modifier = modifier.padding(defaultPadding)
+    }
+
+    return modifier
 }

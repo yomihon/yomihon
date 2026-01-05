@@ -464,28 +464,149 @@ private fun toCamelCase(cssProperty: String): String {
 }
 
 /**
- * Checks if the dictionary node has a box style.
- *
- * @param style Inline style properties from the element
- * @param dataAttributes Data attributes from the element (e.g., "content", "class")
- * @param parsedCss Parsed CSS from the dictionary's styles.css
+ * Represents parsed box styling properties from CSS.
+ * Background color uses theme-based values for display compatibility.
  */
-internal fun hasBoxStyle(
-    style: Map<String, String>,
-    dataAttributes: Map<String, String>,
-    parsedCss: ParsedCss,
-): Boolean {
-    // Check inline style properties for background/border
-    val hasStyleBox = style.keys.any { key ->
-        key.startsWith("background") || key.startsWith("border")
+data class BoxStyle(
+    val hasBackground: Boolean = false,
+    val hasBorder: Boolean = false,
+    val borderRadius: Float? = null,
+    val paddingStart: Float? = null,
+    val paddingEnd: Float? = null,
+    val paddingTop: Float? = null,
+    val paddingBottom: Float? = null,
+    val marginStart: Float? = null,
+    val marginEnd: Float? = null,
+    val marginTop: Float? = null,
+    val marginBottom: Float? = null,
+) {
+    companion object {
+        val EMPTY = BoxStyle()
     }
 
-    // Check if any dataAttribute value matches a selector that has box styles in CSS
-    val hasDataAttrBox = dataAttributes.values.any { value ->
-        value in parsedCss.boxSelectors
+    val hasPadding: Boolean
+        get() = paddingStart != null || paddingEnd != null || paddingTop != null || paddingBottom != null
+
+    val hasMargin: Boolean
+        get() = marginStart != null || marginEnd != null || marginTop != null || marginBottom != null
+
+    val hasAnyStyle: Boolean
+        get() = hasBackground || hasBorder || hasPadding || hasMargin
+}
+
+/**
+ * Parses a CSS style map into a BoxStyle.
+ * Checks for background, border, padding, and margin properties.
+ *
+ * @param styleMap CSS style properties to parse
+ * @param baseFontSizeSp Base font size in sp for em/rem unit conversion
+ */
+internal fun parseBoxStyle(styleMap: Map<String, String>, baseFontSizeSp: Float = 14f): BoxStyle {
+    var hasBackground = false
+    var hasBorder = false
+    var borderRadius: Float? = null
+    var paddingStart: Float? = null
+    var paddingEnd: Float? = null
+    var paddingTop: Float? = null
+    var paddingBottom: Float? = null
+    var marginStart: Float? = null
+    var marginEnd: Float? = null
+    var marginTop: Float? = null
+    var marginBottom: Float? = null
+
+    for ((key, value) in styleMap) {
+        when {
+            key == "backgroundColor" || key == "background" -> {
+                // Check if it's a meaningful background (not transparent/inherit)
+                if (value.isNotBlank() && value != "transparent" && value != "inherit" && value != "none") {
+                    hasBackground = true
+                }
+            }
+
+            key == "border" || key == "borderColor" || key == "borderWidth" -> {
+                if (value.isNotBlank() && value != "none" && value != "0" && value != "0px") {
+                    hasBorder = true
+                }
+            }
+
+            key == "borderRadius" -> {
+                borderRadius = parseDpValue(value, baseFontSizeSp)
+            }
+
+            key == "padding" -> {
+                val dp = parseDpValue(value, baseFontSizeSp)
+                if (dp != null) {
+                    paddingStart = dp
+                    paddingEnd = dp
+                    paddingTop = dp
+                    paddingBottom = dp
+                }
+            }
+            key == "paddingLeft" || key == "paddingInlineStart" -> {
+                paddingStart = parseDpValue(value, baseFontSizeSp)
+            }
+            key == "paddingRight" || key == "paddingInlineEnd" -> {
+                paddingEnd = parseDpValue(value, baseFontSizeSp)
+            }
+            key == "paddingTop" -> {
+                paddingTop = parseDpValue(value, baseFontSizeSp)
+            }
+            key == "paddingBottom" -> {
+                paddingBottom = parseDpValue(value, baseFontSizeSp)
+            }
+
+            key == "margin" -> {
+                val dp = parseDpValue(value, baseFontSizeSp)
+                if (dp != null) {
+                    marginStart = dp
+                    marginEnd = dp
+                    marginTop = dp
+                    marginBottom = dp
+                }
+            }
+            key == "marginLeft" || key == "marginInlineStart" -> {
+                marginStart = parseDpValue(value, baseFontSizeSp)
+            }
+            key == "marginRight" || key == "marginInlineEnd" -> {
+                marginEnd = parseDpValue(value, baseFontSizeSp)
+            }
+            key == "marginTop" -> {
+                marginTop = parseDpValue(value, baseFontSizeSp)
+            }
+            key == "marginBottom" -> {
+                marginBottom = parseDpValue(value, baseFontSizeSp)
+            }
+        }
     }
 
-    return hasStyleBox || hasDataAttrBox
+    return BoxStyle(
+        hasBackground = hasBackground,
+        hasBorder = hasBorder,
+        borderRadius = borderRadius,
+        paddingStart = paddingStart,
+        paddingEnd = paddingEnd,
+        paddingTop = paddingTop,
+        paddingBottom = paddingBottom,
+        marginStart = marginStart,
+        marginEnd = marginEnd,
+        marginTop = marginTop,
+        marginBottom = marginBottom,
+    )
+}
+
+/**
+ * Parses a CSS dimension value to a Float representing dp.
+ * Supports: px, em, rem, dp, and unitless numbers.
+ */
+private fun parseDpValue(value: String, baseFontSizeSp: Float): Float? {
+    val trimmed = value.trim().lowercase()
+    return when {
+        trimmed.endsWith("px") -> trimmed.removeSuffix("px").toFloatOrNull()
+        trimmed.endsWith("em") -> trimmed.removeSuffix("em").toFloatOrNull()?.times(baseFontSizeSp)
+        trimmed.endsWith("rem") -> trimmed.removeSuffix("rem").toFloatOrNull()?.times(baseFontSizeSp)
+        trimmed.endsWith("dp") -> trimmed.removeSuffix("dp").toFloatOrNull()
+        else -> trimmed.toFloatOrNull()
+    }
 }
 
 /**

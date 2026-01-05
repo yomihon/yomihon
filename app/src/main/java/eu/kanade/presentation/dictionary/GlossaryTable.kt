@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -30,7 +31,9 @@ import com.turtlekazu.furiganable.compose.m3.TextWithReading
 internal fun TableNode(
     node: GlossaryNode.Element,
     indentLevel: Int,
+    parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
+    baseTextStyle: TextStyle,
 ) {
     val model = remember(node) { buildTableModel(node) }
     if (model.rows.isEmpty()) return
@@ -41,7 +44,7 @@ internal fun TableNode(
             .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
     ) {
         model.rows.forEachIndexed { index, row ->
-            TableRowNode(row.segments, onLinkClick)
+            TableRowNode(row.segments, parsedCss, onLinkClick, baseTextStyle)
             if (index < model.rows.size - 1) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
             }
@@ -52,7 +55,9 @@ internal fun TableNode(
 @Composable
 private fun TableRowNode(
     segments: List<TableSegment>,
+    parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
+    baseTextStyle: TextStyle,
 ) {
     if (segments.isEmpty()) return
 
@@ -67,7 +72,9 @@ private fun TableRowNode(
             } else {
                 TableCellNode(
                     node = seg.cell!!,
+                    parsedCss = parsedCss,
                     onLinkClick = onLinkClick,
+                    baseTextStyle = baseTextStyle,
                     modifier = cellModifier,
                 )
             }
@@ -87,15 +94,26 @@ private fun TableRowNode(
 @Composable
 private fun TableCellNode(
     node: GlossaryNode.Element,
+    parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
+    baseTextStyle: TextStyle,
     modifier: Modifier = Modifier,
 ) {
     val isHeader = node.tag == GlossaryTag.Th
     val textAlign = if (isHeader) TextAlign.Center else TextAlign.Start
 
-    val textStyle = MaterialTheme.typography.bodyMedium.copy(
-        fontWeight = if (isHeader) FontWeight.Bold else null,
-        textAlign = textAlign,
+    // Get CSS styles from parsed stylesheet
+    val cssStyleMap = getCssStyles(node.attributes.dataAttributes, parsedCss)
+    // Combine with inline styles (inline takes precedence)
+    val combinedStyleMap = cssStyleMap + node.attributes.style
+
+    // Apply typography from combined styles
+    val textStyle = applyTypography(
+        baseTextStyle.copy(
+            fontWeight = if (isHeader) FontWeight.Bold else baseTextStyle.fontWeight,
+            textAlign = textAlign,
+        ),
+        combinedStyleMap,
     )
 
     // Check for form indicator cells
