@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:347252887835:android:8ff11bb9914ace6a6543be",
+        "mobilesdk_app_id": "1:347252887835:android:3b8f3c10fb5058276543be",
         "android_client_info": {
-          "package_name": "app.mihonocr"
+          "package_name": "app.yomihon"
         }
       },
       "oauth_client": [],
@@ -26,9 +26,9 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:347252887835:android:5f2b989f146eb1496543be",
+        "mobilesdk_app_id": "1:347252887835:android:dfe9ccbf46f758196543be",
         "android_client_info": {
-          "package_name": "app.mihonocr.debug"
+          "package_name": "app.yomihon.debug"
         }
       },
       "oauth_client": [],
@@ -45,9 +45,9 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:347252887835:android:c22a992d466ed2776543be",
+        "mobilesdk_app_id": "1:347252887835:android:399d1fd541b2df826543be",
         "android_client_info": {
-          "package_name": "app.mihonocr.dev"
+          "package_name": "app.yomihon.dev"
         }
       },
       "oauth_client": [],

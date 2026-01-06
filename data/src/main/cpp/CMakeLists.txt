@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22.1)
 
-project("mihon_ocr")
+project("yomihon_ocr")
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
@@ -40,7 +40,7 @@ FetchContent_MakeAvailable(flatbuffers)
 # Fetch Pre-built LiteRT Next
 FetchContent_Declare(
     litert_prebuilt
-    URL "https://github.com/mihon-ocr/litert-cpp-dist/releases/download/${LITERT_VERSION}/litert_android.zip"
+    URL "https://github.com/yomihon/litert-cpp-dist/releases/download/${LITERT_VERSION}/litert_android.zip"
 )
 FetchContent_Populate(litert_prebuilt)
 
@@ -101,38 +101,38 @@ target_link_libraries(litert_cc_api PUBLIC
 )
 
 # Build Project
-add_library(mihon_ocr SHARED
+add_library(yomihon_ocr SHARED
     ocr_native.cpp
     ocr_inference.cpp
     text_postprocessor.cpp
     vocab_data.cpp
 )
 
-target_link_libraries(mihon_ocr
+target_link_libraries(yomihon_ocr
     ${log-lib}
     ${android-lib}
     ${jnigraphics-lib}
     litert_cc_api
 )
 
-target_link_options(mihon_ocr PRIVATE "-Wl,-z,max-page-size=16384")
+target_link_options(yomihon_ocr PRIVATE "-Wl,-z,max-page-size=16384")
 
 # Check if the GPU library exists for this ABI before trying to copy it
 # (armeabi-v7a and x86 does not yet have the OpenCL accelerator)
 set(GPU_LIB_SOURCE "${LITERT_ABI_LIB_DIR}/libLiteRtOpenClAccelerator.so")
 
 if(EXISTS "${GPU_LIB_SOURCE}")
-    add_custom_command(TARGET mihon_ocr POST_BUILD
+    add_custom_command(TARGET yomihon_ocr POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${GPU_LIB_SOURCE}"
-        "$<TARGET_FILE_DIR:mihon_ocr>/libLiteRtOpenClAccelerator.so"
+        "$<TARGET_FILE_DIR:yomihon_ocr>/libLiteRtOpenClAccelerator.so"
         COMMENT "Copying GPU accelerator library for runtime loading"
     )
 endif()
 
-add_custom_command(TARGET mihon_ocr POST_BUILD
+add_custom_command(TARGET yomihon_ocr POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${LITERT_ABI_LIB_DIR}/libLiteRt.so"
-    "$<TARGET_FILE_DIR:mihon_ocr>/libLiteRt.so"
+    "$<TARGET_FILE_DIR:yomihon_ocr>/libLiteRt.so"
     COMMENT "Copying core LiteRT library for runtime loading"
 )

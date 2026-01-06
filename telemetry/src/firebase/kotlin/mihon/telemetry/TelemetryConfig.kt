@@ -11,7 +11,7 @@ object TelemetryConfig {
 
     fun init(context: Context) {
         // To stop forks/test builds from polluting our data
-        if (!context.isMihonProductionApp()) return
+        if (!context.isYomihonProductionApp()) return
 
         analytics = FirebaseAnalytics.getInstance(context)
         FirebaseApp.initializeApp(context)
@@ -26,15 +26,15 @@ object TelemetryConfig {
         crashlytics?.isCrashlyticsCollectionEnabled = enabled
     }
 
-    private fun Context.isMihonProductionApp(): Boolean {
-        if (packageName !in MIHON_PACKAGES) return false
+    private fun Context.isYomihonProductionApp(): Boolean {
+        if (packageName !in YOMIHON_PACKAGES) return false
 
         return packageManager.getPackageInfo(packageName, SignatureFlags)
             .getCertificateFingerprints()
-            .any { it == MIHON_CERTIFICATE_FINGERPRINT }
+            .any { it == YOMIHON_CERTIFICATE_FINGERPRINT }
     }
 }
 
-private val MIHON_PACKAGES = hashSetOf("app.mihonocr", "app.mihonocr.debug", "app.mihonocr.dev")
-private const val MIHON_CERTIFICATE_FINGERPRINT =
+private val YOMIHON_PACKAGES = hashSetOf("app.yomihon", "app.yomihon.debug", "app.yomihon.dev")
+private const val YOMIHON_CERTIFICATE_FINGERPRINT =
     "47:94:5A:AD:F2:69:AD:6C:E3:E0:57:FE:96:E7:26:2A:41:17:CC:76:E3:47:4D:FE:B9:16:E2:CA:90:00:EE:D4"

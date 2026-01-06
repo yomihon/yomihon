@@ -157,7 +157,7 @@ object AboutScreen : Screen() {
                 item {
                     TextPreferenceWidget(
                         title = stringResource(MR.strings.privacy_policy),
-                        onPreferenceClick = { uriHandler.openUri("https://mihon-ocr.github.io/privacy/") },
+                        onPreferenceClick = { uriHandler.openUri("https://yomihon.github.io/privacy/") },
                     )
                 }
 
@@ -171,9 +171,10 @@ object AboutScreen : Screen() {
                         LinkIcon(
                             label = stringResource(MR.strings.website),
                             icon = Icons.Outlined.Public,
-                            url = "https://mihon-ocr.github.io/",
+                            url = "https://yomihon.github.io/",
                         )
                         /*
+                        Not currently used socials
                         LinkIcon(
                             label = "Discord",
                             icon = CustomIcons.Discord,
@@ -198,7 +199,7 @@ object AboutScreen : Screen() {
                         LinkIcon(
                             label = "GitHub",
                             icon = CustomIcons.Github,
-                            url = "https://github.com/mihon-ocr",
+                            url = "https://github.com/yomihon/yomihon",
                         )
                     }
                 }

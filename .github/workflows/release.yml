@@ -10,7 +10,7 @@ concurrency:
 
 jobs:
   get_tag:
-    if: github.repository == 'mihon-ocr/mihon-ocr'
+    if: github.repository == 'yomihon/yomihon'
     name: Extract tag name
     runs-on: 'ubuntu-24.04'
     outputs:
@@ -22,7 +22,7 @@ jobs:
         run: echo "tag=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
 
   build:
-    if: github.repository == 'mihon-ocr/mihon-ocr'
+    if: github.repository == 'yomihon/yomihon'
     name: Build
     runs-on: 'ubuntu-24.04'
     needs: get_tag
@@ -58,25 +58,25 @@ jobs:
         run: |
           set -e
 
-          mv app/build/outputs/apk/release/app-universal-release-unsigned-signed.apk mihonocr-${{ needs.get_tag.outputs.tag }}.apk
-          mv app/build/outputs/apk/release/app-arm64-v8a-release-unsigned-signed.apk mihonocr-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
-          mv app/build/outputs/apk/release/app-armeabi-v7a-release-unsigned-signed.apk mihonocr-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
-          mv app/build/outputs/apk/release/app-x86-release-unsigned-signed.apk mihonocr-x86-${{ needs.get_tag.outputs.tag }}.apk
-          mv app/build/outputs/apk/release/app-x86_64-release-unsigned-signed.apk mihonocr-x86_64-${{ needs.get_tag.outputs.tag }}.apk
+          mv app/build/outputs/apk/release/app-universal-release-unsigned-signed.apk yomihon-${{ needs.get_tag.outputs.tag }}.apk
+          mv app/build/outputs/apk/release/app-arm64-v8a-release-unsigned-signed.apk yomihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
+          mv app/build/outputs/apk/release/app-armeabi-v7a-release-unsigned-signed.apk yomihon-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
+          mv app/build/outputs/apk/release/app-x86-release-unsigned-signed.apk yomihon-x86-${{ needs.get_tag.outputs.tag }}.apk
+          mv app/build/outputs/apk/release/app-x86_64-release-unsigned-signed.apk yomihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: mihonocr
+          name: yomihon
           path: |
-            mihonocr-${{ needs.get_tag.outputs.tag }}.apk
-            mihonocr-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
-            mihonocr-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
-            mihonocr-x86-${{ needs.get_tag.outputs.tag }}.apk
-            mihonocr-x86_64-${{ needs.get_tag.outputs.tag }}.apk
+            yomihon-${{ needs.get_tag.outputs.tag }}.apk
+            yomihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
+            yomihon-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
+            yomihon-x86-${{ needs.get_tag.outputs.tag }}.apk
+            yomihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk
 
   build_foss:
-    if: github.repository == 'mihon-ocr/mihon-ocr'
+    if: github.repository == 'yomihon/yomihon'
     name: Build (FOSS)
     runs-on: ubuntu-24.04
     needs: get_tag
@@ -114,16 +114,16 @@ jobs:
         run: |
           set -e
 
-          mv app/build/outputs/apk/foss/app-universal-foss-unsigned-signed.apk mihonocr-${{ needs.get_tag.outputs.tag }}-foss.apk
+          mv app/build/outputs/apk/foss/app-universal-foss-unsigned-signed.apk yomihon-${{ needs.get_tag.outputs.tag }}-foss.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: mihonocr-foss
-          path: mihonocr-${{ needs.get_tag.outputs.tag }}-foss.apk
+          name: yomihon-foss
+          path: yomihon-${{ needs.get_tag.outputs.tag }}-foss.apk
 
   release:
-    if: github.repository == 'mihon-ocr/mihon-ocr'
+    if: github.repository == 'yomihon/yomihon'
     name: Create GitHub Release
     runs-on: ubuntu-24.04
     needs: [get_tag, build, build_foss]
@@ -141,16 +141,16 @@ jobs:
         with:
           failOnError: false
           name: |
-            mihonocr
-            mihonocr-foss
+            yomihon
+            yomihon-foss
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@62c96d0c4e8a889135c1f3a25910db8dbe0e85f7 # v2.3.4
         with:
           tag_name: ${{ needs.get_tag.outputs.tag }}
-          name: MihonOCR ${{ needs.get_tag.outputs.tag }}
+          name: Yomihon ${{ needs.get_tag.outputs.tag }}
           body: |
-            Check out the [past release notes](https://github.com/mihon-ocr/mihon-ocr/releases) if you’re upgrading from an earlier version.
+            Check out the [past release notes](https://github.com/yomihon/yomihon/releases) if you’re upgrading from an earlier version.
 
             <!-->
 
@@ -160,14 +160,14 @@ jobs:
 
             > [!TIP]
             >
-            > ### If you are unsure which version to download then go with `mihonocr-${{ needs.get_tag.outputs.tag }}.apk`
+            > ### If you are unsure which version to download then go with `yomihon-${{ needs.get_tag.outputs.tag }}.apk`
           files: |
-            mihonocr-${{ needs.get_tag.outputs.tag }}.apk
-            mihonocr-${{ needs.get_tag.outputs.tag }}-foss.apk
-            mihonocr-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
-            mihonocr-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
-            mihonocr-x86-${{ needs.get_tag.outputs.tag }}.apk
-            mihonocr-x86_64-${{ needs.get_tag.outputs.tag }}.apk
+            yomihon-${{ needs.get_tag.outputs.tag }}.apk
+            yomihon-${{ needs.get_tag.outputs.tag }}-foss.apk
+            yomihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
+            yomihon-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
+            yomihon-x86-${{ needs.get_tag.outputs.tag }}.apk
+            yomihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk
           draft: true
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}

@@ -268,7 +268,7 @@ object SettingsDictionaryScreen : Screen {
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.clickable {
-                                uriHandler.openUri("https://mihon-ocr.github.io/docs/guides/dictionaries")
+                                uriHandler.openUri("https://yomihon.github.io/docs/guides/dictionaries")
                             },
                         )
                     }

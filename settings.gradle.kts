@@ -37,7 +37,7 @@ dependencyResolutionManagement {
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
-rootProject.name = "MihonOCR"
+rootProject.name = "Yomihon"
 include(":app")
 include(":core-metadata")
 include(":core:archive")

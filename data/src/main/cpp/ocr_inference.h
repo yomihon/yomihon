@@ -1,5 +1,5 @@
-#ifndef MIHON_OCR_INFERENCE_H
-#define MIHON_OCR_INFERENCE_H
+#ifndef YOMIHON_OCR_INFERENCE_H
+#define YOMIHON_OCR_INFERENCE_H
 
 #include <vector>
 #include <string>
@@ -79,4 +79,4 @@ private:
 
 } // namespace mihon
 
-#endif // MIHON_OCR_INFERENCE_H
+#endif // YOMIHON_OCR_INFERENCE_H

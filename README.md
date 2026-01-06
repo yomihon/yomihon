@@ -1,10 +1,10 @@
 <div align="center">
 
 <a href="#">
-    <img src="./.github/assets/logo.png" alt="MihonOCR logo" title="MihonOCR logo" width="128"/>
+    <img src="./.github/assets/logo.png" alt="Yomihon logo" title="Yomihon logo" width="128"/>
 </a>
 
-# Mihon [OCR](#)
+# Yomihon
 
 ### Full-featured reader
 Discover and read manga, webtoons, comics, and more – easier than ever on your Android device.
@@ -79,7 +79,7 @@ The developer(s) of this application does not have any affiliation with the cont
 <pre>
 Copyright © 2015 Javier Tomás
 Copyright © 2024 Mihon Open Source Project
-Copyright © 2025 MihonOCR
+Copyright © 2025 Yomihon
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

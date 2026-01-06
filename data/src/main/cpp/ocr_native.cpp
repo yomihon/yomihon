@@ -12,7 +12,7 @@
 #include "vocab_data.h"
 #include "ocr_inference.h"
 
-#define LOG_TAG "MihonOCR_Native"
+#define LOG_TAG "Yomihon_Native"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
@@ -144,7 +144,7 @@ Java_mihon_data_ocr_OcrRepositoryImpl_nativeOcrInit(
         g_imageBuffer.resize(IMAGE_SIZE * IMAGE_SIZE * 3);
         g_tokenBuffer.resize(MAX_SEQUENCE_LENGTH);
 
-        LOGI("app.mihonocr.dev: Native OCR engine initialized successfully (ACCELERATOR=%s/%s)",
+        LOGI("app.yomihon: Native OCR engine initialized successfully (ACCELERATOR=%s/%s)",
              g_ocrInference->IsEncoderUsingGpu() ? "GPU" : "CPU",
              g_ocrInference->IsDecoderUsingGpu() ? "GPU" : "CPU");
         return JNI_TRUE;
@@ -182,7 +182,7 @@ Java_mihon_data_ocr_OcrRepositoryImpl_nativeRecognizeText(
         );
         auto t1 = std::chrono::high_resolution_clock::now();
         auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
-        LOGI("app.mihonocr.dev: Native inference overall time: %lld ms", static_cast<long long>(diff));
+        LOGI("app.yomihon: Native inference overall time: %lld ms", static_cast<long long>(diff));
 
         if (token_count <= 0) {
             LOGE("Inference failed or produced no tokens");

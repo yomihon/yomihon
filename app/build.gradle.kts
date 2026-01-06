@@ -24,7 +24,7 @@ android {
     namespace = "eu.kanade.tachiyomi"
 
     defaultConfig {
-        applicationId = "app.mihonocr"
+        applicationId = "app.yomihon"
 
         versionCode = 13
         versionName = "0.0.1"

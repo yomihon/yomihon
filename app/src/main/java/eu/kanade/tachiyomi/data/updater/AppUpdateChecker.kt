@@ -13,11 +13,6 @@ class AppUpdateChecker {
     private val getApplicationRelease: GetApplicationRelease by injectLazy()
 
     suspend fun checkForUpdate(context: Context, forceCheck: Boolean = false): GetApplicationRelease.Result {
-        // Disable app update checks for older Android versions that we're going to drop support for
-        // if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-        //     return GetApplicationRelease.Result.OsTooOld
-        // }
-
         return withIOContext {
             val result = getApplicationRelease.await(
                 GetApplicationRelease.Arguments(
@@ -42,10 +37,10 @@ class AppUpdateChecker {
 
 val GITHUB_REPO: String by lazy {
     if (isPreviewBuildType) {
-        // "mihon-ocr/mihon-ocr-preview"
-        "mihon-ocr/mihon-ocr"
+        // Preview builds/repo aren't available yet.
+        "yomihon/yomihon"
     } else {
-        "mihon-ocr/mihon-ocr"
+        "yomihon/yomihon"
     }
 }
 

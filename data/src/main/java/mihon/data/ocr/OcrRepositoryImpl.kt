@@ -39,7 +39,7 @@ class OcrRepositoryImpl(
 
         init {
             // Load the GPU accelerator library first (if available)
-            // This must be done before loading mihon_ocr so its symbols can be used
+            // This must be done before loading yomihon_ocr so its symbols can be used
             try {
                 val startLibLoad = System.nanoTime()
                 System.loadLibrary("LiteRtOpenClAccelerator")
@@ -52,11 +52,11 @@ class OcrRepositoryImpl(
             // Now load the main library
             try {
                 val startLoadMain = System.nanoTime()
-                System.loadLibrary("mihon_ocr")
+                System.loadLibrary("yomihon_ocr")
                 val ms = (System.nanoTime() - startLoadMain) / NS_TO_MS
-                logcat(LogPriority.INFO) { "Loaded mihon_ocr main native library (took $ms ms)" }
+                logcat(LogPriority.INFO) { "Loaded yomihon_ocr main native library (took $ms ms)" }
             } catch (e: UnsatisfiedLinkError) {
-                logcat(LogPriority.ERROR, e) { "Failed to load mihon_ocr native library: ${e.message}" }
+                logcat(LogPriority.ERROR, e) { "Failed to load yomihon_ocr native library: ${e.message}" }
                 throw e
             }
         }
@@ -97,7 +97,7 @@ class OcrRepositoryImpl(
             if (prepMs > 0) {
                 // Log only if there was measurable preparation time to reduce noise
                 logcat(LogPriority.INFO) { "OCR: prepareImage took $prepMs ms" }
-                logcat(LogPriority.INFO) { "app.mihonocr.dev: OCR Prep: prepareImage took $prepMs ms" }
+                logcat(LogPriority.INFO) { "app.yomihon.dev: OCR Prep: prepareImage took $prepMs ms" }
             }
 
             try {
