@@ -48,9 +48,11 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.tachiyomi.ui.dictionary.DictionarySearchScreenModel
+import mihon.domain.dictionary.css.parseDictionaryCss
 import mihon.domain.dictionary.model.Dictionary
 import mihon.domain.dictionary.model.DictionaryTerm
 import mihon.domain.dictionary.model.DictionaryTermMeta
+import mihon.domain.dictionary.model.extractAttributionText
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -318,7 +320,7 @@ internal fun DictionaryTermCard(
 
             // Attribution section (hidden by default, expands on dictionary name click)
             val attributionText = remember(term.glossary) {
-                extractAttributionText(term.glossary)
+                term.glossary.extractAttributionText()
             }
             if (attributionText != null) {
                 AnimatedVisibility(visible = showAttribution) {

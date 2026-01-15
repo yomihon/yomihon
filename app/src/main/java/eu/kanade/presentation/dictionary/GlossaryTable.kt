@@ -23,8 +23,12 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import mihon.domain.dictionary.css.ParsedCss
+import mihon.domain.dictionary.css.getCssStyles
 import mihon.domain.dictionary.model.GlossaryNode
 import mihon.domain.dictionary.model.GlossaryTag
+import mihon.domain.dictionary.model.collectText
+import mihon.domain.dictionary.model.hasBlockContent
 import com.turtlekazu.furiganable.compose.m3.TextWithReading
 
 @Composable
@@ -118,7 +122,7 @@ private fun TableCellNode(
 
     // Check for form indicator cells
     val formClass = node.attributes.dataAttributes["class"]
-    val cellContent = collectText(node.children)
+    val cellContent = node.children.collectText()
 
     Box(
         modifier = modifier

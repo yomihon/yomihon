@@ -28,10 +28,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import mihon.domain.dictionary.css.BoxStyle
+import mihon.domain.dictionary.css.ParsedCss
+import mihon.domain.dictionary.css.getCssStyles
+import mihon.domain.dictionary.css.parseBoxStyle
 import mihon.domain.dictionary.model.GlossaryEntry
 import mihon.domain.dictionary.model.GlossaryImageAttributes
 import mihon.domain.dictionary.model.GlossaryNode
 import mihon.domain.dictionary.model.GlossaryTag
+import mihon.domain.dictionary.model.collectText
+import mihon.domain.dictionary.model.containsLink
+import mihon.domain.dictionary.model.extractForms
+import mihon.domain.dictionary.model.hasBlockContent
+import mihon.domain.dictionary.model.hasFurigana
 import com.turtlekazu.furiganable.compose.m3.TextWithReading
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -47,7 +56,7 @@ fun GlossarySection(
     if (entries.isEmpty()) return
 
     if (isFormsEntry) {
-        val forms = remember(entries) { extractForms(entries) }
+        val forms = remember(entries) { entries.extractForms() }
         if (forms.isNotEmpty()) {
             FormsRow(forms = forms, modifier = modifier)
             return
@@ -135,7 +144,7 @@ private fun StructuredDefinition(
         if (containsLink) {
             InlineDefinitionRow(nodes, indentLevel, onLinkClick)
         } else {
-            DefinitionRow(text = collectText(nodes), indentLevel = indentLevel)
+            DefinitionRow(text = nodes.collectText(), indentLevel = indentLevel)
         }
         return
     }
@@ -273,7 +282,7 @@ private fun StructuredListItem(
     val inlineText = if (node.children.any { child -> child.hasBlockContent() }) {
         null
     } else {
-        collectText(node.children)
+        node.children.collectText()
     }
     val containsLink = node.children.containsLink()
 
@@ -343,8 +352,8 @@ private fun RubyNode(
         .filter { it.tag == GlossaryTag.Rt }
         .flatMap { it.children }
 
-    val baseText = collectText(baseNodes)
-    val readingText = collectText(readingNodes)
+    val baseText = baseNodes.collectText()
+    val readingText = readingNodes.collectText()
 
     val furiganaText = if (readingText.isNotBlank()) {
         "[$baseText[$readingText]]"
@@ -360,6 +369,7 @@ private fun RubyNode(
     )
 }
 
+@Suppress("AssignedValueIsNeverRead", "VariableNeverRead")
 @Composable
 private fun LinkNode(
     node: GlossaryNode.Element,
@@ -368,10 +378,10 @@ private fun LinkNode(
     textStyle: TextStyle = MaterialTheme.typography.bodyMedium,
 ) {
     val href = node.attributes.properties["href"]
-    val linkText = collectText(node.children).ifBlank { href ?: "" }
+    val linkText = node.children.collectText().ifBlank { href ?: "" }
 
-    // There are other link parameters, but they're currently unused
     var queryParam: String? = null
+    // Other link parameters, but they're currently unused
     var typeParam: String? = null
     var primaryReadingParam: String? = null
 
@@ -401,9 +411,7 @@ private fun LinkNode(
         }
     }
 
-    // Logic to determine display text and click target
     val isDictionaryLink = queryParam != null
-
     val displayText = if (isDictionaryLink) {
         linkText
     } else if (!href.isNullOrBlank()) {
@@ -469,7 +477,7 @@ private fun SummaryNode(
         combinedStyleMap,
     )
 
-    val summary = collectText(node.children)
+    val summary = node.children.collectText()
     TextWithReading(
         formattedText = summary,
         style = textStyle,
@@ -495,9 +503,6 @@ private fun DivNode(
 
     val baseFontSizeSp = baseTextStyle.fontSize.let { if(it.isSp) it.value else 14f }
     val boxStyle = parseBoxStyle(combinedStyleMap, baseFontSizeSp)
-
-    fun GlossaryNode.hasFurigana(): Boolean =
-        this is GlossaryNode.Element && (tag == GlossaryTag.Ruby || children.any { it.hasFurigana() })
 
     // If needed, apply extra top padding so furigana doesn't get cut off
     val defaultPadding = if ((boxStyle.hasBackground || boxStyle.hasBorder) && node.children.any { it.hasFurigana() }) {
@@ -596,7 +601,7 @@ internal fun InlineNode(
                 }
                 GlossaryTag.Link -> LinkNode(node, onLinkClick, modifier = Modifier, textStyle = styledTextStyle)
                 else -> {
-                    val text = collectText(listOf(node))
+                    val text = listOf(node).collectText()
                     if (text.isNotBlank()) {
                         TextWithReading(
                             formattedText = text,
