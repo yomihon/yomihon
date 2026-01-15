@@ -506,7 +506,7 @@ private fun DivNode(
         PaddingValues(horizontal = 6.dp, vertical = 2.dp)
     }
 
-    val boxModifier = applyBoxStyle(
+    val boxModifier = Modifier.applyBoxStyle(
         boxStyle,
         defaultCornerRadius = 8.dp,
         defaultPadding = defaultPadding,
@@ -534,7 +534,7 @@ private fun SpanNode(
 
     val baseFontSizeSp = baseTextStyle.fontSize.let { if(it.isSp) it.value else 14f }
     val boxStyle = parseBoxStyle(combinedStyleMap, baseFontSizeSp)
-    val boxModifier = applyBoxStyle(boxStyle, defaultCornerRadius = 4.dp, defaultPadding = PaddingValues(horizontal = 4.dp))
+    val boxModifier = Modifier.applyBoxStyle(boxStyle, defaultCornerRadius = 4.dp, defaultPadding = PaddingValues(horizontal = 4.dp))
 
     // Build annotated text for proper character-level wrapping
     val annotatedResult = remember(node.children) { buildAnnotatedText(node.children) }
@@ -648,20 +648,20 @@ private enum class ListType {
  * Applies box styling using the user theme for color compatibility.
  */
 @Composable
-private fun applyBoxStyle(
+private fun Modifier.applyBoxStyle(
     boxStyle: BoxStyle,
     defaultCornerRadius: Dp = 0.dp,
     defaultPadding: PaddingValues = PaddingValues(),
     defaultMargin: PaddingValues = PaddingValues(),
 ): Modifier {
-    if (!boxStyle.hasAnyStyle) return Modifier
+    var modifier: Modifier = this
+
+    if (!boxStyle.hasAnyStyle) return modifier
 
     val backgroundColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
     val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
     val cornerRadius = boxStyle.borderRadius?.dp ?: defaultCornerRadius
     val shape = RoundedCornerShape(cornerRadius)
-
-    var modifier: Modifier = Modifier
 
     // Apply margin (as outer padding)
     if (boxStyle.hasMargin) {
