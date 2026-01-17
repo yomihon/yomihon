@@ -40,7 +40,7 @@ FetchContent_MakeAvailable(flatbuffers)
 # Fetch Pre-built LiteRT Next
 FetchContent_Declare(
     litert_prebuilt
-    URL "https://github.com/yomihon/litert-cpp-dist/releases/download/${LITERT_VERSION}/litert_android.zip"
+    URL "https://github.com/mihon-ocr/litert-cpp-dist/releases/download/${LITERT_VERSION}/litert_android.zip"
 )
 FetchContent_Populate(litert_prebuilt)
 
