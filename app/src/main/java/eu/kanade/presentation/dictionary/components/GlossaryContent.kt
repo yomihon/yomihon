@@ -1,4 +1,4 @@
-package eu.kanade.presentation.dictionary
+package eu.kanade.presentation.dictionary.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

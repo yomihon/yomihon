@@ -1,4 +1,4 @@
-package eu.kanade.presentation.dictionary
+package eu.kanade.presentation.dictionary.components
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -37,7 +37,7 @@ object FrequencyFormatter {
     /**
      * Parse frequency data from term meta entries.
      */
-    fun parseFrequencies(termMetaList: List<DictionaryTermMeta>): List<FrequencyData> {
+    private fun parseFrequencies(termMetaList: List<DictionaryTermMeta>): List<FrequencyData> {
         val frequencies = termMetaList
             .filter { it.mode == TermMetaMode.FREQUENCY }
             .mapNotNull { parseFrequency(it) }

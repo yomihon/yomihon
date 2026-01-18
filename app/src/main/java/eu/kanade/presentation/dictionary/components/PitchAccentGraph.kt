@@ -1,4 +1,4 @@
-package eu.kanade.presentation.dictionary
+package eu.kanade.presentation.dictionary.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
@@ -126,7 +126,7 @@ private fun PitchAccentChip(
  * - Devoiced indicators (strikethrough) for museika
  */
 @Composable
-fun PitchAccentGraph(
+private fun PitchAccentGraph(
     pattern: PitchPattern,
     modifier: Modifier = Modifier,
     moraWidth: Dp = 18.dp,
@@ -226,14 +226,14 @@ fun PitchAccentGraph(
             val lastMora = morae.last()
             val lastX = moraWidthPx * (morae.size - 1) + moraWidthPx / 2
             val lastY = if (lastMora.pitch == PitchLevel.HIGH) highY else lowY
-            
+
             // Use the calculated particle pitch from the pattern
             val particleY = if (pattern.particlePitch == PitchLevel.HIGH) highY else lowY
 
             // Heiban (0): Last Mora HIGH -> Particle HIGH. Graph should show a dashed line going straight.
             // Odaka (N): Last Mora HIGH -> Particle LOW. Graph should show a dashed line going down.
             // Atamadaka (1): Last Mora LOW -> Particle LOW. No dashed line needed.
-            
+
             if (lastMora.pitch == PitchLevel.HIGH) {
                 drawLine(
                     color = lineColor.copy(alpha = 0.5f),

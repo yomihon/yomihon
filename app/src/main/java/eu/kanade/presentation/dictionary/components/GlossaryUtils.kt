@@ -7,7 +7,7 @@
  * CSS parsing is in:
  *   mihon.domain.dictionary.css.CssParser
  */
-package eu.kanade.presentation.dictionary
+package eu.kanade.presentation.dictionary.components
 
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle

@@ -529,18 +529,20 @@ class ReaderActivity : BaseActivity() {
                     )
                 }
                 is ReaderViewModel.Dialog.OcrResult -> {
+                    val searchState by dictionarySearchScreenModel.state.collectAsState()
                     OcrResultBottomSheet(
                         onDismissRequest = onDismissRequest,
                         text = dialog.text,
                         onCopyText = {
                             val clipboard = getSystemService<ClipboardManager>()
-                            val currentQuery = dictionarySearchScreenModel.state.value.query
                             clipboard?.setPrimaryClip(
-                                ClipData.newPlainText(null, currentQuery),
+                                ClipData.newPlainText(null, searchState.query),
                             )
                             toast(MR.strings.action_copy_to_clipboard)
                         },
-                        searchScreenModel = dictionarySearchScreenModel,
+                        searchState = searchState,
+                        onQueryChange = dictionarySearchScreenModel::updateQuery,
+                        onSearch = dictionarySearchScreenModel::search,
                     )
                 }
                 null -> {}

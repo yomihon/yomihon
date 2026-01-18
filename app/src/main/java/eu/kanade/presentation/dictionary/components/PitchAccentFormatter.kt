@@ -1,4 +1,4 @@
-package eu.kanade.presentation.dictionary
+package eu.kanade.presentation.dictionary.components
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -235,7 +235,7 @@ internal object PitchAccentFormatter {
      * - Small tsu (っ/ッ) = 1 mora
      * - N (ん/ン) = 1 mora
      */
-    fun splitToMorae(reading: String): List<String> {
+    private fun splitToMorae(reading: String): List<String> {
         val morae = mutableListOf<String>()
         var i = 0
 
