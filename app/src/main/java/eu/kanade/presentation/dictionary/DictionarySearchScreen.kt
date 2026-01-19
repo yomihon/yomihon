@@ -23,7 +23,7 @@ fun DictionarySearchScreen(
     state: DictionarySearchScreenModel.State,
     snackbarHostState: SnackbarHostState,
     onQueryChange: (String) -> Unit,
-    onSearch: () -> Unit,
+    onSearch: (String) -> Unit,
     onTermClick: (DictionaryTerm) -> Unit,
     onOpenDictionarySettings: () -> Unit,
 ) {
@@ -44,20 +44,22 @@ fun DictionarySearchScreen(
             SearchBar(
                 query = state.query,
                 onQueryChange = onQueryChange,
-                onSearch = onSearch,
+                onSearch = { onSearch(state.query) },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
 
             HorizontalDivider()
 
             DictionaryResults(
+                query = state.results?.query ?: "",
+                highlightRange = state.results?.highlightRange,
                 isLoading = state.isLoading,
                 isSearching = state.isSearching,
                 hasSearched = state.hasSearched,
-                searchResults = state.searchResults,
+                searchResults = state.results?.items ?: emptyList(),
                 dictionaries = state.dictionaries,
                 enabledDictionaryIds = state.enabledDictionaryIds.toSet(),
-                termMetaMap = state.termMetaMap,
+                termMetaMap = state.results?.termMetaMap ?: emptyMap(),
                 onTermClick = onTermClick,
                 onQueryChange = onQueryChange,
                 onSearch = onSearch,

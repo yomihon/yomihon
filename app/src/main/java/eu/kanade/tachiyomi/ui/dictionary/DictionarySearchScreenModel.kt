@@ -60,7 +60,7 @@ class DictionarySearchScreenModel(
                 // Dictionary changes may invalidate cache
                 searchCache.clear()
                 if (mutableState.value.query.isNotBlank()) {
-                    search()
+                    search(mutableState.value.query)
                 }
             } catch (e: Exception) {
                 mutableState.update { it.copy(isLoading = false) }
@@ -91,21 +91,38 @@ class DictionarySearchScreenModel(
         mutableState.update { it.copy(query = query) }
     }
 
-    fun search() {
-        val sentence = state.value.query
+    /**
+     * Updates dictionary results without needing changes to the query.
+     */
+    fun search(sentence: String) {
         if (sentence.isBlank()) {
-            mutableState.update { it.copy(searchResults = emptyList(), termMetaMap = emptyMap()) }
+            mutableState.update { it.copy(results = null) }
             return
         }
 
-        mutableState.update { it.copy(isSearching = true) }
+        // Calculate highlight offset: sentence is always a suffix of query
+        val query = state.value.query
+        val highlightStart = if (query.endsWith(sentence, ignoreCase = true)) {
+            query.length - sentence.length
+        } else {
+            0
+        }
+
+        mutableState.update {
+            it.copy(
+                isSearching = true,
+                results = (it.results ?: SearchResults(query = query)).copy(
+                    highlightRange = highlightStart to highlightStart,
+                ),
+            )
+        }
 
         screenModelScope.launch {
             try {
                 val enabledDictionaryIds = state.value.enabledDictionaryIds
                 if (enabledDictionaryIds.isEmpty()) {
                     _events.send(Event.ShowError("No dictionaries enabled"))
-                    mutableState.update { it.copy(isSearching = false, searchResults = emptyList(), termMetaMap = emptyMap()) }
+                    mutableState.update { it.copy(isSearching = false, results = null) }
                     return@launch
                 }
 
@@ -120,25 +137,34 @@ class DictionarySearchScreenModel(
                     logcat(LogPriority.DEBUG) { "Using cached results for: $word" }
                     mutableState.update {
                         it.copy(
-                            searchResults = cachedEntry.results,
-                            termMetaMap = cachedEntry.termMetaMap,
+                            results = SearchResults(
+                                query = query,
+                                highlightRange = highlightStart to (highlightStart + word.length),
+                                items = cachedEntry.results,
+                                termMetaMap = cachedEntry.termMetaMap,
+                            ),
                             isSearching = false,
                             hasSearched = true,
                         )
                     }
+                    return@launch
                 }
 
                 // Fetch term results and meta (frequency data) for all results
-                val results = searchDictionaryTerms.search(word, enabledDictionaryIds)
-                val expressions = results.map { it.expression }.distinct()
+                val items = searchDictionaryTerms.search(word, enabledDictionaryIds)
+                val expressions = items.map { it.expression }.distinct()
                 val termMetaMap = searchDictionaryTerms.getTermMeta(expressions, enabledDictionaryIds)
 
-                searchCache[cacheKey] = SearchCacheEntry(results, termMetaMap)
+                searchCache[cacheKey] = SearchCacheEntry(items, termMetaMap)
 
                 mutableState.update {
                     it.copy(
-                        searchResults = results,
-                        termMetaMap = termMetaMap,
+                        results = SearchResults(
+                            query = query,
+                            highlightRange = highlightStart to (highlightStart + word.length),
+                            items = items,
+                            termMetaMap = termMetaMap,
+                        ),
                         isSearching = false,
                         hasSearched = true,
                     )
@@ -155,13 +181,20 @@ class DictionarySearchScreenModel(
     }
 
     @Immutable
+    data class SearchResults(
+        val query: String,
+        val highlightRange: Pair<Int, Int>? = null,
+        val items: List<DictionaryTerm> = emptyList(),
+        val termMetaMap: Map<String, List<DictionaryTermMeta>> = emptyMap(),
+    )
+
+    @Immutable
     data class State(
         val query: String = "",
-        val searchResults: List<DictionaryTerm> = emptyList(),
+        val results: SearchResults? = null,
         val dictionaries: List<Dictionary> = emptyList(),
         val enabledDictionaryIds: List<Long> = emptyList(),
         val selectedTerm: DictionaryTerm? = null,
-        val termMetaMap: Map<String, List<DictionaryTermMeta>> = emptyMap(),
         val isLoading: Boolean = true,
         val isSearching: Boolean = false,
         val hasSearched: Boolean = false,

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -36,6 +37,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
@@ -61,6 +68,8 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 @Composable
 fun DictionaryResults(
     modifier: Modifier = Modifier,
+    query: String = "",
+    highlightRange: Pair<Int, Int>? = null,
     isLoading: Boolean,
     isSearching: Boolean,
     hasSearched: Boolean,
@@ -70,7 +79,7 @@ fun DictionaryResults(
     termMetaMap: Map<String, List<DictionaryTermMeta>>,
     onTermClick: (DictionaryTerm) -> Unit,
     onQueryChange: (String) -> Unit,
-    onSearch: () -> Unit,
+    onSearch: (String) -> Unit,
     onOpenDictionarySettings: (() -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(16.dp),
 ) {
@@ -104,10 +113,23 @@ fun DictionaryResults(
             }
         }
         searchResults.isEmpty() && hasSearched -> {
-            EmptyScreen(
-                stringRes = MR.strings.no_results_found,
+            Column(
                 modifier = modifier.fillMaxSize(),
-            )
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                if (query.isNotBlank()) {
+                    WordSelector(
+                        text = query,
+                        highlightRange = null,
+                        onSearch = { onSearch(it) },
+                    )
+                }
+                EmptyScreen(
+                    stringRes = MR.strings.no_results_found,
+                    modifier = modifier.fillMaxSize(),
+                )
+            }
         }
         searchResults.isNotEmpty() -> {
             SearchResultsList(
@@ -117,6 +139,8 @@ fun DictionaryResults(
                 onTermClick = onTermClick,
                 onQueryChange = onQueryChange,
                 onSearch = onSearch,
+                query = query,
+                highlightRange = highlightRange,
                 contentPadding = contentPadding,
                 modifier = modifier,
             )
@@ -134,7 +158,7 @@ fun DictionaryResults(
 fun SearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
-    onSearch: () -> Unit,
+    onSearch: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     OutlinedTextField(
@@ -147,7 +171,7 @@ fun SearchBar(
         textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
         shape = RoundedCornerShape(12.dp),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+        keyboardActions = KeyboardActions(onSearch = { onSearch(query) }),
     )
 }
 
@@ -158,7 +182,9 @@ private fun SearchResultsList(
     termMetaMap: Map<String, List<DictionaryTermMeta>>,
     onTermClick: (DictionaryTerm) -> Unit,
     onQueryChange: (String) -> Unit,
-    onSearch: () -> Unit,
+    onSearch: (String) -> Unit,
+    query: String,
+    highlightRange: Pair<Int, Int>?,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(16.dp),
 ) {
@@ -167,6 +193,16 @@ private fun SearchResultsList(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier,
     ) {
+        if (query.isNotBlank()) {
+            item {
+                WordSelector(
+                    text = query,
+                    highlightRange = highlightRange,
+                    onSearch = { onSearch(it) },
+                )
+            }
+        }
+
         items(
             items = results,
             key = { it.id },
@@ -192,7 +228,7 @@ private fun DictionaryTermCard(
     dictionaries: List<Dictionary>,
     onClick: () -> Unit,
     onQueryChange: (String) -> Unit,
-    onSearch: () -> Unit,
+    onSearch: (String) -> Unit,
 ) {
     var showAttribution by remember { mutableStateOf(false) }
 
@@ -303,7 +339,7 @@ private fun DictionaryTermCard(
                     val query = linkText.trim()
                     if (query.isNotEmpty()) {
                         onQueryChange(query)
-                        onSearch()
+                        onSearch(query)
                     }
                 },
             )
@@ -389,13 +425,38 @@ private fun NoDictionariesEnabledMessage(
 @Composable
 private fun WordSelector(
     text: String,
+    highlightRange: Pair<Int, Int>? = null,
     onSearch: (String) -> Unit,
 ) {
     // OCR text header - clickable to search from any character
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
 
+    val highlightContainerColor = MaterialTheme.colorScheme.primaryContainer
+    val highlightContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+    val annotatedString = remember(text, highlightRange, highlightContainerColor, highlightContentColor) {
+        val start = highlightRange?.first
+        val end = highlightRange?.second
+        if (start != null && end != null && start < end && start in text.indices) {
+            buildAnnotatedString {
+                append(text.take(start))
+                val endIndex = end.coerceAtMost(text.length)
+                withStyle(
+                    style = SpanStyle(
+                        background = highlightContainerColor,
+                        color = highlightContentColor,
+                    )
+                ) {
+                    append(text.substring(start, endIndex))
+                }
+                append(text.substring(endIndex))
+            }
+        } else {
+            AnnotatedString(text)
+        }
+    }
+
     Text(
-        text = text,
+        text = annotatedString,
         style = MaterialTheme.typography.titleMedium.copy(
             fontSize = 20.sp,
             color = MaterialTheme.colorScheme.onSurface,

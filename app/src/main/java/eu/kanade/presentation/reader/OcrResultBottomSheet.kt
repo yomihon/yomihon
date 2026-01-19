@@ -38,13 +38,13 @@ fun OcrResultBottomSheet(
     onCopyText: () -> Unit,
     searchState: DictionarySearchScreenModel.State,
     onQueryChange: (String) -> Unit,
-    onSearch: () -> Unit,
+    onSearch: (String) -> Unit,
 ) {
     // Automatically search dictionary for the OCR text
     LaunchedEffect(text) {
         if (text.isNotBlank()) {
             onQueryChange(text)
-            onSearch()
+            onSearch(text)
         }
     }
 
@@ -76,9 +76,7 @@ fun OcrResultBottomSheet(
                         SearchBar(
                             query = searchState.query,
                             onQueryChange = onQueryChange,
-                            onSearch = {
-                                onSearch()
-                            },
+                            onSearch = { onSearch(searchState.query) },
                             modifier = Modifier.weight(1f),
                         )
 
@@ -100,13 +98,15 @@ fun OcrResultBottomSheet(
 
                 DictionaryResults(
                     modifier = Modifier.fillMaxWidth().weight(1f),
+                    query = searchState.results?.query ?: "",
+                    highlightRange = searchState.results?.highlightRange,
                     isLoading = searchState.isLoading,
                     isSearching = searchState.isSearching,
                     hasSearched = searchState.hasSearched,
-                    searchResults = searchState.searchResults,
+                    searchResults = searchState.results?.items ?: emptyList(),
                     dictionaries = searchState.dictionaries,
                     enabledDictionaryIds = searchState.enabledDictionaryIds.toSet(),
-                    termMetaMap = searchState.termMetaMap,
+                    termMetaMap = searchState.results?.termMetaMap ?: emptyMap(),
                     onTermClick = { /* TODO: Anki */ },
                     onQueryChange = onQueryChange,
                     onSearch = onSearch,
