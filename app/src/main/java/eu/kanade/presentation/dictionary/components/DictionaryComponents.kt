@@ -43,6 +43,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import mihon.domain.dictionary.css.parseDictionaryCss
 import mihon.domain.dictionary.model.Dictionary
 import mihon.domain.dictionary.model.DictionaryTerm
@@ -143,6 +144,8 @@ fun SearchBar(
         placeholder = { Text(stringResource(MR.strings.action_search)) },
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
         singleLine = true,
+        textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+        shape = RoundedCornerShape(12.dp),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onSearch() }),
     )
@@ -381,4 +384,37 @@ private fun NoDictionariesEnabledMessage(
             )
         }
     }
+}
+
+@Composable
+private fun WordSelector(
+    text: String,
+    onSearch: (String) -> Unit,
+) {
+    // OCR text header - clickable to search from any character
+    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium.copy(
+            fontSize = 20.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            letterSpacing = 2.sp,
+            fontWeight = FontWeight.Normal,
+        ),
+        onTextLayout = { layout = it },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .pointerInput(text) {
+                detectTapGestures { pos ->
+                    layout?.let { layoutResult ->
+                        val offset = layoutResult.getOffsetForPosition(pos)
+                        if (offset < text.length) {
+                            onSearch(text.substring(offset))
+                        }
+                    }
+                }
+            },
+    )
 }
