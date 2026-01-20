@@ -26,7 +26,7 @@ Discover and read manga, webtoons, comics, and more – easier than ever on your
 [![Mihon Stable](https://img.shields.io/github/release/mihonapp/mihon.svg?maxAge=3600&label=Stable&labelColor=06599d&color=043b69)](https://mihon.app/download)
 [![Mihon Beta](https://img.shields.io/github/v/release/mihonapp/mihon-preview.svg?maxAge=3600&label=Beta&labelColor=2c2c47&color=1c1c39)](https://mihon.app/download)
 -->
-No releases at the moment! Stay tuned!
+**First app release coming in a few days :)** Stay tuned for release details and download links.
 
 *Requires Android 8.0 or higher.*
 
