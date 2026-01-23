@@ -173,13 +173,13 @@ object AboutScreen : Screen() {
                             icon = Icons.Outlined.Public,
                             url = "https://yomihon.github.io/",
                         )
-                        /*
-                        Not currently used socials
                         LinkIcon(
                             label = "Discord",
                             icon = CustomIcons.Discord,
-                            url = "https://discord.gg/mihon",
+                            url = "https://discord.com/invite/TXvTZdBuQa",
                         )
+                        /*
+                        Not currently used socials
                         LinkIcon(
                             label = "X",
                             icon = CustomIcons.X,

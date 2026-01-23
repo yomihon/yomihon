@@ -9,12 +9,11 @@
 ### Full-featured reader
 Discover and read manga, webtoons, comics, and more – easier than ever on your Android device.
 
-<!--
-[![Discord server](https://img.shields.io/discord/1195734228319617024.svg?label=&labelColor=6A7EC2&color=7389D8&logo=discord&logoColor=FFFFFF)](https://discord.gg/mihon)
-[![GitHub downloads](https://img.shields.io/github/downloads/mihonapp/mihon/total?label=downloads&labelColor=27303D&color=0D1117&logo=github&logoColor=FFFFFF&style=flat)](https://mihon.app/download)
 
-[![CI](https://img.shields.io/github/actions/workflow/status/mihonapp/mihon/build.yml?labelColor=27303D)](https://github.com/mihonapp/mihon/actions/workflows/build_push.yml)
--->
+[![Discord server](https://img.shields.io/discord/1464063546257182876.svg?label=&labelColor=6A7EC2&color=7389D8&logo=discord&logoColor=FFFFFF)](https://discord.com/invite/TXvTZdBuQa)
+[![GitHub downloads](https://img.shields.io/github/downloads/yomihon/yomihon/total?label=downloads&labelColor=27303D&color=0D1117&logo=github&logoColor=FFFFFF&style=flat)](https://yomihon.github.io/download)
+
+[![CI](https://img.shields.io/github/actions/workflow/status/yomihon/yomihon/build.yml?labelColor=27303D)](https://github.com/yomihon/yomihon/actions/workflows/build_push.yml)
 [![License: Apache-2.0](https://img.shields.io/github/license/mihonapp/mihon?labelColor=27303D&color=0877d2)](/LICENSE)
 <!--
 [![Translation status](https://img.shields.io/weblate/progress/mihon?labelColor=27303D&color=946300)](https://hosted.weblate.org/engage/mihon/)
@@ -22,8 +21,9 @@ Discover and read manga, webtoons, comics, and more – easier than ever on your
 
 ## Download
 
+
+[![Yomihon Stable](https://img.shields.io/github/release/yomihon/yomihon.svg?maxAge=3600&label=Stable&labelColor=06599d&color=043b69)](https://yomihon.github.io/download)
 <!--
-[![Mihon Stable](https://img.shields.io/github/release/mihonapp/mihon.svg?maxAge=3600&label=Stable&labelColor=06599d&color=043b69)](https://mihon.app/download)
 [![Mihon Beta](https://img.shields.io/github/v/release/mihonapp/mihon-preview.svg?maxAge=3600&label=Beta&labelColor=2c2c47&color=1c1c39)](https://mihon.app/download)
 -->
 **First app release coming in a few days :)** Stay tuned for release details and download links.
@@ -53,7 +53,7 @@ Discover and read manga, webtoons, comics, and more – easier than ever on your
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
-Before reporting a new issue, take a look at the [FAQ](https://mihon.app/docs/faq/general), the [changelog](https://mihon.app/changelogs/) and the already opened [issues](https://github.com/mihonapp/mihon/issues); if you got any questions, join our [Discord server](https://discord.gg/mihon).
+Before reporting a new issue, take a look at the [FAQ](https://yomihon.github.io/docs/faq/general), the [changelog](https://yomihon.github.io/changelogs/) and the already opened [issues](https://github.com/yomihon/yomihon/issues); if you got any questions, join our [Discord server](https://discord.com/invite/TXvTZdBuQa).
 
 
 <!--

@@ -1,12 +1,12 @@
 name: ⭐ Feature request
-description: Suggest a feature to improve Mihon
+description: Suggest a feature to improve Yomihon
 labels: [feature request]
 body:
   - type: textarea
     id: feature-description
     attributes:
       label: Describe your suggested feature
-      description: How can Mihon be improved?
+      description: How can Yomihon be improved?
       placeholder: |
         Example:
           "It should work like this..."
@@ -30,7 +30,7 @@ body:
           required: true
         - label: I have written a short but informative title.
           required: true
-        - label: I have updated the app to version **[0.19.1](https://github.com/mihonapp/mihon/releases/latest)**.
+        - label: I have updated the app to version **[0.1.0](https://github.com/yomihon/yomihon/releases/latest)**.
           required: true
         - label: I will fill out all of the requested information in this form.
           required: true
