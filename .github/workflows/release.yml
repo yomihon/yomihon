@@ -58,10 +58,7 @@ jobs:
         run: |
           set -e
 
-          mv app/build/outputs/apk/release/app-universal-release-unsigned-signed.apk yomihon-${{ needs.get_tag.outputs.tag }}.apk
           mv app/build/outputs/apk/release/app-arm64-v8a-release-unsigned-signed.apk yomihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
-          mv app/build/outputs/apk/release/app-armeabi-v7a-release-unsigned-signed.apk yomihon-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
-          mv app/build/outputs/apk/release/app-x86-release-unsigned-signed.apk yomihon-x86-${{ needs.get_tag.outputs.tag }}.apk
           mv app/build/outputs/apk/release/app-x86_64-release-unsigned-signed.apk yomihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk
 
       - name: Upload APK
@@ -69,10 +66,7 @@ jobs:
         with:
           name: yomihon
           path: |
-            yomihon-${{ needs.get_tag.outputs.tag }}.apk
             yomihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
-            yomihon-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
-            yomihon-x86-${{ needs.get_tag.outputs.tag }}.apk
             yomihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk
 
   build_foss:
@@ -160,14 +154,11 @@ jobs:
 
             > [!TIP]
             >
-            > ### If you are unsure which version to download then go with `yomihon-${{ needs.get_tag.outputs.tag }}.apk`
+            > ### If you are unsure which version to download then go with `yomihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk` (recommended) or `yomihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk`
           files: |
-            yomihon-${{ needs.get_tag.outputs.tag }}.apk
-            yomihon-${{ needs.get_tag.outputs.tag }}-foss.apk
             yomihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
-            yomihon-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
-            yomihon-x86-${{ needs.get_tag.outputs.tag }}.apk
             yomihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk
+            yomihon-${{ needs.get_tag.outputs.tag }}-foss.apk
           draft: true
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
