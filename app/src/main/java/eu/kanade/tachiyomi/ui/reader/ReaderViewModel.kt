@@ -57,6 +57,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import mihon.data.ocr.di.OcrModule
+import mihon.domain.ocr.exception.OcrException
 import mihon.domain.ocr.interactor.OcrProcessor
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO

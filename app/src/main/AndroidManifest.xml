@@ -49,12 +49,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Tachiyomi">
 
-        <!-- Enable GPU acceleration for LiteRT -->
-        <uses-native-library android:name="libOpenCL.so" android:required="false"/>
-        <uses-native-library android:name="libOpenCL-car.so" android:required="false"/>
-        <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
-        <uses-native-library android:name="libvndksupport.so" android:required="false"/>
-
         <activity
             android:name=".ui.main.MainActivity"
             android:exported="true"
