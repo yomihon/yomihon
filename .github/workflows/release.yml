@@ -103,6 +103,7 @@ jobs:
 
           mv app/build/outputs/apk/release/app-arm64-v8a-release-unsigned-signed.apk yomihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
           mv app/build/outputs/apk/release/app-x86_64-release-unsigned-signed.apk yomihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk
+          mv app/build/outputs/apk/release/app-universal-release-unsigned-signed.apk yomihon-universal-${{ needs.get_tag.outputs.tag }}.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -111,6 +112,7 @@ jobs:
           path: |
             yomihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
             yomihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk
+            yomihon-universal-${{ needs.get_tag.outputs.tag }}.apk
 
   build_foss:
     if: github.repository == 'yomihon/yomihon'
@@ -204,10 +206,11 @@ jobs:
 
             > [!TIP]
             >
-            > ### If you are unsure which version to download then go with `yomihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk` (recommended) or `yomihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk`
+            > ### If you are unsure which version to download then go with `yomihon-universal-${{ needs.get_tag.outputs.tag }}.apk`
           files: |
             yomihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
             yomihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk
+            yomihon-universal-${{ needs.get_tag.outputs.tag }}.apk
             yomihon-${{ needs.get_tag.outputs.tag }}-foss.apk
           draft: true
           prerelease: false
