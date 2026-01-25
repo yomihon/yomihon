@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.reader.setting
 import android.os.Build
 import androidx.compose.ui.graphics.BlendMode
 import dev.icerock.moko.resources.StringResource
+import mihon.domain.ocr.model.OcrModel
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.getEnum
 import tachiyomi.i18n.MR
@@ -122,6 +123,8 @@ class ReaderPreferences(
     fun readWithLongTap() = preferenceStore.getBoolean("reader_long_tap", true)
 
     fun longTapOcr() = preferenceStore.getBoolean("reader_long_tap_ocr", true)
+
+    fun ocrModel() = preferenceStore.getEnum("pref_ocr_model", OcrModel.LEGACY)
 
     fun readWithVolumeKeys() = preferenceStore.getBoolean("reader_volume_keys", false)
 

@@ -10,6 +10,8 @@ import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
+import mihon.domain.ocr.model.OcrModel
+import mihon.feature.ocr.titleRes
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
@@ -437,6 +439,15 @@ object SettingsReaderScreen : SearchableSettings {
                     preference = readerPreferences.longTapOcr(),
                     title = stringResource(MR.strings.pref_long_tap_ocr),
                     enabled = readWithLongTap,
+                ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = readerPreferences.ocrModel(),
+                    entries = persistentMapOf(
+                        OcrModel.LEGACY to stringResource(OcrModel.LEGACY.titleRes),
+                        OcrModel.FAST to stringResource(OcrModel.FAST.titleRes),
+                    ),
+                    title = stringResource(MR.strings.pref_ocr_model),
+                    subtitle = stringResource(MR.strings.pref_ocr_model_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.folderPerManga(),
