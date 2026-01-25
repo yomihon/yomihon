@@ -10,6 +10,14 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - `Fixed` - for any bug fixes.
 - `Other` - for technical stuff.
 
+## [v0.1.1] - 2026-01-25
+
+### Fixed
+- Fix crash on tablets when opening dictionary settings
+- Fix missing app language options
+
+### Changed
+- Improve display of OCR results on large screens
 
 ## [v0.1.0] - 2026-01-23
 
@@ -28,4 +36,5 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 
 
 [unreleased]: https://github.com/yomihon/yomihon/compare/v0.1.0...main
+[v0.1.1]: https://github.com/yomihon/yomihon/compare/v0.1.0...v0.1.1
 [v0.1.0]: https://github.com/yomihon/yomihon/compare/c856f12...v0.1.0
