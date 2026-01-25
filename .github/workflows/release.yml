@@ -21,11 +21,48 @@ jobs:
         id: extract
         run: echo "tag=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
 
+  prepare_models:
+    if: github.repository == 'yomihon/yomihon'
+    name: Prepare Models
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Download and Verify Models
+        run: |
+          mkdir -p ocr
+          cd ocr
+
+          # SHA256 hashes for file verification
+          # Format: "remote_name:local_name:hash"
+          FILES=(
+            "mocr_2025_decoder_float32.tflite:decoder.tflite:b6f0b49e7537abc24de4d5e7f44c71c3e04b4f30a9dac6b5704db94c963ce31b"
+            "mocr_2025_encoder_fp32.tflite:encoder.tflite:126441c11edb3f3c9da639647ba82d846872a7ad51d62cdbc50767fa5abf4f43"
+            "mocr_2025_embeddings_float32:embeddings.bin:ef1959fd6b2ed011b782722d975a67332b859ccc717688ad06a16d170145bc6c"
+          )
+
+          for item in "${FILES[@]}"; do
+            IFS=":" read -r REMOTE_NAME LOCAL_NAME HASH <<< "$item"
+            
+            echo "Downloading $REMOTE_NAME as $LOCAL_NAME..."
+            curl -L "https://huggingface.co/bluolightning/manga-ocr-tflite/resolve/main/$REMOTE_NAME?download=true" \
+                 -o "$LOCAL_NAME" \
+                 -H "Authorization: Bearer ${{ secrets.HF_TOKEN }}"
+
+            # Verification
+            echo "$HASH  $LOCAL_NAME" | sha256sum -c - || { echo "Hash mismatch for $LOCAL_NAME"; exit 1; }
+          done
+
+      - name: Upload Models
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-models
+          path: ocr/
+
   build:
     if: github.repository == 'yomihon/yomihon'
     name: Build
     runs-on: 'ubuntu-24.04'
-    needs: get_tag
+    needs: [get_tag, prepare_models]
 
     steps:
       - name: Checkout
@@ -39,6 +76,12 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v5.0.0
+
+      - name: Download Models
+        uses: actions/download-artifact@v4
+        with:
+          name: ocr-models
+          path: app/src/main/assets/ocr
 
       - name: Build
         run: ./gradlew assembleRelease -Pinclude-telemetry -Penable-updater
@@ -73,7 +116,7 @@ jobs:
     if: github.repository == 'yomihon/yomihon'
     name: Build (FOSS)
     runs-on: ubuntu-24.04
-    needs: get_tag
+    needs: [get_tag, prepare_models]
 
     steps:
       - name: Checkout
@@ -89,6 +132,12 @@ jobs:
         uses: gradle/actions/setup-gradle@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v5.0.0
         with:
           cache-disabled: true
+
+      - name: Download Models
+        uses: actions/download-artifact@v4
+        with:
+          name: ocr-models
+          path: app/src/main/assets/ocr
 
       - name: Build
         run: ./gradlew assembleFoss -Penable-updater
@@ -137,6 +186,7 @@ jobs:
           name: |
             yomihon
             yomihon-foss
+            ocr-models
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@62c96d0c4e8a889135c1f3a25910db8dbe0e85f7 # v2.3.4
