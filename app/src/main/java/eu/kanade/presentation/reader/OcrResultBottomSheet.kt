@@ -1,12 +1,14 @@
 package eu.kanade.presentation.reader
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.FilledTonalButton
@@ -55,63 +57,72 @@ fun OcrResultBottomSheet(
             decorFitsSystemWindows = false,
         ),
     ) {
-        ResizableSheet(
-            onDismissRequest = onDismissRequest,
-            initialValue = SheetValue.PartiallyExpanded,
-        ) { expansionFraction ->
-            val isSheetExpanded = expansionFraction >= SHEET_EXPANSION_THRESHOLD
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 16.dp, top = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-            ) {
-                if (isSheetExpanded) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        SearchBar(
-                            query = searchState.query,
-                            onQueryChange = onQueryChange,
-                            onSearch = { onSearch(searchState.query) },
-                            modifier = Modifier.weight(1f),
-                        )
+        // Use BoxWithConstraints to measure the actual available space for the sheet content
+        BoxWithConstraints(
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            val useSideSheet = maxWidth >= 600.dp
 
-                        FilledTonalButton(
-                            onClick = {
-                                onCopyText()
-                            },
-                            contentPadding = PaddingValues(vertical = 12.dp, horizontal = 12.dp),
+            ResizableSheet(
+                onDismissRequest = onDismissRequest,
+                initialValue = SheetValue.PartiallyExpanded,
+                contentAlignment = if (useSideSheet) Alignment.BottomEnd else Alignment.BottomCenter,
+                sheetModifier = if (useSideSheet) Modifier.width(400.dp) else Modifier.fillMaxWidth(),
+            ) { expansionFraction ->
+                val isSheetExpanded = expansionFraction >= SHEET_EXPANSION_THRESHOLD
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 16.dp, top = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+                ) {
+                    if (isSheetExpanded) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.ContentCopy,
-                                contentDescription = stringResource(MR.strings.action_copy),
+                            SearchBar(
+                                query = searchState.query,
+                                onQueryChange = onQueryChange,
+                                onSearch = { onSearch(searchState.query) },
+                                modifier = Modifier.weight(1f),
                             )
+
+                            FilledTonalButton(
+                                onClick = {
+                                    onCopyText()
+                                },
+                                contentPadding = PaddingValues(vertical = 12.dp, horizontal = 12.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.ContentCopy,
+                                    contentDescription = stringResource(MR.strings.action_copy),
+                                )
+                            }
                         }
+
+                        HorizontalDivider()
                     }
 
-                    HorizontalDivider()
+                    DictionaryResults(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        query = searchState.results?.query ?: "",
+                        highlightRange = searchState.results?.highlightRange,
+                        isLoading = searchState.isLoading,
+                        isSearching = searchState.isSearching,
+                        hasSearched = searchState.hasSearched,
+                        searchResults = searchState.results?.items ?: emptyList(),
+                        dictionaries = searchState.dictionaries,
+                        enabledDictionaryIds = searchState.enabledDictionaryIds.toSet(),
+                        termMetaMap = searchState.results?.termMetaMap ?: emptyMap(),
+                        onTermClick = { /* TODO: Anki */ },
+                        onQueryChange = onQueryChange,
+                        onSearch = onSearch,
+                        contentPadding = PaddingValues(bottom = 8.dp),
+                    )
                 }
-
-                DictionaryResults(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                    query = searchState.results?.query ?: "",
-                    highlightRange = searchState.results?.highlightRange,
-                    isLoading = searchState.isLoading,
-                    isSearching = searchState.isSearching,
-                    hasSearched = searchState.hasSearched,
-                    searchResults = searchState.results?.items ?: emptyList(),
-                    dictionaries = searchState.dictionaries,
-                    enabledDictionaryIds = searchState.enabledDictionaryIds.toSet(),
-                    termMetaMap = searchState.results?.termMetaMap ?: emptyMap(),
-                    onTermClick = { /* TODO: Anki */ },
-                    onQueryChange = onQueryChange,
-                    onSearch = onSearch,
-                    contentPadding = PaddingValues(bottom = 8.dp),
-                )
             }
         }
     }

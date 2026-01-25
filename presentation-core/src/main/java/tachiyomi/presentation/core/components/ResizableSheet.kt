@@ -41,6 +41,8 @@ fun ResizableSheet(
 	onDismissRequest: () -> Unit,
 	modifier: Modifier = Modifier,
 	initialValue: SheetValue = SheetValue.PartiallyExpanded,
+	contentAlignment: Alignment = Alignment.BottomCenter,
+	sheetModifier: Modifier = Modifier.fillMaxWidth(),
 	content: @Composable (Float) -> Unit,
 ) {
 	val density = LocalDensity.current
@@ -98,7 +100,7 @@ fun ResizableSheet(
 
 		Box(
 			modifier = Modifier.fillMaxSize(),
-			contentAlignment = Alignment.BottomCenter,
+			contentAlignment = contentAlignment,
 		) {
 			// backdrop that dismisses the sheet when clicked
 			Box(
@@ -112,8 +114,7 @@ fun ResizableSheet(
 			)
 
 			Surface(
-				modifier = Modifier
-					.fillMaxWidth()
+				modifier = sheetModifier
 					.height(sheetHeightDp)
 					.draggable(
 						state = draggableState,
