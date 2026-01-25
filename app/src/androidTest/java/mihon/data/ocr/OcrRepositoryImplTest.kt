@@ -22,7 +22,7 @@ import tachiyomi.core.common.preference.getEnum
 /**
  * Integration test for OCR repository that runs against the device/emulator assets and native inference libraries.
  */
-//@Ignore("Requires real Android runtime/device, potentially lengthy to run.")
+@Ignore("Requires real Android runtime/device, potentially lengthy to run.")
 @RunWith(AndroidJUnit4::class)
 class OcrRepositoryImplTest {
     private lateinit var ocrRepository: OcrRepository
@@ -74,22 +74,28 @@ class OcrRepositoryImplTest {
 
     @Test
     fun ocrFastSpeedTest() = runTest(timeout = 4.minutes) {
-        val resourceName = "mihon/data/ocr/ocr_test_image.base64"
-        val expectedText = "でもだいたい見当はついてるの"
-        val bitmap = getBitmap(resourceName)
-
         // Switch preference to fast model
         val prefStore = tachiyomi.core.common.preference.AndroidPreferenceStore(context)
         prefStore.getEnum("pref_ocr_model", OcrModel.LEGACY).set(OcrModel.FAST)
 
         // Warm up & measure end-to-end time at the caller level (includes repository init + inference)
-        val start = System.nanoTime()
-        val text = ocrProcessor.getText(bitmap)
-        val totalMs = (System.nanoTime() - start) / 1_000_000
-        android.util.Log.i("OcrRepositoryImplTest", "OCR(fast) Test: total time: $totalMs ms")
+        val testCases = listOf(
+            "mihon/data/ocr/ocr_test_image.base64" to "でもだいたい見当はついてるの",
+            "mihon/data/ocr/ocr_test_image2.base64" to "ぼくが復活する前に",
+            "mihon/data/ocr/ocr_test_image.base64" to "でもだいたい見当はついてるの",
+            "mihon/data/ocr/ocr_test_image.base64" to "でもだいたい見当はついてるの",
+            "mihon/data/ocr/ocr_test_image2.base64" to "ぼくが復活する前に",
+            "mihon/data/ocr/ocr_test_image2.base64" to "ぼくが復活する前に",
+            )
 
-        assertNotNull(text)
-        assertEquals(expectedText, text)
+        for ((resourceName, expectedText) in testCases) {
+            val bitmap = getBitmap(resourceName)
+
+            val text = ocrProcessor.getText(bitmap)
+
+            assertNotNull(text)
+            assertEquals(expectedText, text)
+        }
     }
 
     private fun getBitmap(resourceName: String): Bitmap {

@@ -21,8 +21,9 @@ class OcrRepositoryImpl(
     private val preferenceStore = AndroidPreferenceStore(context)
     private val ocrModelPref = preferenceStore.getEnum("pref_ocr_model", OcrModel.LEGACY)
 
-    private val environment = Environment.create()
-    private val textPostprocessor = TextPostprocessor()
+    // Lazy initialization to avoid startup overhead
+    private val environment by lazy { Environment.create() }
+    private val textPostprocessor by lazy { TextPostprocessor() }
 
     private var legacyEngine: LegacyOcrEngine? = null
     private var fastEngine: FastOcrEngine? = null
