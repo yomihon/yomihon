@@ -37,7 +37,7 @@ jobs:
           FILES=(
             "mocr_2025_decoder_float32.tflite:decoder.tflite:b6f0b49e7537abc24de4d5e7f44c71c3e04b4f30a9dac6b5704db94c963ce31b"
             "mocr_2025_encoder_fp32.tflite:encoder.tflite:126441c11edb3f3c9da639647ba82d846872a7ad51d62cdbc50767fa5abf4f43"
-            "mocr_2025_embeddings_float32:embeddings.bin:ef1959fd6b2ed011b782722d975a67332b859ccc717688ad06a16d170145bc6c"
+            "mocr_2025_embeddings_float32.bin:embeddings.bin:ef1959fd6b2ed011b782722d975a67332b859ccc717688ad06a16d170145bc6c"
           )
 
           for item in "${FILES[@]}"; do
