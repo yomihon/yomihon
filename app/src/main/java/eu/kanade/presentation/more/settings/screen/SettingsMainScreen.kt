@@ -105,10 +105,11 @@ object SettingsMainScreen : Screen() {
                 val state = rememberLazyListState()
                 val indexSelected = if (twoPane) {
                     items.indexOfFirst { it.screen::class == navigator.items.first()::class }
-                        .also {
-                            LaunchedEffect(Unit) {
-                                state.animateScrollToItem(it)
-                                if (it > 0) {
+                        .takeIf { it >= 0 }
+                        ?.also { index ->
+                            LaunchedEffect(index) {
+                                state.animateScrollToItem(index)
+                                if (index > 0) {
                                     // Lift scroll
                                     topBarState.contentOffset = topBarState.heightOffsetLimit
                                 }

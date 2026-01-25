@@ -52,6 +52,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.SpanStyle
@@ -62,7 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.currentOrThrow
+import cafe.adriel.voyager.navigator.LocalNavigator
 import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.tachiyomi.ui.setting.dictionary.DictionarySettingsScreenModel
@@ -83,7 +85,8 @@ object SettingsDictionaryScreen : Screen {
     @Composable
     override fun Content() {
         val context = LocalContext.current
-        val backPress = LocalBackPress.currentOrThrow
+        val backPress = LocalBackPress.current
+        val navigator = LocalNavigator.current
         val screenModel = rememberScreenModel { DictionarySettingsScreenModel() }
         val state by screenModel.state.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
@@ -94,28 +97,9 @@ object SettingsDictionaryScreen : Screen {
         var showExitConfirmation by rememberSaveable { mutableStateOf(false) }
         val isOperationInProgress = state.isImporting || state.isDeleting
 
-        // Intercept System Back Button
-        BackHandler(enabled = true) {
-            if (isOperationInProgress) {
-                showExitConfirmation = true
-            } else {
-                backPress()
-            }
-        }
-
-        // Scroll to highlighted dictionary when it changes
-        LaunchedEffect(state.highlightedDictionaryId, state.dictionaries) {
-            val highlightedId = state.highlightedDictionaryId
-            if (highlightedId != null) {
-                val index = state.dictionaries.indexOfFirst { it.id == highlightedId }
-                if (index >= 0) {
-                    val visibleItems = lazyListState.layoutInfo.visibleItemsInfo
-                    val isVisible = visibleItems.any { it.index == index }
-                    if (!isVisible) {
-                        lazyListState.animateScrollToItem(index)
-                    }
-                }
-            }
+        // The dictionary import may cancel if the user navigates away, so give a warning
+        BackHandler(enabled = isOperationInProgress) {
+            showExitConfirmation = true
         }
 
         // File picker for dictionary import
@@ -148,7 +132,10 @@ object SettingsDictionaryScreen : Screen {
                         if (isOperationInProgress) {
                             showExitConfirmation = true
                         } else {
-                            backPress()
+                            when {
+                                navigator?.canPop == true -> navigator.pop()
+                                else -> backPress?.invoke()
+                            }
                         }
                     },
                     scrollBehavior = it,
@@ -313,7 +300,6 @@ object SettingsDictionaryScreen : Screen {
             }
         }
 
-        // Exit Confirmation Dialog
         if (showExitConfirmation) {
             AlertDialog(
                 onDismissRequest = { showExitConfirmation = false },
@@ -323,7 +309,10 @@ object SettingsDictionaryScreen : Screen {
                     TextButton(
                         onClick = {
                             showExitConfirmation = false
-                            backPress()
+                            when {
+                                navigator?.canPop == true -> navigator.pop()
+                                else -> backPress?.invoke()
+                            }
                         },
                     ) {
                         Text(stringResource(MR.strings.action_leave))
@@ -361,9 +350,20 @@ private fun DictionaryItem(
     // Store the size of the clickable area for centering the ripple
     var rowSize by remember { mutableStateOf(IntSize.Zero) }
 
-    // Trigger the ripple programmatically
+    // Bring item into view and trigger a highlight (ripple) when highlighted
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+
     LaunchedEffect(isHighlighted) {
         if (isHighlighted) {
+            try {
+                bringIntoViewRequester.bringIntoView()
+            } catch (_: Exception) {
+                // Ignore: item might not be laid out yet or removed concurrently.
+            }
+
+            // Allow layout/scroll to settle before triggering the ripple
+            delay(50)
+
             val center = Offset(rowSize.width / 2f, rowSize.height / 2f)
             val press = PressInteraction.Press(center)
             interactionSource.emit(press)
@@ -381,8 +381,7 @@ private fun DictionaryItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .onSizeChanged { rowSize = it }
-                .clickable(
+                .onSizeChanged { rowSize = it }.bringIntoViewRequester(bringIntoViewRequester).clickable(
                     interactionSource = interactionSource,
                     indication = LocalIndication.current,
                     enabled = !isOperationInProgress,
@@ -587,7 +586,9 @@ private fun DictionaryItem(
     }
 }
 
-private fun formatDate(timestamp: Long): String {
-    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-    return sdf.format(Date(timestamp))
-}
+@Composable
+private fun rememberDateFormatter() = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+
+@Composable
+private fun formatDate(ts: Long): String =
+    rememberDateFormatter().format(Date(ts))
