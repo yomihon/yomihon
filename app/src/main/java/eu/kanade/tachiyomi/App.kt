@@ -55,7 +55,7 @@ import logcat.LogPriority
 import logcat.LogcatLogger
 import mihon.core.migration.Migrator
 import mihon.core.migration.migrations.migrations
-import mihon.data.ocr.di.OcrModule
+import mihon.domain.ocr.repository.OcrRepository
 import mihon.telemetry.TelemetryConfig
 import org.conscrypt.Conscrypt
 import tachiyomi.core.common.i18n.stringResource
@@ -222,7 +222,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         // Release OCR resources when system is under memory pressure
         if (level >= TRIM_MEMORY_BACKGROUND) {
             logcat(LogPriority.INFO) { "Cleaning up OCR resources due to memory pressure" }
-            OcrModule.cleanup()
+            Injekt.get<OcrRepository>().cleanup()
         }
     }
 

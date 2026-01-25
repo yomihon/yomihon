@@ -53,7 +53,7 @@ class OcrRepositoryImpl(
         return engine.recognizeText(image)
     }
 
-    override fun close() {
+    override fun cleanup() {
         try {
             legacyEngine?.close()
             legacyEngine = null
@@ -61,9 +61,9 @@ class OcrRepositoryImpl(
             fastEngine?.close()
             fastEngine = null
 
-            logcat(LogPriority.INFO) { "OcrRepositoryImpl closed successfully" }
+            logcat(LogPriority.INFO) { "OcrRepositoryImpl cleaned up successfully" }
         } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Error closing OcrRepositoryImpl" }
+            logcat(LogPriority.ERROR, e) { "Error cleaning up OcrRepositoryImpl" }
         }
     }
 }

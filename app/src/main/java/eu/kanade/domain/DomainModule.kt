@@ -1,5 +1,6 @@
 package eu.kanade.domain
 
+import android.app.Application
 import eu.kanade.domain.chapter.interactor.GetAvailableScanlators
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
@@ -222,7 +223,7 @@ class DomainModule : InjektModule {
         
         addSingletonFactory<OcrRepository> {
             OcrRepositoryImpl(
-                context = get()
+                context = get<Application>()
             )
         }
         addFactory { OcrProcessor(get()) }

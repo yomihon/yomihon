@@ -8,8 +8,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.test.runTest
-import mihon.data.ocr.di.OcrModule
 import mihon.domain.ocr.interactor.OcrProcessor
+import mihon.domain.ocr.repository.OcrRepository
 import mihon.domain.ocr.model.OcrModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -25,15 +25,15 @@ import tachiyomi.core.common.preference.getEnum
 //@Ignore("Requires real Android runtime/device, potentially lengthy to run.")
 @RunWith(AndroidJUnit4::class)
 class OcrRepositoryImplTest {
-    private lateinit var ocrRepository: OcrRepositoryImpl
+    private lateinit var ocrRepository: OcrRepository
     private lateinit var context: Context
-    private val ocrProcessor: OcrProcessor
-        get() = OcrModule.provideOcrProcessor(context)
+    private lateinit var ocrProcessor: OcrProcessor
 
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
         ocrRepository = OcrRepositoryImpl(context)
+        ocrProcessor = OcrProcessor(ocrRepository)
     }
 
     @Test
@@ -63,7 +63,7 @@ class OcrRepositoryImplTest {
         val firstRunText = ocrProcessor.getText(bitmap)
         assertEquals("First run failed", expectedText, firstRunText)
 
-        OcrModule.cleanup()
+        ocrRepository.cleanup()
 
         // Run OCR again - should auto re-initialize
         val secondRunText = ocrProcessor.getText(bitmap)

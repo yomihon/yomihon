@@ -56,7 +56,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
-import mihon.data.ocr.di.OcrModule
+import mihon.domain.ocr.repository.OcrRepository
 import mihon.domain.ocr.exception.OcrException
 import mihon.domain.ocr.interactor.OcrProcessor
 import tachiyomi.core.common.preference.toggle
@@ -80,6 +80,7 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import uy.kohesive.injekt.injectLazy
 import java.time.Instant
 import java.util.Date
 
@@ -150,8 +151,7 @@ class ReaderViewModel @JvmOverloads constructor(
 
     private var chapterToDownload: Download? = null
 
-    private val ocrProcessor: OcrProcessor
-        get() = OcrModule.provideOcrProcessor(application)
+    private val ocrProcessor: OcrProcessor by injectLazy()
 
     private val unfilteredChapterList by lazy {
         val manga = manga!!
@@ -259,9 +259,8 @@ class ReaderViewModel @JvmOverloads constructor(
                 downloadManager.addDownloadsToStartOfQueue(listOf(it))
             }
         }
-        // Clean up OCR resources when ViewModel is cleared
         // Already checks if resources are initialized
-        OcrModule.cleanup()
+        Injekt.get<OcrRepository>().cleanup()
         super.onCleared()
     }
 
@@ -301,7 +300,7 @@ class ReaderViewModel @JvmOverloads constructor(
                     loadChapter(loader!!, chapterList.first { chapterId == it.chapter.id })
 
                     // Initialize OCR model early - avoids delay on first text-recognition
-                    OcrModule.provideOcrProcessor(application)
+                    ocrProcessor
 
                     Result.success(true)
                 } else {
