@@ -35,6 +35,6 @@ object TelemetryConfig {
     }
 }
 
-private val YOMIHON_PACKAGES = hashSetOf("app.yomihon", "app.yomihon.debug", "app.yomihon.dev")
+private val YOMIHON_PACKAGES = hashSetOf("app.yomihon", "app.yomihon.debug")
 private const val YOMIHON_CERTIFICATE_FINGERPRINT =
-    "47:94:5A:AD:F2:69:AD:6C:E3:E0:57:FE:96:E7:26:2A:41:17:CC:76:E3:47:4D:FE:B9:16:E2:CA:90:00:EE:D4"
+    "80:0D:DF:D7:15:EE:C6:F4:8E:69:C8:69:54:38:C0:9D:54:3E:6B:85:34:35:62:24:C6:7A:D9:EF:A5:B9:B0:CE"
