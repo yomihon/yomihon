@@ -103,7 +103,9 @@ jobs:
         run: |
           set -e
 
+          mv app/build/outputs/apk/release/app-armeabi-v7a-release-unsigned-signed.apk yomihon-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
           mv app/build/outputs/apk/release/app-arm64-v8a-release-unsigned-signed.apk yomihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
+          mv app/build/outputs/apk/release/app-x86-release-unsigned-signed.apk yomihon-x86-${{ needs.get_tag.outputs.tag }}.apk
           mv app/build/outputs/apk/release/app-x86_64-release-unsigned-signed.apk yomihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk
           mv app/build/outputs/apk/release/app-universal-release-unsigned-signed.apk yomihon-universal-${{ needs.get_tag.outputs.tag }}.apk
 
@@ -112,7 +114,9 @@ jobs:
         with:
           name: yomihon
           path: |
+            yomihon-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
             yomihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
+            yomihon-x86-${{ needs.get_tag.outputs.tag }}.apk
             yomihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk
             yomihon-universal-${{ needs.get_tag.outputs.tag }}.apk
 
@@ -210,7 +214,9 @@ jobs:
             >
             > ### If you are unsure which version to download then go with `yomihon-universal-${{ needs.get_tag.outputs.tag }}.apk`
           files: |
+            yomihon-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
             yomihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
+            yomihon-x86-${{ needs.get_tag.outputs.tag }}.apk
             yomihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk
             yomihon-universal-${{ needs.get_tag.outputs.tag }}.apk
             yomihon-${{ needs.get_tag.outputs.tag }}-foss.apk
