@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.net.toUri
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
+import eu.kanade.tachiyomi.data.dictionary.DictionaryImportJob
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.updater.AppUpdateDownloadJob
@@ -70,6 +71,8 @@ class NotificationReceiver : BroadcastReceiver() {
                     "application/x-protobuf+gzip",
                 )
             ACTION_CANCEL_RESTORE -> cancelRestore(context)
+            // Cancel dictionary import
+            ACTION_CANCEL_DICTIONARY_IMPORT -> cancelDictionaryImport(context)
             // Cancel library update and dismiss notification
             ACTION_CANCEL_LIBRARY_UPDATE -> cancelLibraryUpdate(context)
             // Start downloading app update
@@ -170,6 +173,16 @@ class NotificationReceiver : BroadcastReceiver() {
     }
 
     /**
+     * Method called when user wants to stop a dictionary import job.
+     *
+     * @param context context of application
+     */
+    private fun cancelDictionaryImport(context: Context) {
+        DictionaryImportJob.stop(context)
+        context.cancelNotification(Notifications.ID_DICTIONARY_IMPORT_PROGRESS)
+    }
+
+    /**
      * Method called when user wants to stop a library update
      *
      * @param context context of application
@@ -238,6 +251,8 @@ class NotificationReceiver : BroadcastReceiver() {
         private const val ACTION_SHARE_BACKUP = "$ID.$NAME.SEND_BACKUP"
 
         private const val ACTION_CANCEL_RESTORE = "$ID.$NAME.CANCEL_RESTORE"
+
+        private const val ACTION_CANCEL_DICTIONARY_IMPORT = "$ID.$NAME.CANCEL_DICTIONARY_IMPORT"
 
         private const val ACTION_CANCEL_LIBRARY_UPDATE = "$ID.$NAME.CANCEL_LIBRARY_UPDATE"
 
@@ -627,6 +642,26 @@ class NotificationReceiver : BroadcastReceiver() {
         internal fun cancelRestorePendingBroadcast(context: Context, notificationId: Int): PendingIntent {
             val intent = Intent(context, NotificationReceiver::class.java).apply {
                 action = ACTION_CANCEL_RESTORE
+                putExtra(EXTRA_NOTIFICATION_ID, notificationId)
+            }
+            return PendingIntent.getBroadcast(
+                context,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
+
+        /**
+         * Returns [PendingIntent] that cancels a dictionary import job.
+         *
+         * @param context context of application
+         * @param notificationId id of notification
+         * @return [PendingIntent]
+         */
+        internal fun cancelDictionaryImportPendingBroadcast(context: Context, notificationId: Int): PendingIntent {
+            val intent = Intent(context, NotificationReceiver::class.java).apply {
+                action = ACTION_CANCEL_DICTIONARY_IMPORT
                 putExtra(EXTRA_NOTIFICATION_ID, notificationId)
             }
             return PendingIntent.getBroadcast(

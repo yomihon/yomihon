@@ -1,29 +1,38 @@
 package eu.kanade.presentation.more.settings.screen
 
 import android.content.ActivityNotFoundException
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -39,6 +48,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -49,28 +59,27 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
-import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.tachiyomi.ui.setting.dictionary.DictionarySettingsScreenModel
 import eu.kanade.tachiyomi.util.system.toast
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import mihon.domain.dictionary.model.Dictionary
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -92,15 +101,6 @@ object SettingsDictionaryScreen : Screen {
         val snackbarHostState = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
         val lazyListState = rememberLazyListState()
-
-        // State to control the exit confirmation dialog
-        var showExitConfirmation by rememberSaveable { mutableStateOf(false) }
-        val isOperationInProgress = state.isImporting || state.isDeleting
-
-        // The dictionary import may cancel if the user navigates away, so give a warning
-        BackHandler(enabled = isOperationInProgress) {
-            showExitConfirmation = true
-        }
 
         // File picker for dictionary import
         val pickDictionary = rememberLauncherForActivityResult(
@@ -127,15 +127,10 @@ object SettingsDictionaryScreen : Screen {
             topBar = {
                 AppBar(
                     title = stringResource(MR.strings.pref_category_dictionaries),
-                    // Check if busy before navigating up
                     navigateUp = {
-                        if (isOperationInProgress) {
-                            showExitConfirmation = true
-                        } else {
-                            when {
-                                navigator?.canPop == true -> navigator.pop()
-                                else -> backPress?.invoke()
-                            }
+                        when {
+                            navigator?.canPop == true -> navigator.pop()
+                            else -> backPress?.invoke()
                         }
                     },
                     scrollBehavior = it,
@@ -143,67 +138,192 @@ object SettingsDictionaryScreen : Screen {
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         ) { contentPadding ->
-            Column(
-                modifier = Modifier
-                    .padding(contentPadding)
-                    .padding(16.dp),
+            val uriHandler = LocalUriHandler.current
+            val recommended = listOf(
+                RecommendedDictionary(
+                    title = stringResource(MR.strings.recommended_dict_jpdb_title),
+                    description = stringResource(MR.strings.recommended_dict_jpdb_description),
+                    url = "https://github.com/Kuuuube/yomitan-dictionaries/raw/main/dictionaries/JPDB_v2.2_Frequency_Kana_2024-10-13.zip",
+                ),
+                RecommendedDictionary(
+                    title = stringResource(MR.strings.recommended_dict_jitendex_title),
+                    description = stringResource(MR.strings.recommended_dict_jitendex_description),
+                    url = "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip",
+                ),
+            )
+
+            LazyColumn(
+                state = lazyListState,
+                contentPadding = contentPadding,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize(),
             ) {
-                // Import button
-                OutlinedButton(
-                    onClick = {
-                        try {
-                            pickDictionary.launch("application/zip")
-                        } catch (e: ActivityNotFoundException) {
-                            context.toast(MR.strings.file_picker_error)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !state.isImporting && !state.isDeleting,
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Add,
-                        contentDescription = null,
-                        modifier = Modifier.padding(end = 8.dp),
-                    )
-                    Text(stringResource(MR.strings.import_dictionary))
+                item {
+                    // Spacer for top padding
                 }
 
-                // Import progress
-                if (state.isImporting) {
+                // Recommended Dictionaries
+                item {
+                    var recommendedExpanded by rememberSaveable { mutableStateOf(false) }
+
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .animateContentSize(),
+                        colors = CardDefaults.outlinedCardColors(),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        onClick = { recommendedExpanded = !recommendedExpanded },
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            Text(
-                                text = stringResource(MR.strings.importing_dictionary),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            LinearProgressIndicator(
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                            )
-                            if (state.importedCount > 0) {
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
                                 Text(
-                                    text = stringResource(MR.strings.dictionary_import_progress, state.importedCount),
-                                    style = MaterialTheme.typography.bodySmall,
+                                    text = stringResource(MR.strings.recommended_dictionaries),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                            } else {
-                                state.importProgress?.let { progress ->
+                                Icon(
+                                    imageVector = if (recommendedExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+
+                            AnimatedVisibility(
+                                visible = recommendedExpanded,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut(),
+                            ) {
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier.padding(top = 8.dp),
+                                ) {
+                                    recommended.forEach { dict ->
+                                        RecommendedDictionaryItem(
+                                            dictionary = dict,
+                                            enabled = !state.isImporting && !state.isDeleting,
+                                            onImport = { screenModel.importDictionaryFromUrl(context, dict.url) },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Guide Card
+                item {
+                    Card(
+                        onClick = {
+                            uriHandler.openUri("https://yomihon.github.io/docs/guides/dictionaries")
+                        },
+                        colors = CardDefaults.outlinedCardColors(),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Column {
+                                Text(
+                                    text = stringResource(MR.strings.dictionary_guide),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Import button
+                item {
+                    OutlinedButton(
+                        onClick = {
+                            try {
+                                pickDictionary.launch("application/zip")
+                            } catch (e: ActivityNotFoundException) {
+                                context.toast(MR.strings.file_picker_error)
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        enabled = !state.isImporting && !state.isDeleting,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Add,
+                            contentDescription = null,
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                        Text(stringResource(MR.strings.import_dictionary_file))
+                    }
+                }
+
+                // Import progress
+                if (state.isImporting) {
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            ),
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(MR.strings.importing_dictionary),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                LinearProgressIndicator(
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                if (state.importedCount > 0) {
                                     Text(
-                                        text = progress,
+                                        text = stringResource(MR.strings.dictionary_import_progress, state.importedCount),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
+                                } else {
+                                    state.importProgress?.let { progress ->
+                                        Text(
+                                            text = progress,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
+                                Text(
+                                    text = stringResource(MR.strings.dictionary_import_continues_background),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                         }
                     }
@@ -211,69 +331,82 @@ object SettingsDictionaryScreen : Screen {
 
                 // Delete progress
                 if (state.isDeleting) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        ),
-                    ) {
-                        Column(
+                    item {
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                                .padding(horizontal = 16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            ),
                         ) {
-                            Text(
-                                text = stringResource(MR.strings.deleting_dictionary),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            LinearProgressIndicator(
-                                modifier = Modifier.fillMaxWidth(),
-                            )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(MR.strings.deleting_dictionary),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                LinearProgressIndicator(
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
                         }
                     }
                 }
 
                 // Dictionaries list
                 if (state.isLoading && state.dictionaries.isEmpty()) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                    )
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
                 } else if (state.dictionaries.isEmpty()) {
-                    val uriHandler = LocalUriHandler.current
-                    Column(
-                        modifier = Modifier.padding(vertical = 32.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            text = stringResource(MR.strings.no_dictionaries),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = stringResource(MR.strings.learn_add_dictionaries),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.clickable {
-                                uriHandler.openUri("https://yomihon.github.io/docs/guides/dictionaries")
-                            },
-                        )
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 32.dp, vertical = 32.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(MR.strings.no_dictionaries),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
                     }
                 } else {
-                    Text(
-                        text = stringResource(MR.strings.installed_dictionaries),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
+                    item {
+                        Text(
+                            text = stringResource(MR.strings.installed_dictionaries),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                    }
 
-                    LazyColumn(
-                        state = lazyListState,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        itemsIndexed(
-                            items = state.dictionaries,
-                            key = { _, dict -> dict.id },
-                        ) { index, dictionary ->
+                    itemsIndexed(
+                        items = state.dictionaries,
+                        key = { _, dict -> dict.id },
+                    ) { index, dictionary ->
+                        Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                             DictionaryItem(
                                 dictionary = dictionary,
                                 isOperationInProgress = state.isImporting || state.isDeleting,
@@ -297,33 +430,70 @@ object SettingsDictionaryScreen : Screen {
                         }
                     }
                 }
+
+                item {
+                    // Spacer for bottom padding (fab overlap etc if needed, or just visual breathing room)
+                }
             }
         }
+    }
+}
 
-        if (showExitConfirmation) {
-            AlertDialog(
-                onDismissRequest = { showExitConfirmation = false },
-                title = { Text(stringResource(MR.strings.exit_screen)) },
-                text = { Text(stringResource(MR.strings.confirm_exit_while_busy)) },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showExitConfirmation = false
-                            when {
-                                navigator?.canPop == true -> navigator.pop()
-                                else -> backPress?.invoke()
-                            }
-                        },
-                    ) {
-                        Text(stringResource(MR.strings.action_leave))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showExitConfirmation = false }) {
-                        Text(stringResource(MR.strings.action_stay))
-                    }
-                },
-            )
+@Immutable
+private data class RecommendedDictionary(
+    val title: String,
+    val description: String,
+    val url: String,
+)
+
+@Composable
+private fun RecommendedDictionaryItem(
+    dictionary: RecommendedDictionary,
+    enabled: Boolean,
+    onImport: () -> Unit,
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = dictionary.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = dictionary.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            IconButton(
+                onClick = onImport,
+                enabled = enabled,
+                colors = IconButtonDefaults.iconButtonColors(
+                    contentColor = MaterialTheme.colorScheme.primary,
+                ),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Download,
+                    contentDescription = stringResource(MR.strings.action_add),
+                )
+            }
         }
     }
 }
@@ -381,11 +551,13 @@ private fun DictionaryItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .onSizeChanged { rowSize = it }.bringIntoViewRequester(bringIntoViewRequester).clickable(
+                .onSizeChanged { rowSize = it }
+                .bringIntoViewRequester(bringIntoViewRequester)
+                .clickable(
                     interactionSource = interactionSource,
                     indication = LocalIndication.current,
                     enabled = !isOperationInProgress,
-                    onClick = { onToggleEnabled(!dictionary.isEnabled) }
+                    onClick = { onToggleEnabled(!dictionary.isEnabled) },
                 )
                 .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,

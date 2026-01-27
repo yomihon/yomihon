@@ -5,36 +5,37 @@ import android.net.Uri
 import androidx.compose.runtime.Immutable
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
-import java.util.concurrent.atomic.AtomicInteger
-import kotlinx.coroutines.Dispatchers
+import eu.kanade.tachiyomi.data.dictionary.DictionaryImportJob
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import logcat.LogPriority
-import mihon.core.archive.ArchiveReader
-import mihon.core.archive.archiveReader
 import mihon.domain.dictionary.interactor.DictionaryInteractor
-import mihon.domain.dictionary.interactor.ImportDictionary
 import mihon.domain.dictionary.model.Dictionary
-import mihon.domain.dictionary.model.DictionaryImportException
-import mihon.domain.dictionary.model.DictionaryIndex
-import mihon.domain.dictionary.service.DictionaryParseException
-import mihon.domain.dictionary.service.DictionaryParser
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.util.system.toast
 
 class DictionarySettingsScreenModel(
     private val dictionaryInteractor: DictionaryInteractor = Injekt.get(),
-    private val importDictionary: ImportDictionary = Injekt.get(),
-    private val dictionaryParser: DictionaryParser = Injekt.get(),
 ) : StateScreenModel<DictionarySettingsScreenModel.State>(State()) {
 
     init {
         loadDictionaries()
+
+        // Observe dictionary import job state
+        screenModelScope.launch {
+            DictionaryImportJob.isRunningFlow(Injekt.get<android.app.Application>())
+                .collectLatest { isRunning ->
+                    mutableState.update { it.copy(isImporting = isRunning) }
+                    if (!isRunning) {
+                        // Refresh dictionary list when import completes
+                        loadDictionaries()
+                    }
+                }
+        }
     }
 
     private fun loadDictionaries() {
@@ -60,155 +61,11 @@ class DictionarySettingsScreenModel(
     }
 
     fun importDictionaryFromUri(context: Context, uri: Uri) {
-        screenModelScope.launch {
-            mutableState.update { it.copy(isImporting = true, importProgress = null, importedCount = 0, error = null) }
-
-            try {
-                withContext(Dispatchers.IO) {
-                    val file = UniFile.fromUri(context, uri)
-                        ?: throw DictionaryImportException("Failed to open dictionary file")
-
-                    if (!file.exists() || !file.isFile) {
-                        throw DictionaryImportException("Invalid dictionary file")
-                    }
-
-                    // Extract and parse dictionary
-                    file.archiveReader(context).use { reader ->
-                        val importedId = extractAndImportDictionary(context, reader)
-                        mutableState.update {
-                            it.copy(highlightedDictionaryId = importedId)
-                        }
-                    }
-                }
-
-                context.toast(MR.strings.dictionary_import_success.getString(context))
-                mutableState.update {
-                    it.copy(
-                        isImporting = false,
-                        importProgress = null,
-                        importedCount = 0,
-                    )
-                }
-
-                // Reload dictionaries
-                loadDictionaries()
-            } catch (e: DictionaryImportException) {
-                if (e.message == "already_imported") {
-                    context.toast(MR.strings.dictionary_already_exists.getString(context))
-                } else {
-                    logcat(LogPriority.ERROR, e) { "Failed to import dictionary" }
-                    context.toast(e.message ?: MR.strings.dictionary_import_fail.getString(context))
-                }
-                mutableState.update {
-                    it.copy(
-                        isImporting = false,
-                        importProgress = null,
-                        importedCount = 0,
-                    )
-                }
-            } catch (e: Exception) {
-                logcat(LogPriority.ERROR, e) { "Failed to import dictionary" }
-                context.toast(e.message ?: MR.strings.dictionary_import_fail.getString(context))
-                mutableState.update {
-                    it.copy(
-                        isImporting = false,
-                        importProgress = null,
-                        importedCount = 0,
-                    )
-                }
-            }
-        }
+        DictionaryImportJob.start(context, uri)
     }
 
-    private suspend fun extractAndImportDictionary(context: Context, reader: ArchiveReader): Long {
-        mutableState.update { it.copy(importProgress = MR.strings.dictionary_import_reading_index.getString(context)) }
-
-        // Parse index.json
-        val indexJson = reader.getInputStream("index.json")?.bufferedReader()?.use { it.readText() }
-            ?: throw DictionaryImportException("index.json not found in dictionary archive")
-
-        val index: DictionaryIndex = try {
-            dictionaryParser.parseIndex(indexJson)
-        } catch (e: Exception) {
-            throw DictionaryParseException("Failed to parse index.json", e)
-        }
-
-        // Check if dictionary is already imported
-        if (dictionaryInteractor.isDictionaryAlreadyImported(index.title, index.revision)) {
-            throw DictionaryImportException("already_imported")
-        }
-
-        mutableState.update { it.copy(importProgress = MR.strings.dictionary_import_importing_info.getString(context)) }
-
-        val styles = reader.getInputStream("styles.css")?.bufferedReader()?.use { it.readText() }
-
-        val dictionaryId = importDictionary.createDictionary(index, styles)
-
-        importDictionary.importIndexTags(index, dictionaryId)
-
-        mutableState.update { it.copy(importProgress = MR.strings.dictionary_import_parsing_files.getString(context)) }
-
-        val tagRegex = Regex("^tag_bank_\\d+\\.json$")
-        val termRegex = Regex("^term_bank_\\d+\\.json$")
-        val kanjiRegex = Regex("^kanji_bank_\\d+\\.json$")
-        val termMetaRegex = Regex("^term_meta_bank_\\d+\\.json$")
-        val kanjiMetaRegex = Regex("^kanji_meta_bank_\\d+\\.json$")
-
-        val totalEntries = AtomicInteger(0)
-
-        // Entry count progress updater
-        val onProgress: suspend (Int) -> Unit = { batchCount ->
-            val newTotal = totalEntries.addAndGet(batchCount)
-            mutableState.update { it.copy(importedCount = newTotal) }
-        }
-
-        reader.useEntriesAndStreams { entry, stream ->
-            if (!entry.isFile) return@useEntriesAndStreams
-
-            val entryName = entry.name
-            val fileName = entryName.substringAfterLast('/').substringAfterLast('\\')
-
-            // Skip index.json as it's already processed
-            if (fileName == "index.json") return@useEntriesAndStreams
-
-            try {
-                var imported = false
-                when {
-                    fileName.matches(termMetaRegex) -> {
-                        val termMeta = dictionaryParser.parseTermMetaBank(stream)
-                        importDictionary.importTermMeta(termMeta, dictionaryId, onProgress)
-                        imported = true
-                    }
-                    fileName.matches(kanjiMetaRegex) -> {
-                        val kanjiMeta = dictionaryParser.parseKanjiMetaBank(stream)
-                        importDictionary.importKanjiMeta(kanjiMeta, dictionaryId, onProgress)
-                        imported = true
-                    }
-                    fileName.matches(termRegex) -> {
-                        val terms = dictionaryParser.parseTermBank(stream, index.effectiveVersion)
-                        importDictionary.importTerms(terms, dictionaryId, onProgress)
-                        imported = true
-                    }
-                    fileName.matches(kanjiRegex) -> {
-                        val kanji = dictionaryParser.parseKanjiBank(stream, index.effectiveVersion)
-                        importDictionary.importKanji(kanji, dictionaryId, onProgress)
-                        imported = true
-                    }
-                    fileName.matches(tagRegex) -> {
-                        val tags = dictionaryParser.parseTagBank(stream)
-                        importDictionary.importTags(tags, dictionaryId)
-                        imported = true
-                    }
-                }
-                if (imported) {
-                    logcat(LogPriority.INFO) { "Successfully imported $fileName" }
-                }
-            } catch (e: Exception) {
-                logcat(LogPriority.WARN, e) { "Failed to parse or import $fileName" }
-            }
-        }
-
-        return dictionaryId
+    fun importDictionaryFromUrl(context: Context, url: String) {
+        DictionaryImportJob.start(context, url)
     }
 
     fun updateDictionary(context: Context, dictionary: Dictionary) {

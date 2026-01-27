@@ -1053,8 +1053,16 @@
     <string name="dictionary_import_fail">Dictionary Import Failed</string>
     <string name="dictionary_already_exists">Dictionary Already Exists</string>
     <string name="import_dictionary">Import Dictionary</string>
+    <string name="import_dictionary_file">Import Dictionary From File</string>
     <string name="importing_dictionary">Importing Dictionary</string>
     <string name="dictionary_import_progress">Imported %1$d entries…</string>
+    <string name="dictionary_import_downloading">Downloading dictionary…</string>
+    <string name="dictionary_import_download_progress">Downloading dictionary (%1$s)…</string>
+    <string name="dictionary_import_continues_background">The import will continue in the background. A notification will show when complete.</string>
+    <string name="dictionary_import_invalid_url">Invalid or untrusted download URL</string>
+    <string name="dictionary_import_download_failed">Failed to download dictionary</string>
+    <string name="dictionary_import_too_large">Dictionary file is too large</string>
+    <string name="dictionary_import_not_zip">Downloaded file is not a ZIP archive</string>
     <string name="dictionary_import_reading_index">Reading dictionary info…</string>
     <string name="dictionary_import_importing_info">Importing dictionary info…</string>
     <string name="dictionary_import_parsing_files">Parsing and importing dictionary entries…</string>
@@ -1065,7 +1073,7 @@
     <string name="action_stay">Stay</string>
     <string name="installed_dictionaries">Installed Dictionaries</string>
     <string name="no_dictionaries">No Dictionaries Installed</string>
-    <string name="learn_add_dictionaries">Learn how to add dictionaries</string>
+    <string name="dictionary_guide">Dictionary Guide</string>
     <string name="dictionary_delete_success">Dictionary Successfully Deleted</string>
     <string name="dictionary_delete_fail">Dictionary Deletion Failed</string>
     <string name="dictionary_update_success">Dictionary Successfully Updated</string>
@@ -1089,7 +1097,13 @@
     <string name="action_move_up">Move up</string>
     <string name="action_move_down">Move down</string>
     <string name="label_priority">Priority:</string>
-
+    <!-- Dictionary Recommendations -->
+    <string name="recommended_dictionaries">Recommended Dictionaries</string>
+    <string name="recommended_dict_jpdb_title">[Freq] JPDB v2.2 Frequency Kana</string>
+    <string name="recommended_dict_jpdb_description">JPDB frequency ranks with split kana and kanji frequency variant.</string>
+    <string name="recommended_dict_jitendex_title">[Terms] Jitendex</string>
+    <string name="recommended_dict_jitendex_description">An improved version of JMdict with advanced formatting, polish, and term info.</string>
+    
     <!-- OCR Related -->
     <string name="action_ocr">OCR text recognition</string>
     <string name="action_copy">Copy</string>

@@ -65,6 +65,15 @@ object Notifications {
     const val ID_INCOGNITO_MODE = -701
 
     /**
+     * Notification channel and ids used for dictionary import.
+     */
+    private const val GROUP_DICTIONARY = "group_dictionary"
+    const val CHANNEL_DICTIONARY_PROGRESS = "dictionary_progress_channel"
+    const val ID_DICTIONARY_IMPORT_PROGRESS = -801
+    const val CHANNEL_DICTIONARY_COMPLETE = "dictionary_complete_channel"
+    const val ID_DICTIONARY_IMPORT_COMPLETE = -802
+
+    /**
      * Notification channel and ids used for app and extension updates.
      */
     private const val GROUP_APK_UPDATES = "group_apk_updates"
@@ -113,6 +122,9 @@ object Notifications {
                 },
                 buildNotificationChannelGroup(GROUP_APK_UPDATES) {
                     setName(context.stringResource(MR.strings.label_recent_updates))
+                },
+                buildNotificationChannelGroup(GROUP_DICTIONARY) {
+                    setName(context.stringResource(MR.strings.pref_category_dictionaries))
                 },
             ),
         )
@@ -166,6 +178,17 @@ object Notifications {
                 buildNotificationChannel(CHANNEL_EXTENSIONS_UPDATE, IMPORTANCE_DEFAULT) {
                     setGroup(GROUP_APK_UPDATES)
                     setName(context.stringResource(MR.strings.channel_ext_updates))
+                },
+                buildNotificationChannel(CHANNEL_DICTIONARY_PROGRESS, IMPORTANCE_LOW) {
+                    setName(context.stringResource(MR.strings.channel_progress))
+                    setGroup(GROUP_DICTIONARY)
+                    setShowBadge(false)
+                },
+                buildNotificationChannel(CHANNEL_DICTIONARY_COMPLETE, IMPORTANCE_HIGH) {
+                    setName(context.stringResource(MR.strings.channel_complete))
+                    setGroup(GROUP_DICTIONARY)
+                    setShowBadge(false)
+                    setSound(null, null)
                 },
             ),
         )
