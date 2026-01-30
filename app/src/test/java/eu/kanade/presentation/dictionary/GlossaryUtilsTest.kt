@@ -1,5 +1,8 @@
 package eu.kanade.presentation.dictionary
 
+import eu.kanade.presentation.dictionary.components.buildAnnotatedText
+import mihon.domain.dictionary.css.ParsedCss
+import mihon.domain.dictionary.css.parseDictionaryCss
 import mihon.domain.dictionary.model.GlossaryNode
 import mihon.domain.dictionary.model.GlossaryTag
 import mihon.domain.dictionary.model.GlossaryElementAttributes
