@@ -32,9 +32,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.getSystemService
 import androidx.core.graphics.ColorUtils
@@ -111,6 +114,9 @@ import uy.kohesive.injekt.api.get
 import java.io.ByteArrayOutputStream
 import androidx.core.graphics.createBitmap
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
 
 class ReaderActivity : BaseActivity() {
 
@@ -146,6 +152,19 @@ class ReaderActivity : BaseActivity() {
     private val windowInsetsController by lazy { WindowInsetsControllerCompat(window, binding.root) }
 
     private var loadingIndicator: ReaderProgressIndicator? = null
+
+    /**
+     * The most recent touch event seen by the activity.
+     */
+    private var lastTouchEvent: MotionEvent? = null
+
+    private var ocrDragStart by mutableStateOf<Offset?>(null)
+    private var ocrDragEnd by mutableStateOf<Offset?>(null)
+
+    private fun resetOcrDrag() {
+        ocrDragStart = null
+        ocrDragEnd = null
+    }
 
     var isScrollingThroughPages = false
         private set
@@ -350,6 +369,55 @@ class ReaderActivity : BaseActivity() {
         return handled || super.dispatchGenericMotionEvent(event)
     }
 
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        lastTouchEvent?.recycle()
+        lastTouchEvent = MotionEvent.obtain(ev)
+
+        if (::binding.isInitialized && viewModel.state.value.ocrSelectionMode) {
+            val loc = IntArray(2)
+            binding.dialogRoot.getLocationOnScreen(loc)
+            val x = ev.rawX - loc[0]
+            val y = ev.rawY - loc[1]
+
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    ocrDragStart = Offset(x, y)
+                    ocrDragEnd = Offset(x, y)
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (ocrDragStart == null) {
+                        ocrDragStart = Offset(x, y)
+                    }
+                    ocrDragEnd = Offset(x, y)
+                }
+                MotionEvent.ACTION_UP -> {
+                    val start = ocrDragStart
+                    val end = ocrDragEnd ?: Offset(x, y)
+                    if (start != null) {
+                        val left = min(start.x, end.x)
+                        val top = min(start.y, end.y)
+                        val right = max(start.x, end.x)
+                        val bottom = max(start.y, end.y)
+
+                        if (abs(right - left) > 20 && abs(bottom - top) > 20) {
+                            captureRegionAndProcessOcr(android.graphics.RectF(left, top, right, bottom))
+                            resetOcrDrag()
+                            return true
+                        }
+                    }
+                    resetOcrDrag()
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    resetOcrDrag()
+                    exitOcrMode()
+                }
+            }
+
+            return true
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
     /**
      * Initializes the reader menu. It sets up click listeners and the initial visibility.
      */
@@ -460,10 +528,9 @@ class ReaderActivity : BaseActivity() {
             // OCR selection overlay
             if (state.ocrSelectionMode) {
                 OcrSelectionOverlay(
-                    onRegionSelected = { rect ->
-                        captureRegionAndProcessOcr(rect)
-                    },
                     onCancel = ::exitOcrMode,
+                    startPoint = ocrDragStart,
+                    endPoint = ocrDragEnd,
                 )
             }
 
@@ -849,6 +916,7 @@ class ReaderActivity : BaseActivity() {
      * Temporarily applies fullscreen insets to prevent layout shift in non-fullscreen mode.
      */
     fun enterOcrMode() {
+        resetOcrDrag()
         if (!readerPreferences.fullscreen().get()) {
             WindowCompat.setDecorFitsSystemWindows(window, false)
             updateViewerInset(fullscreen = true)
@@ -857,12 +925,23 @@ class ReaderActivity : BaseActivity() {
         windowInsetsController.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         viewModel.enterOcrMode()
+
+        val last = lastTouchEvent
+        if (last != null && last.actionMasked != MotionEvent.ACTION_UP && last.actionMasked != MotionEvent.ACTION_CANCEL) {
+            val loc = IntArray(2)
+            binding.dialogRoot.getLocationOnScreen(loc)
+            val x = last.rawX - loc[0]
+            val y = last.rawY - loc[1]
+            ocrDragStart = Offset(x, y)
+            ocrDragEnd = Offset(x, y)
+        }
     }
 
     /**
      * Exits OCR selection mode and restores system bar visibility and insets.
      */
     fun exitOcrMode() {
+        resetOcrDrag()
         viewModel.exitOcrMode()
         if (!readerPreferences.fullscreen().get()) {
             WindowCompat.setDecorFitsSystemWindows(window, true)
