@@ -139,7 +139,12 @@ private val LEADING_PUNCTUATION = setOf(
     '「', '」', '『', '』', '（', '）', '(', ')', '【', '】',
     '〔', '〕', '《', '》', '〈', '〉',
     '・', '、', '。', '！', '？', '：', '；',
-    ' ', '\u3000',      // space characters
-    '\u201C', '\u201D', // quotation marks
+    ' ', '\t', '\n', '\r', '\u3000',      // whitespace characters
+    '\u201C', '\u201D', // double quotation marks
     '\u2018', '\u2019', // single quotation marks
+    '"', '\'', // ASCII quotes
+    '.', ',', '…', "...", // punctuation and ellipsis
+    '-', '\u2010', '\u2013', '\u2014', // hyphen variants
+    '«', '»', '<', '>', '[', ']', '{', '}', '/', '\\',
+    '〜', '\u301C', '\uFF5E', // tildes / wave dash
 )
