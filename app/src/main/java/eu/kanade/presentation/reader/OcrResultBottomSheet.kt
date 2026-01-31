@@ -25,6 +25,7 @@ import androidx.compose.ui.window.DialogProperties
 import eu.kanade.presentation.dictionary.components.DictionaryResults
 import eu.kanade.presentation.dictionary.components.SearchBar
 import eu.kanade.tachiyomi.ui.dictionary.DictionarySearchScreenModel
+import mihon.domain.dictionary.model.DictionaryTerm
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ResizableSheet
 import tachiyomi.presentation.core.components.SheetValue
@@ -41,6 +42,7 @@ fun OcrResultBottomSheet(
     searchState: DictionarySearchScreenModel.State,
     onQueryChange: (String) -> Unit,
     onSearch: (String) -> Unit,
+    onTermClick: (DictionaryTerm) -> Unit,
 ) {
     // Automatically search dictionary for the OCR text
     LaunchedEffect(text) {
@@ -117,7 +119,7 @@ fun OcrResultBottomSheet(
                         dictionaries = searchState.dictionaries,
                         enabledDictionaryIds = searchState.enabledDictionaryIds.toSet(),
                         termMetaMap = searchState.results?.termMetaMap ?: emptyMap(),
-                        onTermClick = { /* TODO: Anki */ },
+                        onTermClick = onTermClick,
                         onQueryChange = onQueryChange,
                         onSearch = onSearch,
                         contentPadding = PaddingValues(bottom = 8.dp),

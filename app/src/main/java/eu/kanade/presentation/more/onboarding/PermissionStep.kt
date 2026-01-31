@@ -41,6 +41,9 @@ import eu.kanade.tachiyomi.util.system.launchRequestPackageInstallsPermission
 import eu.kanade.tachiyomi.util.system.telemetryIncluded
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import mihon.domain.ankidroid.repository.AnkiDroidRepository
 import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.presentation.core.util.secondaryItemAlpha
 import uy.kohesive.injekt.injectLazy
@@ -48,9 +51,12 @@ import uy.kohesive.injekt.injectLazy
 internal class PermissionStep : OnboardingStep {
 
     private val privacyPreferences: PrivacyPreferences by injectLazy()
+    private val ankiDroidRepository: AnkiDroidRepository by injectLazy()
 
     private var notificationGranted by mutableStateOf(false)
     private var batteryGranted by mutableStateOf(false)
+    private var ankiPermissionGranted by mutableStateOf(false)
+    private var isAnkiAvailable by mutableStateOf(false)
 
     override val isComplete: Boolean = true
 
@@ -72,6 +78,11 @@ internal class PermissionStep : OnboardingStep {
                     }
                     batteryGranted = context.getSystemService<PowerManager>()!!
                         .isIgnoringBatteryOptimizations(context.packageName)
+
+                    kotlinx.coroutines.runBlocking {
+                        isAnkiAvailable = ankiDroidRepository.isApiAvailable()
+                        ankiPermissionGranted = if (isAnkiAvailable) ankiDroidRepository.hasPermission() else false
+                    }
                 }
             }
             lifecycleOwner.lifecycle.addObserver(observer)
@@ -117,6 +128,22 @@ internal class PermissionStep : OnboardingStep {
                     context.startActivity(intent)
                 },
             )
+
+            if (isAnkiAvailable) {
+                val ankiPermissionLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.RequestPermission(),
+                ) { isGranted ->
+                    ankiPermissionGranted = isGranted
+                }
+                PermissionCheckbox(
+                    title = stringResource(MR.strings.anki_permission),
+                    subtitle = stringResource(MR.strings.anki_permission_description),
+                    granted = ankiPermissionGranted,
+                    onButtonClick = {
+                        ankiPermissionLauncher.launch("com.ichi2.anki.permission.READ_WRITE_DATABASE")
+                    },
+                )
+            }
 
             if (!telemetryIncluded) return@Column
 

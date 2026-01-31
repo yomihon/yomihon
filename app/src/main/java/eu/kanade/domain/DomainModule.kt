@@ -26,10 +26,14 @@ import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.domain.track.interactor.RefreshTracks
 import eu.kanade.domain.track.interactor.SyncChapterProgressWithTrack
 import eu.kanade.domain.track.interactor.TrackChapter
+import mihon.data.ankidroid.AnkiDroidRepositoryImpl
 import mihon.data.repository.ExtensionRepoRepositoryImpl
 import mihon.data.dictionary.DictionaryParserImpl
 import mihon.data.dictionary.DictionaryRepositoryImpl
 import mihon.data.ocr.OcrRepositoryImpl
+import mihon.domain.ankidroid.interactor.AddDictionaryCard
+import mihon.domain.ankidroid.repository.AnkiDroidRepository
+import tachiyomi.domain.ankidroid.service.AnkiDroidPreferences
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.dictionary.interactor.DictionaryInteractor
 import mihon.domain.dictionary.interactor.ImportDictionary
@@ -220,7 +224,11 @@ class DomainModule : InjektModule {
         addFactory { DictionaryInteractor(get()) }
         addFactory { SearchDictionaryTerms(get()) }
         addFactory { ImportDictionary(get()) }
-        
+
+        addSingletonFactory<AnkiDroidRepository> { AnkiDroidRepositoryImpl(get<Application>()) }
+        addFactory { AddDictionaryCard(get()) }
+        addSingletonFactory { AnkiDroidPreferences(get()) }
+
         addSingletonFactory<OcrRepository> {
             OcrRepositoryImpl(
                 context = get<Application>()

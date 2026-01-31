@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.GetApp
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Sync
@@ -202,6 +203,12 @@ object SettingsMainScreen : Screen() {
             subtitleRes = MR.strings.pref_tracking_summary,
             icon = Icons.Outlined.Sync,
             screen = SettingsTrackingScreen,
+        ),
+        Item(
+            titleRes = MR.strings.pref_category_ankidroid,
+            subtitleRes = MR.strings.pref_ankidroid_summary,
+            icon = Icons.Outlined.School,
+            screen = SettingsAnkiScreen,
         ),
         Item(
             titleRes = MR.strings.browse,

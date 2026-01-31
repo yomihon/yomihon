@@ -33,9 +33,14 @@
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
+    <queries>
+        <package android:name="com.ichi2.anki" />
+    </queries>
+
     <application
         android:name=".App"
         android:allowBackup="false"
+        tools:replace="android:allowBackup"
         android:enableOnBackInvokedCallback="true"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"

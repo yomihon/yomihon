@@ -9,9 +9,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -54,8 +54,8 @@ data object DictionaryTab : Tab {
             onQueryChange = screenModel::updateQuery,
             onSearch = screenModel::search,
             onTermClick = { term ->
-                // Could navigate to an Anki export in the future
                 screenModel.selectTerm(term)
+                screenModel.addToAnki(term)
             },
             onOpenDictionarySettings = {
                 navigator.push(SettingsScreen(SettingsScreen.Destination.Dictionary))
@@ -80,7 +80,18 @@ data object DictionaryTab : Tab {
             screenModel.events.collectLatest { event ->
                 when (event) {
                     is DictionarySearchScreenModel.Event.ShowError -> {
-                        screenModel.snackbarHostState.showSnackbar(event.message)
+                        val message = when (val payload = event.message) {
+                            is DictionarySearchScreenModel.UiMessage.Resource -> context.getString(payload.value.resourceId)
+                            is DictionarySearchScreenModel.UiMessage.Text -> payload.value
+                        }
+                        screenModel.snackbarHostState.showSnackbar(message)
+                    }
+                    is DictionarySearchScreenModel.Event.ShowMessage -> {
+                        val message = when (val payload = event.message) {
+                            is DictionarySearchScreenModel.UiMessage.Resource -> context.getString(payload.value.resourceId)
+                            is DictionarySearchScreenModel.UiMessage.Text -> payload.value
+                        }
+                        screenModel.snackbarHostState.showSnackbar(message)
                     }
                 }
             }

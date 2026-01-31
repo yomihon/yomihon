@@ -72,6 +72,7 @@ import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.databinding.ReaderActivityBinding
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
+import eu.kanade.tachiyomi.ui.dictionary.DictionarySearchScreenModel
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult.AddToLibraryFirst
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult.Error
@@ -113,6 +114,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.ByteArrayOutputStream
 import androidx.core.graphics.createBitmap
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.math.abs
 import kotlin.math.max
@@ -446,12 +448,39 @@ class ReaderActivity : BaseActivity() {
             }
 
             val dictionarySearchScreenModel = remember {
-                eu.kanade.tachiyomi.ui.dictionary.DictionarySearchScreenModel()
+                DictionarySearchScreenModel()
             }
 
             // Initialize dictionary search model
             LaunchedEffect(Unit) {
                 dictionarySearchScreenModel.refreshDictionaries()
+            }
+
+            LaunchedEffect(Unit) {
+                dictionarySearchScreenModel.events.collectLatest { event ->
+                    when (event) {
+                        is DictionarySearchScreenModel.Event.ShowError -> {
+                            when (val payload = event.message) {
+                                is DictionarySearchScreenModel.UiMessage.Resource -> {
+                                    toast(payload.value)
+                                }
+                                is DictionarySearchScreenModel.UiMessage.Text -> {
+                                    toast(payload.value)
+                                }
+                            }
+                        }
+                        is DictionarySearchScreenModel.Event.ShowMessage -> {
+                            when (val payload = event.message) {
+                                is DictionarySearchScreenModel.UiMessage.Resource -> {
+                                    toast(payload.value)
+                                }
+                                is DictionarySearchScreenModel.UiMessage.Text -> {
+                                    toast(payload.value)
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             if (!ifSourcesLoaded()) {
@@ -610,6 +639,10 @@ class ReaderActivity : BaseActivity() {
                         searchState = searchState,
                         onQueryChange = dictionarySearchScreenModel::updateQuery,
                         onSearch = dictionarySearchScreenModel::search,
+                        onTermClick = { term ->
+                            dictionarySearchScreenModel.selectTerm(term)
+                            dictionarySearchScreenModel.addToAnki(term)
+                        },
                     )
                 }
                 null -> {}

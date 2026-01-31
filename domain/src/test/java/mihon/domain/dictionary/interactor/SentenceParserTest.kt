@@ -77,7 +77,7 @@ class SentenceParserTest {
             mockTerm("食べる", "たべる", "v1"),
         )
 
-        val word = searchDictionaryTerms.findFirstWord("食べ物っていいね", testDictionaryIds)
+        val word = searchDictionaryTerms.findFirstWord("食べ物が好き", testDictionaryIds)
 
         word shouldBe "食べ物"
     }

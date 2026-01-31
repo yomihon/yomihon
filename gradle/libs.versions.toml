@@ -1,5 +1,6 @@
 [versions]
 aboutlib_version = "12.2.4"
+anki-android-version = "api-v1.1.0"
 leakcanary = "2.14"
 moko = "0.25.1"
 okhttp_version = "5.1.0"
@@ -19,6 +20,7 @@ core-ktx-version = "1.7.0"
 litert = "2.1.0"
 
 [libraries]
+anki-android = { module = "com.github.ankidroid:Anki-Android", version.ref = "anki-android-version" }
 desugar = "com.android.tools:desugar_jdk_libs:2.1.5"
 android-shortcut-gradle = "com.github.zellius:android-shortcut-gradle-plugin:0.1.2"
 

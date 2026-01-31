@@ -10,18 +10,24 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import mihon.domain.ankidroid.interactor.AddDictionaryCard
+import mihon.domain.ankidroid.repository.AnkiDroidRepository
 import mihon.domain.dictionary.interactor.DictionaryInteractor
 import mihon.domain.dictionary.interactor.SearchDictionaryTerms
 import mihon.domain.dictionary.model.Dictionary
 import mihon.domain.dictionary.model.DictionaryTerm
 import mihon.domain.dictionary.model.DictionaryTermMeta
+import mihon.domain.dictionary.model.toDictionaryTermCard
 import tachiyomi.core.common.util.system.logcat
+import dev.icerock.moko.resources.StringResource
+import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 class DictionarySearchScreenModel(
     private val searchDictionaryTerms: SearchDictionaryTerms = Injekt.get(),
     private val dictionaryInteractor: DictionaryInteractor = Injekt.get(),
+    private val addDictionaryCard: AddDictionaryCard = Injekt.get(),
 ) : StateScreenModel<DictionarySearchScreenModel.State>(State()) {
 
     val snackbarHostState = SnackbarHostState()
@@ -64,7 +70,7 @@ class DictionarySearchScreenModel(
                 }
             } catch (e: Exception) {
                 mutableState.update { it.copy(isLoading = false) }
-                _events.send(Event.ShowError(e.message ?: "Failed to load dictionaries"))
+                _events.send(Event.ShowError(UiMessage.Text(e.message ?: "Failed to load dictionaries")))
             }
         }
     }
@@ -82,7 +88,7 @@ class DictionarySearchScreenModel(
                 }
             } catch (e: Exception) {
                 mutableState.update { it.copy(isLoading = false) }
-                _events.send(Event.ShowError(e.message ?: "Failed to load dictionaries"))
+                _events.send(Event.ShowError(UiMessage.Text(e.message ?: "Failed to load dictionaries")))
             }
         }
     }
@@ -121,7 +127,7 @@ class DictionarySearchScreenModel(
             try {
                 val enabledDictionaryIds = state.value.enabledDictionaryIds
                 if (enabledDictionaryIds.isEmpty()) {
-                    _events.send(Event.ShowError("No dictionaries enabled"))
+                    _events.send(Event.ShowError(UiMessage.Text("No dictionaries enabled")))
                     mutableState.update { it.copy(isSearching = false, results = null) }
                     return@launch
                 }
@@ -171,13 +177,39 @@ class DictionarySearchScreenModel(
                 }
             } catch (e: Exception) {
                 mutableState.update { it.copy(isSearching = false) }
-                _events.send(Event.ShowError(e.message ?: "Search failed"))
+                _events.send(Event.ShowError(UiMessage.Text(e.message ?: "Search failed")))
             }
         }
     }
 
     fun selectTerm(term: DictionaryTerm) {
         mutableState.update { it.copy(selectedTerm = term) }
+    }
+
+    fun addToAnki(term: DictionaryTerm) {
+        screenModelScope.launch {
+            val dictionaryName = state.value.dictionaries
+                .firstOrNull { it.id == term.dictionaryId }
+                ?.title
+                .orEmpty()
+            val card = term.toDictionaryTermCard(dictionaryName)
+
+            when (val result = addDictionaryCard(card)) {
+                AnkiDroidRepository.Result.Added -> {
+                    _events.send(Event.ShowMessage(UiMessage.Resource(MR.strings.anki_add_success)))
+                }
+                AnkiDroidRepository.Result.Duplicate -> {
+                    _events.send(Event.ShowMessage(UiMessage.Resource(MR.strings.anki_add_duplicate)))
+                }
+                AnkiDroidRepository.Result.NotAvailable -> {
+                    _events.send(Event.ShowError(UiMessage.Resource(MR.strings.anki_add_not_available)))
+                }
+                is AnkiDroidRepository.Result.Error -> {
+                    logcat(LogPriority.ERROR, result.throwable)
+                    _events.send(Event.ShowError(UiMessage.Resource(MR.strings.anki_add_failed)))
+                }
+            }
+        }
     }
 
     @Immutable
@@ -200,7 +232,13 @@ class DictionarySearchScreenModel(
         val hasSearched: Boolean = false,
     )
 
+    sealed interface UiMessage {
+        data class Text(val value: String) : UiMessage
+        data class Resource(val value: StringResource) : UiMessage
+    }
+
     sealed interface Event {
-        data class ShowError(val message: String) : Event
+        data class ShowError(val message: UiMessage) : Event
+        data class ShowMessage(val message: UiMessage) : Event
     }
 }

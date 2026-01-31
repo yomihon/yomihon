@@ -36,6 +36,8 @@ dependencies {
 
     implementation(libs.litert)
 
+    implementation(libs.anki.android)
+
     api(libs.bundles.sqldelight)
 
     testImplementation(libs.bundles.test)
