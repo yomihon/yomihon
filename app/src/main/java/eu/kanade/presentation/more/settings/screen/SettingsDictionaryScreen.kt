@@ -141,14 +141,19 @@ object SettingsDictionaryScreen : Screen {
             val uriHandler = LocalUriHandler.current
             val recommended = listOf(
                 RecommendedDictionary(
+                    title = stringResource(MR.strings.recommended_dict_jitendex_title),
+                    description = stringResource(MR.strings.recommended_dict_jitendex_description),
+                    url = "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip",
+                ),
+                RecommendedDictionary(
                     title = stringResource(MR.strings.recommended_dict_jpdb_title),
                     description = stringResource(MR.strings.recommended_dict_jpdb_description),
                     url = "https://github.com/Kuuuube/yomitan-dictionaries/raw/main/dictionaries/JPDB_v2.2_Frequency_Kana_2024-10-13.zip",
                 ),
                 RecommendedDictionary(
-                    title = stringResource(MR.strings.recommended_dict_jitendex_title),
-                    description = stringResource(MR.strings.recommended_dict_jitendex_description),
-                    url = "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip",
+                    title = stringResource(MR.strings.recommended_dict_bccwj_title),
+                    description = stringResource(MR.strings.recommended_dict_bccwj_description),
+                    url = "https://github.com/Kuuuube/yomitan-dictionaries/raw/main/dictionaries/BCCWJ_SUW_LUW_combined.zip",
                 ),
             )
 

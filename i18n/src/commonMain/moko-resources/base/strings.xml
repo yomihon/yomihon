@@ -1139,10 +1139,12 @@
 
     <!-- Dictionary Recommendations -->
     <string name="recommended_dictionaries">Recommended Dictionaries</string>
-    <string name="recommended_dict_jpdb_title">[Freq] JPDB v2.2 Frequency Kana</string>
-    <string name="recommended_dict_jpdb_description">JPDB frequency ranks with split kana and kanji frequency variant.</string>
     <string name="recommended_dict_jitendex_title">[Terms] Jitendex</string>
     <string name="recommended_dict_jitendex_description">An improved version of JMdict with advanced formatting, polish, and term info.</string>
+    <string name="recommended_dict_jpdb_title">[Freq] JPDB v2.2 Frequency Kana</string>
+    <string name="recommended_dict_jpdb_description">JPDB frequency ranks with split kana and kanji frequency ranks.</string>
+    <string name="recommended_dict_bccwj_title">[Freq] BCCWJ SUW LUW</string>
+    <string name="recommended_dict_bccwj_description">A list of word frequencies from diverse texts.</string>
 
     <!-- OCR Related -->
     <string name="action_ocr">OCR text recognition</string>
