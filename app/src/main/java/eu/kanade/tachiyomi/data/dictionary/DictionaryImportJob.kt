@@ -401,6 +401,7 @@ class DictionaryImportJob(
             "github.com",
             "raw.githubusercontent.com",
             "objects.githubusercontent.com",
+            "release-assets.githubusercontent.com",
         )
 
         // 300 MiB safety limit to reduce risk of storage exhaustion.
