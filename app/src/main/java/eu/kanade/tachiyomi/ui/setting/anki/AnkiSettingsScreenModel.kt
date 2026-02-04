@@ -74,10 +74,37 @@ class AnkiSettingsScreenModel(
                 }
 
                 val decks = ankiDroidRepository.getDecks()
-                val models = ankiDroidRepository.getModels(minFields = APP_FIELDS.size)
+                val models = ankiDroidRepository.getModels()
+
+                // Get current selections from state
+                var selectedDeckId = state.value.selectedDeckId
+                var selectedModelId = state.value.selectedModelId
+                val preferredDeckName = state.value.deckName
+                val preferredModelName = state.value.modelName
+
+                // If deck ID is invalid or not in available decks, get or create the preferred deck
+                if (selectedDeckId <= 0 || !decks.containsKey(selectedDeckId)) {
+                    val deckId = ankiDroidRepository.getOrCreateDeck(preferredDeckName, selectedDeckId)
+                    if (deckId != null) {
+                        selectedDeckId = deckId
+                        ankiDroidPreferences.deckId().set(deckId)
+                    }
+                }
+
+                // If model ID is invalid or not in available models, get or create the preferred model
+                if (selectedModelId <= 0 || !models.containsKey(selectedModelId)) {
+                    val modelId = ankiDroidRepository.getOrCreateModel(preferredModelName, selectedDeckId, selectedModelId)
+                    if (modelId != null) {
+                        selectedModelId = modelId
+                        ankiDroidPreferences.modelId().set(modelId)
+                    }
+                }
+
+                // Reload decks/models in case new ones were created
+                val updatedDecks = ankiDroidRepository.getDecks()
+                val updatedModels = ankiDroidRepository.getModels()
 
                 // Load model fields if a model is selected
-                val selectedModelId = state.value.selectedModelId
                 val modelFields = if (selectedModelId > 0) {
                     ankiDroidRepository.getModelFields(selectedModelId)
                 } else {
@@ -88,9 +115,11 @@ class AnkiSettingsScreenModel(
                     it.copy(
                         isApiAvailable = true,
                         hasPermission = true,
-                        decks = decks,
-                        models = models,
+                        decks = updatedDecks,
+                        models = updatedModels,
                         modelFields = modelFields,
+                        selectedDeckId = selectedDeckId,
+                        selectedModelId = selectedModelId,
                         isLoading = false,
                     )
                 }
@@ -144,15 +173,10 @@ class AnkiSettingsScreenModel(
         ankiDroidPreferences.deckName().set(name)
     }
 
-    fun updateModelName(name: String) {
-        mutableState.update { it.copy(modelName = name) }
-        ankiDroidPreferences.modelName().set(name)
-    }
-
-    fun updateFieldMapping(appField: String, noteField: String) {
+    fun updateFieldMapping(ankiField: String, appVariable: String) {
         mutableState.update { currentState ->
             val updatedMappings = currentState.fieldMappings.toMutableMap()
-            updatedMappings[appField] = noteField
+            updatedMappings[ankiField] = appVariable
             ankiDroidPreferences.fieldMappings().set(updatedMappings)
             currentState.copy(fieldMappings = updatedMappings)
         }
@@ -172,7 +196,7 @@ class AnkiSettingsScreenModel(
         val selectedDeckId: Long = -1L,
         val selectedModelId: Long = -1L,
         val deckName: String = "Yomihon",
-        val modelName: String = "app.yomihon.dictionary",
+        val modelName: String = "Yomihon Card",
         val fieldMappings: Map<String, String> = emptyMap(),
         val isLoading: Boolean = true,
         val error: String? = null,

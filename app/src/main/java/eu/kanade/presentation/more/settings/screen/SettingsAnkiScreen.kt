@@ -12,20 +12,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import eu.kanade.presentation.more.settings.Preference
-import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.tachiyomi.ui.setting.anki.AnkiSettingsScreenModel
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.util.collectAsState
 
 object SettingsAnkiScreen : SearchableSettings {
 
@@ -39,7 +36,6 @@ object SettingsAnkiScreen : SearchableSettings {
     override fun getPreferences(): List<Preference> {
         val screenModel = rememberScreenModel { AnkiSettingsScreenModel() }
         val state by screenModel.state.collectAsState()
-        val scope = rememberCoroutineScope()
         val context = LocalContext.current
 
         LaunchedEffect(state.error) {
@@ -99,8 +95,7 @@ object SettingsAnkiScreen : SearchableSettings {
         }
 
         if (state.isApiAvailable && state.hasPermission) {
-            preferences.add(getDeckGroup(state, screenModel))
-            preferences.add(getModelGroup(state, screenModel))
+            preferences.add(getDeckNoteConfig(state, screenModel))
 
             if (state.selectedModelId > 0 && state.modelFields.isNotEmpty()) {
                 preferences.add(getFieldMappingGroup(state, screenModel))
@@ -111,10 +106,11 @@ object SettingsAnkiScreen : SearchableSettings {
     }
 
     @Composable
-    private fun getDeckGroup(
+    private fun getDeckNoteConfig(
         state: AnkiSettingsScreenModel.State,
         screenModel: AnkiSettingsScreenModel,
     ): Preference.PreferenceGroup {
+        val models = state.models.mapKeys { it.key.toString() }.toMutableMap()
         val decks = state.decks.mapKeys { it.key.toString() }.toMutableMap()
         decks[CREATE_NEW_ID.toString()] = stringResource(MR.strings.anki_create_new_deck)
 
@@ -150,22 +146,6 @@ object SettingsAnkiScreen : SearchableSettings {
             )
         }
 
-        return Preference.PreferenceGroup(
-            title = stringResource(MR.strings.anki_deck_selection),
-            preferenceItems = items.toImmutableList(),
-        )
-    }
-
-    @Composable
-    private fun getModelGroup(
-        state: AnkiSettingsScreenModel.State,
-        screenModel: AnkiSettingsScreenModel,
-    ): Preference.PreferenceGroup {
-        val models = state.models.mapKeys { it.key.toString() }.toMutableMap()
-        models[CREATE_NEW_ID.toString()] = stringResource(MR.strings.anki_create_new_note_type)
-
-        val items = mutableListOf<Preference.PreferenceItem<out Any>>()
-
         items.add(
             Preference.PreferenceItem.BasicListPreference(
                 value = state.selectedModelId.toString(),
@@ -178,26 +158,8 @@ object SettingsAnkiScreen : SearchableSettings {
             )
         )
 
-        if (state.selectedModelId == CREATE_NEW_ID) {
-            items.add(
-                Preference.PreferenceItem.CustomPreference(
-                    title = stringResource(MR.strings.anki_note_type_name),
-                ) {
-                    OutlinedTextField(
-                        value = state.modelName,
-                        onValueChange = { screenModel.updateModelName(it) },
-                        label = { Text(stringResource(MR.strings.anki_note_type_name)) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        singleLine = true,
-                    )
-                }
-            )
-        }
-
         return Preference.PreferenceGroup(
-            title = stringResource(MR.strings.anki_note_type_selection),
+            title = stringResource(MR.strings.anki_deck_note_config),
             preferenceItems = items.toImmutableList(),
         )
     }
@@ -207,20 +169,32 @@ object SettingsAnkiScreen : SearchableSettings {
         state: AnkiSettingsScreenModel.State,
         screenModel: AnkiSettingsScreenModel,
     ): Preference.PreferenceGroup {
-        val mappingItems = AnkiSettingsScreenModel.APP_FIELDS.map { appField ->
-            val options = (listOf("") + state.modelFields).associateWith {
-                if (it.isEmpty()) stringResource(MR.strings.anki_field_not_mapped) else it
+        val mappingItems = mutableListOf<Preference.PreferenceItem<out Any>>()
+
+        mappingItems.add(
+            Preference.PreferenceItem.InfoPreference(
+                title = stringResource(MR.strings.anki_field_mapping_info),
+            )
+        )
+
+        state.modelFields.forEach { ankiField ->
+            val currentMapping = state.fieldMappings[ankiField] ?: ""
+
+            val options = (listOf("") + AnkiSettingsScreenModel.APP_FIELDS).associateWith {
+                it.ifEmpty { stringResource(MR.strings.anki_field_empty) }
             }.toImmutableMap()
 
-            Preference.PreferenceItem.BasicListPreference(
-                value = state.fieldMappings[appField] ?: "",
-                entries = options,
-                title = appField.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() },
-                subtitle = "Placeholder: {$appField}\n%s",
-                onValueChanged = {
-                    screenModel.updateFieldMapping(appField, it)
-                    true
-                },
+            mappingItems.add(
+                Preference.PreferenceItem.BasicListPreference(
+                    value = currentMapping,
+                    entries = options,
+                    title = ankiField,
+                    subtitle = if (currentMapping.isEmpty()) stringResource(MR.strings.anki_field_empty) else stringResource(MR.strings.anki_fill_with),
+                    onValueChanged = {
+                        screenModel.updateFieldMapping(ankiField, it)
+                        true
+                    },
+                )
             )
         }
 

@@ -1112,16 +1112,14 @@
     <string name="anki_permission">Add cards to AnkiDroid</string>
     <string name="anki_permission_description">Instantly create flashcards in AnkiDroid while reading</string>
     <string name="anki_connected">Connected to AnkiDroid</string>
+    <string name="anki_deck_note_config">Configuration</string>
     <string name="anki_deck_selection">Deck Selection</string>
     <string name="anki_create_new_deck">Create new deck</string>
     <string name="anki_deck_name">Deck name</string>
     <string name="anki_note_type_selection">Note Type Selection</string>
-    <string name="anki_create_new_note_type">Create new note type</string>
     <string name="anki_note_type_name">Note type name</string>
     <string name="anki_field_mappings">Field Mappings</string>
-    <string name="anki_field_not_mapped">Not mapped</string>
-    <string name="anki_save_settings">Save Settings</string>
-    <string name="anki_settings_saved">Settings saved</string>
+    <string name="anki_field_empty">Empty</string>
     <string name="anki_field_reading">Reading</string>
     <string name="anki_field_expression">Expression</string>
     <string name="anki_field_glossary">Glossary</string>
@@ -1129,13 +1127,8 @@
     <string name="anki_field_pitch_accent">Pitch Accent</string>
     <string name="anki_field_frequency">Frequency</string>
     <string name="anki_field_picture">Picture</string>
-    <string name="anki_placeholder_reading">{reading}</string>
-    <string name="anki_placeholder_expression">{expression}</string>
-    <string name="anki_placeholder_glossary">{glossary}</string>
-    <string name="anki_placeholder_sentence">{sentence}</string>
-    <string name="anki_placeholder_pitch_accent">{pitch-accent}</string>
-    <string name="anki_placeholder_frequency">{frequency}</string>
-    <string name="anki_placeholder_picture">{picture}</string>
+    <string name="anki_field_mapping_info">Select the default data to fill each field with when creating a card</string>
+    <string name="anki_fill_with">Fill with: %s</string>
 
     <!-- Dictionary Recommendations -->
     <string name="recommended_dictionaries">Recommended Dictionaries</string>
@@ -1147,7 +1140,7 @@
     <string name="recommended_dict_bccwj_description">A list of word frequencies from diverse texts.</string>
 
     <!-- OCR Related -->
-    <string name="action_ocr">OCR text recognition</string>
+    <string name="action_ocr">Trigger region selection for text recognition</string>
     <string name="action_copy">Copy</string>
     <string name="ocr_select_region">Drag to select text region</string>
     <string name="ocr_processing">Processing OCR…</string>

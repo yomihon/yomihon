@@ -225,9 +225,9 @@ class DomainModule : InjektModule {
         addFactory { SearchDictionaryTerms(get()) }
         addFactory { ImportDictionary(get()) }
 
-        addSingletonFactory<AnkiDroidRepository> { AnkiDroidRepositoryImpl(get<Application>()) }
-        addFactory { AddDictionaryCard(get()) }
         addSingletonFactory { AnkiDroidPreferences(get()) }
+        addSingletonFactory<AnkiDroidRepository> { AnkiDroidRepositoryImpl(get<Application>(), get()) }
+        addFactory { AddDictionaryCard(get()) }
 
         addSingletonFactory<OcrRepository> {
             OcrRepositoryImpl(

@@ -32,6 +32,23 @@ interface AnkiDroidRepository {
      */
     suspend fun hasPermission(): Boolean
 
+    /**
+     * Get or create a deck by name, checking an optional ID first for robustness
+     * @param name the deck name
+     * @param id the optional deck ID to verify existence first
+     * @return the deck ID, or null if creation failed
+     */
+    suspend fun getOrCreateDeck(name: String, id: Long = -1L): Long?
+
+    /**
+     * Get or create the Yomihon Card model, checking an optional ID first
+     * @param name the model name
+     * @param deckId the deck ID to associate with the model
+     * @param id the optional model ID to verify existence first
+     * @return the model ID, or null if creation failed
+     */
+    suspend fun getOrCreateModel(name: String, deckId: Long, id: Long = -1L): Long?
+
     sealed interface Result {
         data object Added : Result
         data object Duplicate : Result
