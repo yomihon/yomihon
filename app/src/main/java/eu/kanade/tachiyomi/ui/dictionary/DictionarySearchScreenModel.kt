@@ -18,6 +18,7 @@ import mihon.domain.dictionary.model.Dictionary
 import mihon.domain.dictionary.model.DictionaryTerm
 import mihon.domain.dictionary.model.DictionaryTermMeta
 import mihon.domain.dictionary.model.toDictionaryTermCard
+import mihon.domain.dictionary.service.toHtml
 import tachiyomi.core.common.util.system.logcat
 import dev.icerock.moko.resources.StringResource
 import tachiyomi.i18n.MR
@@ -188,11 +189,12 @@ class DictionarySearchScreenModel(
 
     fun addToAnki(term: DictionaryTerm) {
         screenModelScope.launch {
-            val dictionaryName = state.value.dictionaries
+            val dictionary = state.value.dictionaries
                 .firstOrNull { it.id == term.dictionaryId }
-                ?.title
-                .orEmpty()
-            val card = term.toDictionaryTermCard(dictionaryName)
+            val dictionaryName = dictionary?.title.orEmpty()
+            val styles = dictionary?.styles
+            val glossaryHtml = term.glossary.toHtml(styles)
+            val card = term.toDictionaryTermCard(dictionaryName, glossaryHtml)
 
             when (val result = addDictionaryCard(card)) {
                 AnkiDroidRepository.Result.Added -> {

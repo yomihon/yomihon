@@ -16,7 +16,6 @@ import androidx.compose.material.icons.outlined.GetApp
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Sync
@@ -33,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.ColorUtils
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -45,6 +45,7 @@ import eu.kanade.presentation.more.settings.screen.about.AboutScreen
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.R
 import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -76,6 +77,7 @@ object SettingsMainScreen : Screen() {
 
     @Composable
     fun Content(twoPane: Boolean) {
+        val items = getItems()
         val navigator = LocalNavigator.currentOrThrow
         val backPress = LocalBackPress.currentOrThrow
         val containerColor = if (twoPane) getPalerSurface() else MaterialTheme.colorScheme.surface
@@ -173,7 +175,8 @@ object SettingsMainScreen : Screen() {
         val screen: VoyagerScreen,
     )
 
-    private val items = listOf(
+    @Composable
+    private fun getItems() = listOf(
         Item(
             titleRes = MR.strings.pref_category_appearance,
             subtitleRes = MR.strings.pref_appearance_summary,
@@ -205,16 +208,16 @@ object SettingsMainScreen : Screen() {
             screen = SettingsTrackingScreen,
         ),
         Item(
-            titleRes = MR.strings.pref_category_ankidroid,
-            subtitleRes = MR.strings.pref_ankidroid_summary,
-            icon = Icons.Outlined.School,
-            screen = SettingsAnkiScreen,
-        ),
-        Item(
             titleRes = MR.strings.browse,
             subtitleRes = MR.strings.pref_browse_summary,
             icon = Icons.Outlined.Explore,
             screen = SettingsBrowseScreen,
+        ),
+        Item(
+            titleRes = MR.strings.pref_category_ankidroid,
+            subtitleRes = MR.strings.pref_ankidroid_summary,
+            icon = ImageVector.vectorResource(R.drawable.ic_ankidroid),
+            screen = SettingsAnkiScreen,
         ),
         Item(
             titleRes = MR.strings.label_data_storage,

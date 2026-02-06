@@ -42,9 +42,9 @@ class AnkiDroidPreferences(
         private const val KEY_VALUE_SEPARATOR = "::"
 
         val DEFAULT_FIELD_MAPPINGS = mapOf(
-            "Reading" to "reading",
-            "Expression" to "expression",
-            "Glossary" to "glossary",
+            "Word" to "expression",
+            "Word Reading" to "reading",
+            "Word Meaning" to "glossary",
             "Sentence" to "sentence",
             "Pitch Accent" to "pitchAccent",
             "Frequency" to "frequency",

@@ -159,8 +159,8 @@ class AnkiDroidRepositoryImpl(
                 name,
                 YOMIHON_FIELDS,
                 YOMIHON_CARD_NAMES,
-                YOMIHON_QFMT,
-                YOMIHON_AFMT,
+                YOMIHON_FRONT,
+                YOMIHON_BACK,
                 YOMIHON_CSS,
                 deckId,
                 null,
@@ -179,81 +179,120 @@ class AnkiDroidRepositoryImpl(
     companion object {
         // Yomihon Card default model definition
         private val YOMIHON_FIELDS = arrayOf(
-            "Expression",
-            "Reading",
-            "Glossary",
+            "Word",
+            "Word Reading",
+            "Word Meaning",
             "Sentence",
+            "Word Audio",
             "Pitch Accent",
             "Frequency",
             "Picture",
+            "Notes",
         )
 
         private val YOMIHON_CARD_NAMES = arrayOf("Yomihon Card")
 
-        private val YOMIHON_QFMT = arrayOf(
+        private val YOMIHON_FRONT = arrayOf(
             """
-            <div class="expression">{{Expression}}</div>
-            {{#Reading}}<div class="reading">{{Reading}}</div>{{/Reading}}
-            {{#Picture}}<div class="picture">{{Picture}}</div>{{/Picture}}
+            <div lang="ja">
+            {{Word}}
+            </div>
             """.trimIndent(),
         )
 
-        private val YOMIHON_AFMT = arrayOf(
+        private val YOMIHON_BACK = arrayOf(
             """
-            <div class="expression">{{Expression}}</div>
-            {{#Reading}}<div class="reading">{{Reading}}</div>{{/Reading}}
+            <div lang="ja" class="main-wrapper">
+
+            <div class="word-reading" style='font-size: 32px'>{{Word Reading}}</div>
+
             <hr>
-            <div class="glossary">{{Glossary}}</div>
-            {{#Sentence}}<div class="sentence">{{Sentence}}</div>{{/Sentence}}
-            {{#Pitch Accent}}<div class="pitch">{{Pitch Accent}}</div>{{/Pitch Accent}}
-            {{#Frequency}}<div class="frequency">{{Frequency}}</div>{{/Frequency}}
-            {{#Picture}}<div class="picture">{{Picture}}</div>{{/Picture}}
+
+            <div class="word-meaning">{{Word Meaning}}</div>
+
+            <hr>
+
+            <div style='font-size: 18px;'>{{Sentence}}</div>
+            <div style='font-size: 20px; padding-bottom:10px'></div>
+
+            <div style='font-size: 20px;'>
+            {{Word Audio}}
+
+            </div>
+
+            <!-- Flexbox for centering-->
+            {{#Pitch Accent}}
+            	<br><div style='font-size: 12px; display: flex; justify-content: center; margin-top: -40px;'>{{Pitch Accent}}</div>
+            {{/Pitch Accent}}
+
+            <br><div style='font-size: 12px; display: flex; justify-content: left; margin-top: -40px;'>{{Frequency}}
+            </div>
+
+            <div>
+            {{Picture}}
+            </div>
+
+            {{#Notes}}
+            	<br>
+            	<div style='font-size: 20px; padding-top:12px; border: solid gray 1px; color: #D5D6DB;'>{{Notes}}</div>
+            {{/Notes}}
+
+            </div>
             """.trimIndent(),
         )
 
         private const val YOMIHON_CSS = """
 .card {
-    font-family: "Hiragino Kaku Gothic Pro", "Meiryo", sans-serif;
-    font-size: 20px;
-    text-align: center;
-    color: #1a1a1a;
-    background-color: #fffaf0;
+ font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "Noto Sans JP", "Noto Sans CJK JP", Osaka, "メイリオ", Meiryo, "ＭＳ Ｐゴシック", "MS PGothic", "MS UI Gothic", sans-serif;
+ font-size: 44px;
+ text-align: center;
 }
-.expression {
-    font-size: 48px;
-    font-weight: bold;
-    margin-bottom: 10px;
+
+img {
+	max-width: 900px;
+	max-height: 900px;
 }
-.reading {
-    font-size: 24px;
-    color: #666;
-    margin-bottom: 10px;
+
+.mobile img {
+	max-width: 90vw;
 }
-.glossary {
-    font-size: 20px;
-    text-align: left;
-    margin: 15px;
-    white-space: pre-wrap;
+
+b{color: #5586cd}
+
+.word-meaning {
+  font-size: 16px;
+  padding-bottom: 20px;
 }
-.sentence {
-    font-size: 18px;
-    color: #444;
-    margin: 10px;
-    font-style: italic;
+
+.word-reading rt {
+	font-size: 45%;
 }
-.pitch {
-    font-size: 16px;
-    color: #888;
-    margin: 5px;
+
+.mobile .main-wrapper {
+  width: 100%;
+  margin: 0 auto;
 }
-.frequency {
-    font-size: 14px;
-    color: #aaa;
-    margin: 5px;
+.main-wrapper {
+  width: 50%;
+  margin: 0 auto;
 }
-.picture img {
-    max-width: 300px;
-    max-height: 300px;
+
+[data-sc-content|="attribution"] {
+  display: none;
+}
+
+.mobile span[data-sc-class="tag"] {
+  border-radius: 0.3em;
+  font-size: 0.8em;
+  font-weight: bold;
+  margin-right: 0.5em;
+  padding: 0.2em 0.3em;
+  vertical-align: text-bottom;
+  word-break: keep-all;
+}
+.mobile span[data-sc-content="part-of-speech-info"] {
+  background-color: rgb(86, 86, 86);
+  color: white;
 }
 """
     }

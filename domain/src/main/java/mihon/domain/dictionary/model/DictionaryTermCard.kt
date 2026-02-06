@@ -28,25 +28,7 @@ data class DictionaryTermCard(
     }
 }
 
-fun DictionaryTerm.toDictionaryTermCard(dictionaryName: String): DictionaryTermCard {
-    val definitions = glossary.mapNotNull { entry ->
-        when (entry) {
-            is GlossaryEntry.TextDefinition -> entry.text
-            is GlossaryEntry.StructuredContent -> entry.nodes.collectText()
-            is GlossaryEntry.Deinflection -> null
-            is GlossaryEntry.ImageDefinition -> null
-            is GlossaryEntry.Unknown -> null
-        }
-    }
-        .map { it.trim() }
-        .filter { it.isNotBlank() }
-
-    val glossaryText = when {
-        definitions.isNotEmpty() -> definitions.joinToString("\n")
-        reading.isNotBlank() -> reading
-        else -> expression
-    }
-
+fun DictionaryTerm.toDictionaryTermCard(dictionaryName: String, glossaryHtml: String): DictionaryTermCard {
     val cardTags = buildSet {
         add("yomihon")
         val dictionaryTag = dictionaryName.toAnkiTag()
@@ -58,7 +40,7 @@ fun DictionaryTerm.toDictionaryTermCard(dictionaryName: String): DictionaryTermC
     return DictionaryTermCard(
         expression = expression,
         reading = reading,
-        glossary = glossaryText,
+        glossary = glossaryHtml,
         tags = cardTags,
     )
 }
