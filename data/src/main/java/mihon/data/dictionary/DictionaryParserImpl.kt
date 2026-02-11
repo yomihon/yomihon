@@ -287,7 +287,11 @@ class DictionaryParserImpl : DictionaryParser {
                 JsonArray(content)
             }
             JsonToken.STRING -> JsonPrimitive(reader.nextString())
-            JsonToken.NUMBER -> JsonPrimitive(reader.nextString())
+            JsonToken.NUMBER -> {
+                val raw = reader.nextString()
+                val number: Number? = raw.toLongOrNull() ?: raw.toDoubleOrNull()
+                if (number != null) JsonPrimitive(number) else JsonPrimitive(raw)
+            }
             JsonToken.BOOLEAN -> JsonPrimitive(reader.nextBoolean())
             JsonToken.NULL -> {
                 reader.nextNull()

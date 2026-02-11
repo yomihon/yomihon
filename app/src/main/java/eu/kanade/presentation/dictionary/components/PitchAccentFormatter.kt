@@ -119,13 +119,13 @@ internal object PitchAccentFormatter {
         // Determine pitch levels based on position format
         val (pitchLevels, particlePitch) = when (positionElement) {
             is JsonPrimitive -> {
-                if (positionElement.isString) {
+                val downstepPosition = positionElement.intOrNull ?: positionElement.content.toIntOrNull()
+                if (downstepPosition != null) {
+                    // Integer downstep position (even if stored as string "0" for legacy imports)
+                    calculatePitchLevelsFromDownstep(downstepPosition, morae.size)
+                } else {
                     // HL string format (e.g., "LHHLL")
                     parseHLString(positionElement.content, morae.size) to PitchLevel.LOW
-                } else {
-                    // Integer downstep position
-                    val downstepPosition = positionElement.intOrNull ?: return null
-                    calculatePitchLevelsFromDownstep(downstepPosition, morae.size)
                 }
             }
             else -> return null
@@ -159,11 +159,11 @@ internal object PitchAccentFormatter {
 
         return when (element) {
             is JsonPrimitive -> {
-                val pos = element.intOrNull
+                val pos = element.intOrNull ?: element.content.toIntOrNull()
                 if (pos != null) setOf(pos) else emptySet()
             }
             is JsonArray -> {
-                element.mapNotNull { it.jsonPrimitive.intOrNull }.toSet()
+                element.mapNotNull { it.jsonPrimitive.intOrNull ?: it.jsonPrimitive.content.toIntOrNull() }.toSet()
             }
             else -> emptySet()
         }
