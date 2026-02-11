@@ -1,6 +1,6 @@
 [versions]
 aboutlib_version = "12.2.4"
-anki-android-version = "api-v1.1.0"
+anki-android-version = "2.23.3"
 leakcanary = "2.14"
 moko = "0.25.1"
 okhttp_version = "5.1.0"
