@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import eu.kanade.presentation.dictionary.components.FrequencyFormatter
+import eu.kanade.presentation.dictionary.components.PitchAccentFormatter
 import mihon.domain.ankidroid.interactor.AddDictionaryCard
 import mihon.domain.ankidroid.repository.AnkiDroidRepository
 import mihon.domain.dictionary.interactor.DictionaryInteractor
@@ -194,7 +196,22 @@ class DictionarySearchScreenModel(
             val dictionaryName = dictionary?.title.orEmpty()
             val styles = dictionary?.styles
             val glossaryHtml = term.glossary.toHtml(styles)
-            val card = term.toDictionaryTermCard(dictionaryName, glossaryHtml)
+
+            // Determine sentence: use query unless it matches the exported word, in which case its just a duplicate
+            val query = state.value.query
+            val sentence = if (query.isNotBlank() && query != term.expression) query else ""
+
+            val termMeta = state.value.results?.termMetaMap?.get(term.expression) ?: emptyList()
+            val pitchAccentSvg = PitchAccentFormatter.formatPitchAccentSvg(termMeta)
+            val frequencyText = formatFrequencyText(termMeta)
+
+            val card = term.toDictionaryTermCard(
+                dictionaryName = dictionaryName,
+                glossaryHtml = glossaryHtml,
+                sentence = sentence,
+                pitchAccent = pitchAccentSvg,
+                frequency = frequencyText,
+            )
 
             when (val result = addDictionaryCard(card)) {
                 AnkiDroidRepository.Result.Added -> {
@@ -211,6 +228,18 @@ class DictionarySearchScreenModel(
                     _events.send(Event.ShowError(UiMessage.Resource(MR.strings.anki_add_failed)))
                 }
             }
+        }
+    }
+
+    private fun formatFrequencyText(termMeta: List<DictionaryTermMeta>): String {
+        val grouped = FrequencyFormatter.parseGroupedFrequencies(termMeta)
+        if (grouped.isEmpty()) return ""
+
+        val dictionaries = state.value.dictionaries
+        return grouped.joinToString("\n") { freqData ->
+            val dictName = dictionaries.find { it.id == freqData.dictionaryId }?.title ?: ""
+            val entry = if (dictName.isNotBlank()) "$dictName: ${freqData.frequencies}" else freqData.frequencies
+            "• $entry"
         }
     }
 

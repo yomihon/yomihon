@@ -254,4 +254,108 @@ internal object PitchAccentFormatter {
 
         return morae
     }
+    /**
+     * Generate SVG strings for all pitch accent patterns from term meta entries.
+     * Returns HTML-ready SVG markup suitable for Anki card fields.
+     */
+    fun formatPitchAccentSvg(termMetaList: List<DictionaryTermMeta>): String {
+        val pitchData = parsePitchAccents(termMetaList)
+        if (pitchData.isEmpty()) return ""
+
+        return pitchData
+            .take(8)
+            .flatMap { it.patterns.take(4) }
+            .joinToString(" ") { it.toSvg() }
+    }
+
+    /**
+     * Generate an SVG representation of a pitch accent pattern.
+     * Matches the visual style of the PitchAccentGraph composable but colors are altered for Anki (dark background)
+     */
+    private fun PitchPattern.toSvg(): String {
+        if (morae.isEmpty()) return ""
+
+        val moraWidth = 18
+        val graphHeight = 20
+        val textHeight = 14
+        val highY = 4
+        val lowY = graphHeight - 4
+        val dotRadius = 3
+        val strokeWidth = 2
+
+        // Add space for dashed particle indicator
+        val particleExtra = if (morae.last().pitch == PitchLevel.HIGH) moraWidth / 2 else 0
+        val totalWidth = moraWidth * morae.size + particleExtra
+        val totalHeight = graphHeight + textHeight
+
+        val sb = StringBuilder()
+        sb.append("<svg xmlns=\"http://www.w3.org/2000/svg\" ")
+        sb.append("width=\"$totalWidth\" height=\"$totalHeight\" ")
+        sb.append("viewBox=\"0 0 $totalWidth $totalHeight\">")
+
+        // Draw connecting lines
+        for (i in 0 until morae.size - 1) {
+            val x1 = moraWidth * i + moraWidth / 2
+            val y1 = if (morae[i].pitch == PitchLevel.HIGH) highY else lowY
+            val x2 = moraWidth * (i + 1) + moraWidth / 2
+            val y2 = if (morae[i + 1].pitch == PitchLevel.HIGH) highY else lowY
+            sb.append("<line x1=\"$x1\" y1=\"$y1\" x2=\"$x2\" y2=\"$y2\" ")
+            sb.append("stroke=\"#FFFFFF\" stroke-width=\"$strokeWidth\" stroke-linecap=\"round\"/>")
+        }
+
+        // Draw particle indicator (dashed line after last mora)
+        val lastMora = morae.last()
+        if (lastMora.pitch == PitchLevel.HIGH) {
+            val lastX = moraWidth * (morae.size - 1) + moraWidth / 2
+            val lastY = if (lastMora.pitch == PitchLevel.HIGH) highY else lowY
+            val particleY = if (particlePitch == PitchLevel.HIGH) highY else lowY
+            sb.append("<line x1=\"$lastX\" y1=\"$lastY\" x2=\"${lastX + moraWidth / 2}\" y2=\"$particleY\" ")
+            sb.append("stroke=\"#FFFFFF\" stroke-width=\"$strokeWidth\" stroke-dasharray=\"4 4\" ")
+            sb.append("stroke-linecap=\"round\" opacity=\"0.5\"/>")
+        }
+
+        // Draw dots/shapes
+        morae.forEachIndexed { index, moraPitch ->
+            val cx = moraWidth * index + moraWidth / 2
+            val cy = if (moraPitch.pitch == PitchLevel.HIGH) highY else lowY
+            
+            when {
+                // Nasal: Hollow circle
+                moraPitch.isNasal -> {
+                    sb.append("<circle cx=\"$cx\" cy=\"$cy\" r=\"${dotRadius}\" ")
+                    sb.append("fill=\"none\" stroke=\"#FFFFFF\" stroke-width=\"1.5\"/>")
+                }
+                // Devoiced: 'X' mark
+                moraPitch.isDevoiced -> {
+                    val r = dotRadius
+                    sb.append("<line x1=\"${cx - r}\" y1=\"${cy - r}\" x2=\"${cx + r}\" y2=\"${cy + r}\" ")
+                    sb.append("stroke=\"#AAAAAA\" stroke-width=\"1.5\"/>")
+                    sb.append("<line x1=\"${cx + r}\" y1=\"${cy - r}\" x2=\"${cx - r}\" y2=\"${cy + r}\" ")
+                    sb.append("stroke=\"#AAAAAA\" stroke-width=\"1.5\"/>")
+                }
+                // Standard: Filled circle
+                else -> {
+                    sb.append("<circle cx=\"$cx\" cy=\"$cy\" r=\"$dotRadius\" fill=\"#FFFFFF\"/>")
+                }
+            }
+        }
+
+        // Draw mora text labels
+        morae.forEachIndexed { index, moraPitch ->
+            val x = moraWidth * index + moraWidth / 2
+            val textY = graphHeight + textHeight - 2
+            val color = when {
+                moraPitch.isDevoiced -> "#AAAAAA" // Gray for devoiced
+                moraPitch.isNasal -> "#FFFFFF"    // White for nasal (same as standard)
+                else -> "#FFFFFF"                 // White for standard
+            }
+            sb.append("<text x=\"$x\" y=\"$textY\" text-anchor=\"middle\" ")
+            sb.append("font-size=\"10\" font-family=\"sans-serif\" fill=\"$color\">")
+            sb.append(moraPitch.mora)
+            sb.append("</text>")
+        }
+
+        sb.append("</svg>")
+        return sb.toString()
+    }
 }

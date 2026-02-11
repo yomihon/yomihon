@@ -28,7 +28,13 @@ data class DictionaryTermCard(
     }
 }
 
-fun DictionaryTerm.toDictionaryTermCard(dictionaryName: String, glossaryHtml: String): DictionaryTermCard {
+fun DictionaryTerm.toDictionaryTermCard(
+    dictionaryName: String,
+    glossaryHtml: String,
+    sentence: String = "",
+    pitchAccent: String = "",
+    frequency: String = "",
+): DictionaryTermCard {
     val cardTags = buildSet {
         add("yomihon")
         val dictionaryTag = dictionaryName.toAnkiTag()
@@ -41,6 +47,9 @@ fun DictionaryTerm.toDictionaryTermCard(dictionaryName: String, glossaryHtml: St
         expression = expression,
         reading = reading,
         glossary = glossaryHtml,
+        sentence = sentence,
+        pitchAccent = pitchAccent,
+        frequency = frequency,
         tags = cardTags,
     )
 }
