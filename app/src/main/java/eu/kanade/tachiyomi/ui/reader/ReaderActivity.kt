@@ -162,10 +162,12 @@ class ReaderActivity : BaseActivity() {
 
     private var ocrDragStart by mutableStateOf<Offset?>(null)
     private var ocrDragEnd by mutableStateOf<Offset?>(null)
+    private var isTapExitEnabled = false
 
     private fun resetOcrDrag() {
         ocrDragStart = null
         ocrDragEnd = null
+        isTapExitEnabled = false
     }
 
     var isScrollingThroughPages = false
@@ -383,6 +385,7 @@ class ReaderActivity : BaseActivity() {
 
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    isTapExitEnabled = true
                     ocrDragStart = Offset(x, y)
                     ocrDragEnd = Offset(x, y)
                 }
@@ -405,6 +408,8 @@ class ReaderActivity : BaseActivity() {
                             captureRegionAndProcessOcr(android.graphics.RectF(left, top, right, bottom))
                             resetOcrDrag()
                             return true
+                        } else if (isTapExitEnabled) {
+                            exitOcrMode()
                         }
                     }
                     resetOcrDrag()
