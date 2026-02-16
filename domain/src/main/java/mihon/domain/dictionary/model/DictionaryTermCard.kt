@@ -10,7 +10,7 @@ data class DictionaryTermCard(
     val sentence: String = "",
     val pitchAccent: String = "",
     val frequency: String = "",
-    val picture: String = "",
+    val pictureUrl: String = "",
     val tags: Set<String> = emptySet(),
 ) {
     /**
@@ -23,7 +23,7 @@ data class DictionaryTermCard(
         "sentence" -> sentence
         "pitchAccent" -> pitchAccent
         "frequency" -> frequency
-        "picture" -> picture
+        "picture" -> pictureUrl
         else -> ""
     }
 }
@@ -34,6 +34,7 @@ fun DictionaryTerm.toDictionaryTermCard(
     sentence: String = "",
     pitchAccent: String = "",
     frequency: String = "",
+    pictureUrl: String = "",
 ): DictionaryTermCard {
     val cardTags = buildSet {
         add("yomihon")
@@ -50,6 +51,7 @@ fun DictionaryTerm.toDictionaryTermCard(
         sentence = sentence,
         pitchAccent = pitchAccent,
         frequency = frequency,
+        pictureUrl = pictureUrl,
         tags = cardTags,
     )
 }

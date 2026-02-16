@@ -5,12 +5,17 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.core.util.isNotEmpty
 import com.ichi2.anki.api.AddContentApi
-import com.ichi2.anki.api.AddContentApi.READ_WRITE_PERMISSION
+import com.ichi2.anki.api.AddContentApi.Companion.READ_WRITE_PERMISSION
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import mihon.domain.ankidroid.repository.AnkiDroidRepository
 import mihon.domain.dictionary.model.DictionaryTermCard
 import tachiyomi.domain.ankidroid.service.AnkiDroidPreferences
+import tachiyomi.core.common.util.system.ImageUtil
+import androidx.core.net.toUri
+import android.content.Intent
+import android.content.ContentValues
+import com.ichi2.anki.FlashCardsContract
 
 class AnkiDroidRepositoryImpl(
     context: Context,
@@ -52,19 +57,58 @@ class AnkiDroidRepositoryImpl(
             }
 
             val fieldMappings = ankiDroidPreferences.fieldMappings().get()
-            val fieldValues = buildFieldValues(card, modelFields, fieldMappings)
+
+            val pictureFilename = if (card.pictureUrl.isNotBlank()) {
+                try {
+                    val uri = card.pictureUrl.toUri()
+
+                    AddContentApi.getAnkiDroidPackageName(appContext)?.let { packageName ->
+                        appContext.grantUriPermission(
+                            packageName,
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                        )
+                    }
+
+                    val mimeType = appContext.contentResolver.getType(uri)
+                    val extension = ImageUtil.getExtensionFromMimeType(mimeType) {
+                        appContext.contentResolver.openInputStream(uri)!!
+                    }
+                    val preferredName = "yomihon-${System.currentTimeMillis()}.$extension"
+
+                    // https://github.com/ankidroid/Anki-Android/issues/10335
+                    val contentValues = ContentValues()
+                    contentValues.put(FlashCardsContract.AnkiMedia.FILE_URI, uri.toString())
+                    contentValues.put(FlashCardsContract.AnkiMedia.PREFERRED_NAME, preferredName)
+
+                    val returnUri = appContext.contentResolver.insert(FlashCardsContract.AnkiMedia.CONTENT_URI, contentValues)
+
+                    if (returnUri == null) {
+                        return@withContext AnkiDroidRepository.Result.Error()
+                    }
+
+                    returnUri.lastPathSegment ?: preferredName
+
+                } catch (e: Exception) {
+                    null
+                }
+            } else {
+                null
+            }
+
+            val fieldValues = buildFieldValues(card, modelFields, fieldMappings, pictureFilename)
 
             // Check for duplicates using the first field value
             if (fieldValues.isNotEmpty() && fieldValues[0].isNotBlank()) {
                 val duplicates = api.findDuplicateNotes(modelId, listOf(fieldValues[0]))
-                if (duplicates != null && duplicates.isNotEmpty()) {
+                if (duplicates?.isNotEmpty() == true) {
                     return@withContext AnkiDroidRepository.Result.Duplicate
                 }
             }
 
             val added = api.addNote(modelId, deckId, fieldValues, card.tags)
 
-            if (added > 0) AnkiDroidRepository.Result.Added else AnkiDroidRepository.Result.Error()
+            if (added != null && added > 0) AnkiDroidRepository.Result.Added else AnkiDroidRepository.Result.Error()
         } catch (e: Exception) {
             AnkiDroidRepository.Result.Error(e)
         }
@@ -78,10 +122,17 @@ class AnkiDroidRepositoryImpl(
         card: DictionaryTermCard,
         modelFields: List<String>,
         fieldMappings: Map<String, String>,
+        pictureFilename: String?,
     ): Array<String> {
         return modelFields.map { noteField ->
             val appField = fieldMappings[noteField]
-            if (appField != null) {
+            if (appField == "picture") {
+                if (pictureFilename != null) {
+                    "<img src=\"$pictureFilename\">"
+                } else {
+                    ""
+                }
+            } else if (appField != null) {
                 card.getFieldValue(appField)
             } else {
                 ""
@@ -127,7 +178,7 @@ class AnkiDroidRepositoryImpl(
             }
 
             val newDeckId = api.addNewDeck(name)
-            if (newDeckId > 0) {
+            if (newDeckId != null && newDeckId > 0) {
                 cachedDeckId = newDeckId
                 newDeckId
             } else {
@@ -165,7 +216,7 @@ class AnkiDroidRepositoryImpl(
                 deckId,
                 null,
             )
-            if (newModelId > 0) {
+            if (newModelId != null && newModelId > 0) {
                 cachedModelId = newModelId
                 newModelId
             } else {

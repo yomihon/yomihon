@@ -646,7 +646,10 @@ class ReaderActivity : BaseActivity() {
                         onSearch = dictionarySearchScreenModel::search,
                         onTermClick = { term ->
                             dictionarySearchScreenModel.selectTerm(term)
-                            dictionarySearchScreenModel.addToAnki(term)
+                            lifecycleScope.launchIO {
+                                val uri = viewModel.getCurrentPageUri()
+                                dictionarySearchScreenModel.addToAnki(term, uri)
+                            }
                         },
                     )
                 }

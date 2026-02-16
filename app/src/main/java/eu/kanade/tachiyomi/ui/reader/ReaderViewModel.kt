@@ -775,6 +775,38 @@ class ReaderViewModel @JvmOverloads constructor(
         ) + filenameSuffix
     }
 
+    /**
+     * Internal helper to save a page to a specific location.
+     */
+    private fun savePage(page: ReaderPage, location: Location, customName: String? = null): Uri {
+        val manga = manga ?: throw Exception("Manga not found")
+        val filename = customName ?: generateFilename(manga, page)
+        return imageSaver.save(
+            image = Image.Page(
+                inputStream = page.stream!!,
+                name = filename,
+                location = location,
+            ),
+        )
+    }
+
+    /**
+     * Saves the current page to the cache and returns its URI.
+     */
+    fun getCurrentPageUri(): Uri? {
+        val chapter = state.value.currentChapter ?: return null
+        val pageIndex = (state.value.currentPage - 1).coerceAtLeast(0)
+        val page = chapter.pages?.getOrNull(pageIndex)
+        if (page?.status != Page.State.Ready || page.stream == null) return null
+
+        return try {
+            savePage(page, Location.Cache, "anki_export_${System.currentTimeMillis()}")
+        } catch (e: Throwable) {
+            logcat(LogPriority.ERROR, e)
+            null
+        }
+    }
+
     fun showMenus(visible: Boolean) {
         mutableState.update { it.copy(menuVisible = visible) }
     }
@@ -875,8 +907,6 @@ class ReaderViewModel @JvmOverloads constructor(
         val notifier = SaveImageNotifier(context)
         notifier.onClear()
 
-        val filename = generateFilename(manga, page)
-
         // Pictures directory.
         val relativePath = if (readerPreferences.folderPerManga().get()) {
             DiskUtil.buildValidFilename(
@@ -889,13 +919,7 @@ class ReaderViewModel @JvmOverloads constructor(
         // Copy file in background.
         viewModelScope.launchNonCancellable {
             try {
-                val uri = imageSaver.save(
-                    image = Image.Page(
-                        inputStream = page.stream!!,
-                        name = filename,
-                        location = Location.Pictures.create(relativePath),
-                    ),
-                )
+                val uri = savePage(page, Location.Pictures.create(relativePath))
                 withUIContext {
                     notifier.onComplete(uri)
                     eventChannel.send(Event.SavedImage(SaveImageResult.Success(uri)))
@@ -917,19 +941,10 @@ class ReaderViewModel @JvmOverloads constructor(
     fun shareImage(copyToClipboard: Boolean) {
         val page = (state.value.dialog as? Dialog.PageActions)?.page
         if (page?.status != Page.State.Ready) return
-        val manga = manga ?: return
-
-        val filename = generateFilename(manga, page)
 
         viewModelScope.launchNonCancellable {
             try {
-                val uri = imageSaver.save(
-                    image = Image.Page(
-                        inputStream = page.stream!!,
-                        name = filename,
-                        location = Location.Cache,
-                    ),
-                )
+                val uri = savePage(page, Location.Cache)
                 eventChannel.send(if (copyToClipboard) Event.CopyImage(uri) else Event.ShareImage(uri, page))
             } catch (e: Throwable) {
                 logcat(LogPriority.ERROR, e)

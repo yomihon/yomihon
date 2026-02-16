@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.dictionary
 
+import android.net.Uri
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Immutable
 import cafe.adriel.voyager.core.model.StateScreenModel
@@ -189,7 +190,7 @@ class DictionarySearchScreenModel(
         mutableState.update { it.copy(selectedTerm = term) }
     }
 
-    fun addToAnki(term: DictionaryTerm) {
+    fun addToAnki(term: DictionaryTerm, pictureUri: Uri? = null) {
         screenModelScope.launch {
             val dictionary = state.value.dictionaries
                 .firstOrNull { it.id == term.dictionaryId }
@@ -197,13 +198,14 @@ class DictionarySearchScreenModel(
             val styles = dictionary?.styles
             val glossaryHtml = term.glossary.toHtml(styles)
 
-            // Determine sentence: use query unless it matches the exported word, in which case its just a duplicate
+            // Determine sentence: use query unless it matches the exported word, in which case it's just a duplicate
             val query = state.value.query
             val sentence = if (query.isNotBlank() && query != term.expression) query else ""
 
             val termMeta = state.value.results?.termMetaMap?.get(term.expression) ?: emptyList()
             val pitchAccentSvg = PitchAccentFormatter.formatPitchAccentSvg(termMeta)
             val frequencyText = formatFrequencyText(termMeta)
+            val pictureUrl = pictureUri?.toString() ?: ""
 
             val card = term.toDictionaryTermCard(
                 dictionaryName = dictionaryName,
@@ -211,6 +213,7 @@ class DictionarySearchScreenModel(
                 sentence = sentence,
                 pitchAccent = pitchAccentSvg,
                 frequency = frequencyText,
+                pictureUrl = pictureUrl,
             )
 
             when (val result = addDictionaryCard(card)) {
