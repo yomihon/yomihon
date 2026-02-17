@@ -276,10 +276,10 @@ class AnkiDroidRepositoryImpl(
             	<br><div style='font-size: 12px; display: flex; justify-content: center; margin-top: -40px;'>{{Pitch Accent}}</div>
             {{/Pitch Accent}}
 
-            <br><div style='font-size: 12px; display: flex; justify-content: left; margin-top: -40px;'>{{Frequency}}
+            <br><div style='font-size: 12px; text-align: left; margin-top: -40px;'>{{Frequency}}
             </div>
 
-            <div>
+            <div style="margin-top: 30px;">
             {{Picture}}
             </div>
 
@@ -313,6 +313,7 @@ b{color: #5586cd}
 .word-meaning {
   font-size: 16px;
   padding-bottom: 20px;
+  text-align: left;
 }
 
 .word-reading rt {

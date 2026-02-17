@@ -239,11 +239,12 @@ class DictionarySearchScreenModel(
         if (grouped.isEmpty()) return ""
 
         val dictionaries = state.value.dictionaries
-        return grouped.joinToString("\n") { freqData ->
+        val listItems = grouped.joinToString("") { freqData ->
             val dictName = dictionaries.find { it.id == freqData.dictionaryId }?.title ?: ""
             val entry = if (dictName.isNotBlank()) "$dictName: ${freqData.frequencies}" else freqData.frequencies
-            "• $entry"
+            "<li>$entry</li>"
         }
+        return "<ul>$listItems</ul>"
     }
 
     @Immutable
