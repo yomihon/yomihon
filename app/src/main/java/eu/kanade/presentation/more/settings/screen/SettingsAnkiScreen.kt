@@ -47,7 +47,7 @@ object SettingsAnkiScreen : SearchableSettings {
 
         if (state.isLoading) {
             return listOf(
-                Preference.PreferenceItem.CustomPreference(title = "Loading") {
+                Preference.PreferenceItem.CustomPreference(title = stringResource(MR.strings.loading)) {
                     CircularProgressIndicator()
                 },
             )
@@ -70,7 +70,6 @@ object SettingsAnkiScreen : SearchableSettings {
                     Preference.PreferenceItem.TextPreference(
                         title = stringResource(MR.strings.anki_add_not_available),
                         subtitle = stringResource(MR.strings.anki_not_available),
-                        enabled = false,
                     )
                 )
             }
@@ -78,7 +77,7 @@ object SettingsAnkiScreen : SearchableSettings {
                 preferences.add(
                     Preference.PreferenceItem.TextPreference(
                         title = stringResource(MR.strings.anki_permission_required),
-                        subtitle = "Tap to grant permission",
+                        subtitle = stringResource(MR.strings.anki_permission_grant),
                         onClick = {
                             permissionLauncher.launch("com.ichi2.anki.permission.READ_WRITE_DATABASE")
                         },

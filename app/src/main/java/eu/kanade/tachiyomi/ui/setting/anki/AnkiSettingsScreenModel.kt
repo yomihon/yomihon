@@ -6,15 +6,18 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import android.app.Application
 import mihon.domain.ankidroid.repository.AnkiDroidRepository
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.ankidroid.service.AnkiDroidPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import tachiyomi.i18n.MR
 
 class AnkiSettingsScreenModel(
     private val ankiDroidRepository: AnkiDroidRepository = Injekt.get(),
     private val ankiDroidPreferences: AnkiDroidPreferences = Injekt.get(),
+    private val context: Application = Injekt.get(),
 ) : StateScreenModel<AnkiSettingsScreenModel.State>(State()) {
 
     init {
@@ -48,7 +51,7 @@ class AnkiSettingsScreenModel(
                 mutableState.update {
                     it.copy(
                         isLoading = false,
-                        error = e.message ?: "Failed to load initial state",
+                        error = e.message ?: MR.strings.anki_failed_to_load_state.getString(context),
                     )
                 }
             }
@@ -128,7 +131,7 @@ class AnkiSettingsScreenModel(
                 mutableState.update {
                     it.copy(
                         isLoading = false,
-                        error = e.message ?: "Failed to load AnkiDroid data",
+                        error = e.message ?: MR.strings.anki_failed_to_load_data.getString(context),
                     )
                 }
             }
@@ -161,7 +164,7 @@ class AnkiSettingsScreenModel(
                 mutableState.update {
                     it.copy(
                         isLoading = false,
-                        error = e.message ?: "Failed to load model fields",
+                        error = e.message ?: MR.strings.anki_failed_to_load_model_fields.getString(context),
                     )
                 }
             }
