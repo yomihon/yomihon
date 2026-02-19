@@ -141,10 +141,14 @@ class DictionaryParserImpl : DictionaryParser {
             glossary = readGlossaryArray(reader)
             sequence = if (reader.hasNext() && reader.peek() != JsonToken.END_ARRAY) {
                 readNullableLong(reader)
-            } else null
+            } else {
+                null
+            }
             termTags = if (reader.hasNext() && reader.peek() != JsonToken.END_ARRAY) {
                 readStringOrArray(reader)
-            } else null
+            } else {
+                null
+            }
         }
 
         reader.endArray()
@@ -446,7 +450,9 @@ class DictionaryParserImpl : DictionaryParser {
             meanings = readStringArray(reader)
             stats = if (reader.hasNext() && reader.peek() == JsonToken.BEGIN_OBJECT) {
                 readStringMap(reader)
-            } else null
+            } else {
+                null
+            }
         }
 
         reader.endArray()

@@ -5,14 +5,15 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Immutable
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import dev.icerock.moko.resources.StringResource
+import eu.kanade.presentation.dictionary.components.FrequencyFormatter
+import eu.kanade.presentation.dictionary.components.PitchAccentFormatter
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
-import eu.kanade.presentation.dictionary.components.FrequencyFormatter
-import eu.kanade.presentation.dictionary.components.PitchAccentFormatter
 import mihon.domain.ankidroid.interactor.AddDictionaryCard
 import mihon.domain.ankidroid.repository.AnkiDroidRepository
 import mihon.domain.dictionary.interactor.DictionaryInteractor
@@ -23,7 +24,6 @@ import mihon.domain.dictionary.model.DictionaryTermMeta
 import mihon.domain.dictionary.model.toDictionaryTermCard
 import mihon.domain.dictionary.service.toHtml
 import tachiyomi.core.common.util.system.logcat
-import dev.icerock.moko.resources.StringResource
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get

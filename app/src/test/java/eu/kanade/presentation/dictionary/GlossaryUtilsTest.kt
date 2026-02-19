@@ -3,9 +3,9 @@ package eu.kanade.presentation.dictionary
 import eu.kanade.presentation.dictionary.components.buildAnnotatedText
 import mihon.domain.dictionary.css.ParsedCss
 import mihon.domain.dictionary.css.parseDictionaryCss
+import mihon.domain.dictionary.model.GlossaryElementAttributes
 import mihon.domain.dictionary.model.GlossaryNode
 import mihon.domain.dictionary.model.GlossaryTag
-import mihon.domain.dictionary.model.GlossaryElementAttributes
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -16,7 +16,7 @@ class GlossaryUtilsTest {
     fun `buildAnnotatedText collects plain text`() {
         val nodes = listOf(
             GlossaryNode.Text("Hello "),
-            GlossaryNode.Text("World")
+            GlossaryNode.Text("World"),
         )
 
         val result = buildAnnotatedText(nodes)
@@ -34,11 +34,11 @@ class GlossaryUtilsTest {
                     GlossaryNode.Element(
                         tag = GlossaryTag.Rt,
                         children = listOf(GlossaryNode.Text("かんじ")),
-                        attributes = GlossaryElementAttributes()
-                    )
+                        attributes = GlossaryElementAttributes(),
+                    ),
                 ),
-                attributes = GlossaryElementAttributes()
-            )
+                attributes = GlossaryElementAttributes(),
+            ),
         )
 
         val result = buildAnnotatedText(nodes)
@@ -54,10 +54,10 @@ class GlossaryUtilsTest {
                 tag = GlossaryTag.Link,
                 children = listOf(GlossaryNode.Text("other")),
                 attributes = GlossaryElementAttributes(
-                    properties = mapOf("href" to "?query=other")
-                )
+                    properties = mapOf("href" to "?query=other"),
+                ),
             ),
-            GlossaryNode.Text(" entry")
+            GlossaryNode.Text(" entry"),
         )
 
         val result = buildAnnotatedText(nodes)
@@ -78,11 +78,11 @@ class GlossaryUtilsTest {
                     GlossaryNode.Element(
                         tag = GlossaryTag.Span,
                         children = listOf(GlossaryNode.Text("「Second」")),
-                        attributes = GlossaryElementAttributes()
-                    )
+                        attributes = GlossaryElementAttributes(),
+                    ),
                 ),
-                attributes = GlossaryElementAttributes()
-            )
+                attributes = GlossaryElementAttributes(),
+            ),
         )
 
         val result = buildAnnotatedText(nodes)
@@ -107,7 +107,8 @@ class GlossaryUtilsTest {
 
     @Test
     fun `parseDictionaryCss parses multiple properties`() {
-        val css = "[data-sc-content='spaced'] { margin-top: 5px; margin-left: 2em; margin-right: 0; margin-bottom: auto; }"
+        val css = "[data-sc-content='spaced'] { margin-top: 5px; margin-left: 2em; " +
+            "margin-right: 0; margin-bottom: auto; }"
         val result = parseDictionaryCss(css)
 
         assertEquals("5px", result.selectorStyles["spaced"]?.get("marginTop"))
@@ -121,7 +122,8 @@ class GlossaryUtilsTest {
         val css = """
             [data-sc-content='box'] { background: #f0f0f0; }
             [data-sc-content='bg-color'] { background-color: rgba(0, 0, 0, 0.1); }
-            [data-sc-content='bordered'] { border-color: #000; border-style: solid; border-radius: 4px; border-width: 1px; }
+            [data-sc-content='bordered'] { border-color: #000; border-style: solid;
+            border-radius: 4px; border-width: 1px; }
         """
         val result = parseDictionaryCss(css)
 
@@ -270,7 +272,7 @@ class GlossaryUtilsTest {
 
         // Inline comment in property block
         val css5 = """
-            [data-sc-content='inline'] { 
+            [data-sc-content='inline'] {
                 font-style: italic; /* inline comment */
                 font-weight: bold;
             }
@@ -370,6 +372,7 @@ class GlossaryUtilsTest {
         assertEquals("1.2em", result.selectorStyles["also-valid"]?.get("fontSize"))
         assertEquals(2, result.selectorStyles.size)
     }
+
     @Test
     fun `parseDictionaryCss recognizes schema box model properties as box selectors`() {
         // Schema defines padding and margin which require box rendering

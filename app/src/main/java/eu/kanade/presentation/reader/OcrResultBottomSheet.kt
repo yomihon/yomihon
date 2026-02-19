@@ -61,7 +61,7 @@ fun OcrResultBottomSheet(
     ) {
         // Use BoxWithConstraints to measure the actual available space for the sheet content
         BoxWithConstraints(
-            contentAlignment = Alignment.BottomCenter
+            contentAlignment = Alignment.BottomCenter,
         ) {
             val useSideSheet = maxWidth >= 600.dp
 

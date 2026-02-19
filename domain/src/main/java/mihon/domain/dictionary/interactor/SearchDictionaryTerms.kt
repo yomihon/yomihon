@@ -1,13 +1,13 @@
 package mihon.domain.dictionary.interactor
 
 import dev.esnault.wanakana.core.Wanakana
-import java.util.LinkedHashMap
 import mihon.domain.dictionary.model.DictionaryTerm
 import mihon.domain.dictionary.model.DictionaryTermMeta
 import mihon.domain.dictionary.repository.DictionaryRepository
 import mihon.domain.dictionary.service.Candidate
 import mihon.domain.dictionary.service.InflectionType
 import mihon.domain.dictionary.service.JapaneseDeinflector
+import java.util.LinkedHashMap
 
 /**
  * Interactor for searching dictionary terms.
@@ -117,7 +117,10 @@ class SearchDictionaryTerms(
         return false
     }
 
-    suspend fun getTermMeta(expressions: List<String>, dictionaryIds: List<Long>): Map<String, List<DictionaryTermMeta>> {
+    suspend fun getTermMeta(
+        expressions: List<String>,
+        dictionaryIds: List<Long>,
+    ): Map<String, List<DictionaryTermMeta>> {
         val allMeta = mutableMapOf<String, MutableList<DictionaryTermMeta>>()
 
         expressions.forEach { expression ->
@@ -139,7 +142,7 @@ private val LEADING_PUNCTUATION = setOf(
     '「', '」', '『', '』', '（', '）', '(', ')', '【', '】',
     '〔', '〕', '《', '》', '〈', '〉',
     '・', '、', '。', '！', '？', '：', '；',
-    ' ', '\t', '\n', '\r', '\u3000',      // whitespace characters
+    ' ', '\t', '\n', '\r', '\u3000', // whitespace characters
     '\u201C', '\u201D', // double quotation marks
     '\u2018', '\u2019', // single quotation marks
     '"', '\'', // ASCII quotes

@@ -1,21 +1,21 @@
 package mihon.data.ankidroid
 
+import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.core.util.isNotEmpty
+import com.ichi2.anki.FlashCardsContract
 import com.ichi2.anki.api.AddContentApi
 import com.ichi2.anki.api.AddContentApi.Companion.READ_WRITE_PERMISSION
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import mihon.domain.ankidroid.repository.AnkiDroidRepository
 import mihon.domain.dictionary.model.DictionaryTermCard
-import tachiyomi.domain.ankidroid.service.AnkiDroidPreferences
 import tachiyomi.core.common.util.system.ImageUtil
-import androidx.core.net.toUri
-import android.content.Intent
-import android.content.ContentValues
-import com.ichi2.anki.FlashCardsContract
+import tachiyomi.domain.ankidroid.service.AnkiDroidPreferences
 
 class AnkiDroidRepositoryImpl(
     context: Context,
@@ -81,14 +81,16 @@ class AnkiDroidRepositoryImpl(
                     contentValues.put(FlashCardsContract.AnkiMedia.FILE_URI, uri.toString())
                     contentValues.put(FlashCardsContract.AnkiMedia.PREFERRED_NAME, preferredName)
 
-                    val returnUri = appContext.contentResolver.insert(FlashCardsContract.AnkiMedia.CONTENT_URI, contentValues)
+                    val returnUri = appContext.contentResolver.insert(
+                        FlashCardsContract.AnkiMedia.CONTENT_URI,
+                        contentValues,
+                    )
 
                     if (returnUri == null) {
                         return@withContext AnkiDroidRepository.Result.Error()
                     }
 
                     returnUri.lastPathSegment ?: preferredName
-
                 } catch (e: Exception) {
                     null
                 }
@@ -113,7 +115,6 @@ class AnkiDroidRepositoryImpl(
             AnkiDroidRepository.Result.Error(e)
         }
     }
-
 
     /**
      * Build an array of field values based on model fields and field mappings.

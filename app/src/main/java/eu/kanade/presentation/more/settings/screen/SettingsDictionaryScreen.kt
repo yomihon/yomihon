@@ -139,6 +139,9 @@ object SettingsDictionaryScreen : Screen {
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         ) { contentPadding ->
             val uriHandler = LocalUriHandler.current
+
+            // URLs leads lines to be over 120 char
+            @Suppress("ktlint:standard:max-line-length")
             val recommended = listOf(
                 RecommendedDictionary(
                     title = stringResource(MR.strings.recommended_dict_jitendex_title),
@@ -170,6 +173,7 @@ object SettingsDictionaryScreen : Screen {
                 // Recommended Dictionaries
                 item {
                     var recommendedExpanded by rememberSaveable { mutableStateOf(false) }
+                    val icon = if (recommendedExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown
 
                     Card(
                         modifier = Modifier
@@ -198,7 +202,7 @@ object SettingsDictionaryScreen : Screen {
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Icon(
-                                    imageVector = if (recommendedExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                    imageVector = icon,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurface,
                                 )
@@ -311,7 +315,10 @@ object SettingsDictionaryScreen : Screen {
                                 )
                                 if (state.importedCount > 0) {
                                     Text(
-                                        text = stringResource(MR.strings.dictionary_import_progress, state.importedCount),
+                                        text = stringResource(
+                                            MR.strings.dictionary_import_progress,
+                                            state.importedCount,
+                                        ),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )

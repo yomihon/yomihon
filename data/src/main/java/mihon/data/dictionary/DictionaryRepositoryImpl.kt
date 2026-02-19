@@ -227,7 +227,10 @@ class DictionaryRepositoryImpl(
         }
     }
 
-    override suspend fun getTermMetaForExpression(expression: String, dictionaryIds: List<Long>): List<DictionaryTermMeta> {
+    override suspend fun getTermMetaForExpression(
+        expression: String,
+        dictionaryIds: List<Long>,
+    ): List<DictionaryTermMeta> {
         return handler.awaitList {
             dictionaryQueries.getTermMetaForExpression(
                 expression = expression,
@@ -259,7 +262,10 @@ class DictionaryRepositoryImpl(
         }
     }
 
-    override suspend fun getKanjiMetaForCharacter(character: String, dictionaryIds: List<Long>): List<DictionaryKanjiMeta> {
+    override suspend fun getKanjiMetaForCharacter(
+        character: String,
+        dictionaryIds: List<Long>,
+    ): List<DictionaryKanjiMeta> {
         return handler.awaitList {
             dictionaryQueries.getKanjiMetaForCharacter(
                 character = character,

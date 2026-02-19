@@ -50,6 +50,7 @@ internal class LegacyOcrEngine(
     private val attentionMaskBuffer = FloatArray(MAX_SEQUENCE_LENGTH)
 
     private val inferenceMutex = Mutex()
+
     @Volatile
     private var initialized = false
 

@@ -70,7 +70,7 @@ object SettingsAnkiScreen : SearchableSettings {
                     Preference.PreferenceItem.TextPreference(
                         title = stringResource(MR.strings.anki_add_not_available),
                         subtitle = stringResource(MR.strings.anki_not_available),
-                    )
+                    ),
                 )
             }
             !state.hasPermission -> {
@@ -81,14 +81,14 @@ object SettingsAnkiScreen : SearchableSettings {
                         onClick = {
                             permissionLauncher.launch("com.ichi2.anki.permission.READ_WRITE_DATABASE")
                         },
-                    )
+                    ),
                 )
             }
             else -> {
                 preferences.add(
                     Preference.PreferenceItem.InfoPreference(
                         title = stringResource(MR.strings.anki_connected),
-                    )
+                    ),
                 )
             }
         }
@@ -99,7 +99,6 @@ object SettingsAnkiScreen : SearchableSettings {
             if (state.selectedModelId > 0 && state.modelFields.isNotEmpty()) {
                 preferences.add(getFieldMappingGroup(state, screenModel))
             }
-
         }
         return preferences
     }
@@ -124,7 +123,7 @@ object SettingsAnkiScreen : SearchableSettings {
                     screenModel.selectDeck(it.toLong())
                     true
                 },
-            )
+            ),
         )
 
         if (state.selectedDeckId == CREATE_NEW_ID) {
@@ -141,7 +140,7 @@ object SettingsAnkiScreen : SearchableSettings {
                             .padding(horizontal = 16.dp),
                         singleLine = true,
                     )
-                }
+                },
             )
         }
 
@@ -154,7 +153,7 @@ object SettingsAnkiScreen : SearchableSettings {
                     screenModel.selectModel(it.toLong())
                     true
                 },
-            )
+            ),
         )
 
         return Preference.PreferenceGroup(
@@ -173,7 +172,7 @@ object SettingsAnkiScreen : SearchableSettings {
         mappingItems.add(
             Preference.PreferenceItem.InfoPreference(
                 title = stringResource(MR.strings.anki_field_mapping_info),
-            )
+            ),
         )
 
         state.modelFields.forEach { ankiField ->
@@ -188,12 +187,18 @@ object SettingsAnkiScreen : SearchableSettings {
                     value = currentMapping,
                     entries = options,
                     title = ankiField,
-                    subtitle = if (currentMapping.isEmpty()) stringResource(MR.strings.anki_field_empty) else stringResource(MR.strings.anki_fill_with),
+                    subtitle = if (currentMapping.isEmpty()) {
+                        stringResource(
+                            MR.strings.anki_field_empty,
+                        )
+                    } else {
+                        stringResource(MR.strings.anki_fill_with)
+                    },
                     onValueChanged = {
                         screenModel.updateFieldMapping(ankiField, it)
                         true
                     },
-                )
+                ),
             )
         }
 

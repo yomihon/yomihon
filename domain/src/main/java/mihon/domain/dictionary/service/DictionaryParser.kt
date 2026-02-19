@@ -1,12 +1,12 @@
 package mihon.domain.dictionary.service
 
-import java.io.InputStream
+import mihon.domain.dictionary.model.DictionaryIndex
 import mihon.domain.dictionary.model.DictionaryKanji
 import mihon.domain.dictionary.model.DictionaryKanjiMeta
 import mihon.domain.dictionary.model.DictionaryTag
 import mihon.domain.dictionary.model.DictionaryTerm
 import mihon.domain.dictionary.model.DictionaryTermMeta
-import mihon.domain.dictionary.model.DictionaryIndex
+import java.io.InputStream
 
 /**
  * Service for parsing dictionary files.

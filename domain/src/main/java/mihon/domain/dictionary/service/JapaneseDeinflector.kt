@@ -9,41 +9,41 @@ package mihon.domain.dictionary.service
 const val FORM_NONE = 0L
 
 // Verb type tags from JMdict/EDICT
-const val V5K = 1L shl 0      // 五段 く verbs
-const val V5G = 1L shl 1      // 五段 ぐ verbs
-const val V5S = 1L shl 2      // 五段 す verbs
-const val V5T = 1L shl 3      // 五段 つ verbs
-const val V5N = 1L shl 4      // 五段 ぬ verbs
-const val V5B = 1L shl 5      // 五段 ぶ verbs
-const val V5M = 1L shl 6      // 五段 む verbs
-const val V5R = 1L shl 7      // 五段 る verbs
-const val V5U = 1L shl 8      // 五段 う verbs
-const val V5RI = 1L shl 9     // 五段 る irregular (ある)
-const val V5US = 1L shl 10    // 五段 う special (問う)
-const val V5KS = 1L shl 11    // 五段 く special (行く)
-const val V5ARU = 1L shl 12   // 五段 ある conjugation
-const val V1 = 1L shl 13      // 一段 verbs
-const val V1S = 1L shl 14     // 一段 くれる special
-const val VK = 1L shl 15      // くる verb
-const val VSI = 1L shl 16     // する verb (irregular)
-const val VSS = 1L shl 17     // する verb (special)
-const val VSC = 1L shl 18     // す verb (classical)
-const val VZ = 1L shl 19      // ずる verb
-const val V4R = 1L shl 20     // 四段 る (classical)
+const val V5K = 1L shl 0 // 五段 く verbs
+const val V5G = 1L shl 1 // 五段 ぐ verbs
+const val V5S = 1L shl 2 // 五段 す verbs
+const val V5T = 1L shl 3 // 五段 つ verbs
+const val V5N = 1L shl 4 // 五段 ぬ verbs
+const val V5B = 1L shl 5 // 五段 ぶ verbs
+const val V5M = 1L shl 6 // 五段 む verbs
+const val V5R = 1L shl 7 // 五段 る verbs
+const val V5U = 1L shl 8 // 五段 う verbs
+const val V5RI = 1L shl 9 // 五段 る irregular (ある)
+const val V5US = 1L shl 10 // 五段 う special (問う)
+const val V5KS = 1L shl 11 // 五段 く special (行く)
+const val V5ARU = 1L shl 12 // 五段 ある conjugation
+const val V1 = 1L shl 13 // 一段 verbs
+const val V1S = 1L shl 14 // 一段 くれる special
+const val VK = 1L shl 15 // くる verb
+const val VSI = 1L shl 16 // する verb (irregular)
+const val VSS = 1L shl 17 // する verb (special)
+const val VSC = 1L shl 18 // す verb (classical)
+const val VZ = 1L shl 19 // ずる verb
+const val V4R = 1L shl 20 // 四段 る (classical)
 
 // Adjective types
-const val ADJ_I = 1L shl 21   // い-adjective
-const val ADJ_NA = 1L shl 22  // な-adjective
-const val ADJ_PN = 1L shl 23  // pre-noun adjective
+const val ADJ_I = 1L shl 21 // い-adjective
+const val ADJ_NA = 1L shl 22 // な-adjective
+const val ADJ_PN = 1L shl 23 // pre-noun adjective
 
 // Special/intermediate forms
-const val STEM_REN = 1L shl 24        // 連用形 (continuative/masu stem)
-const val STEM_MIZENKEI = 1L shl 25   // 未然形 (irrealis/negative stem)
-const val STEM_E = 1L shl 26          // え stem (izenkei)
-const val STEM_A = 1L shl 27          // あ stem
-const val STEM_KU = 1L shl 28         // く adverbial stem
-const val STEM_TE = 1L shl 29         // て form
-const val STEM_PAST = 1L shl 30       // た form (past base)
+const val STEM_REN = 1L shl 24 // 連用形 (continuative/masu stem)
+const val STEM_MIZENKEI = 1L shl 25 // 未然形 (irrealis/negative stem)
+const val STEM_E = 1L shl 26 // え stem (izenkei)
+const val STEM_A = 1L shl 27 // あ stem
+const val STEM_KU = 1L shl 28 // く adverbial stem
+const val STEM_TE = 1L shl 29 // て form
+const val STEM_PAST = 1L shl 30 // た form (past base)
 const val STEM_ADJ_BASE = 1L shl 31
 const val STEM_REN_V: Long = STEM_REN
 
@@ -65,11 +65,11 @@ private data class Rule(
 )
 
 private enum class RuleType {
-    STANDARD,       // Normal rule, can chain
-    NEVER_FINAL,    // Result cannot be a dictionary form
-    ONLY_FINAL,     // Can only apply to original input
-    CONTEXT,        // Requires special context handling
-    REWRITE,        // Only applies when the entire term matches (Deconjugator.cs rewriterule)
+    STANDARD, // Normal rule, can chain
+    NEVER_FINAL, // Result cannot be a dictionary form
+    ONLY_FINAL, // Can only apply to original input
+    CONTEXT, // Requires special context handling
+    REWRITE, // Only applies when the entire term matches (Deconjugator.cs rewriterule)
 }
 
 /**
@@ -142,11 +142,11 @@ private fun tagToMask(tag: String): Long = when (tag) {
     "stem-ku" -> STEM_KU
     "stem-te", "stem-te-verbal", "stem-te-defective" -> STEM_TE
     "stem-past" -> STEM_PAST
-    "stem-ren-less", "stem-ren-less-v" -> STEM_REN  // Map to continuative
+    "stem-ren-less", "stem-ren-less-v" -> STEM_REN // Map to continuative
     "stem-ka", "stem-ke", "stem-adj-base" -> STEM_ADJ_BASE
-    "uninflectable", "exp", "n" -> FORM_NONE  // Uninflectable forms
-    "topic-condition" -> STEM_TE  // Map to te form for chaining
-    "form-volition" -> FORM_NONE  // Volitional is uninflectable
+    "uninflectable", "exp", "n" -> FORM_NONE // Uninflectable forms
+    "topic-condition" -> STEM_TE // Map to te form for chaining
+    "form-volition" -> FORM_NONE // Volitional is uninflectable
     else -> FORM_NONE
 }
 
@@ -170,7 +170,7 @@ object JapaneseDeinflector {
             conditions = 0L,
             reasons = ArrayDeque(),
             canBeFinal = true,
-            hasAppliedRule = false
+            hasAppliedRule = false,
         )
 
         val queue = ArrayDeque<Candidate>()
@@ -212,7 +212,9 @@ object JapaneseDeinflector {
                         continue
                     }
 
-                    if (!current.hasAppliedRule && current.conditions == 0L && rule.type == RuleType.STANDARD && rule.detail.isBlank()) {
+                    if (!current.hasAppliedRule && current.conditions == 0L && rule.type == RuleType.STANDARD &&
+                        rule.detail.isBlank()
+                    ) {
                         continue
                     }
 
@@ -258,7 +260,7 @@ object JapaneseDeinflector {
                         conditions = newConditions,
                         reasons = newReasons,
                         canBeFinal = canBeFinal,
-                        hasAppliedRule = true  // Mark that a rule has been applied
+                        hasAppliedRule = true, // Mark that a rule has been applied
                     )
                     queue.add(newCandidate)
 
@@ -627,7 +629,16 @@ object JapaneseDeinflector {
         add(Rule("まい", "", V1, FORM_NONE, "mai", RuleType.STANDARD))
         add(Rule("しまい", "する", VSI, FORM_NONE, "mai", RuleType.STANDARD))
         add(Rule("すまい", "する", VSI, FORM_NONE, "mai", RuleType.STANDARD))
-        add(Rule("まい", "", V5 or V1 or VK or VSI or VSS or VZ, FORM_NONE, "negative volition/conjecture", RuleType.ONLY_FINAL))
+        add(
+            Rule(
+                "まい",
+                "",
+                V5 or V1 or VK or VSI or VSS or VZ,
+                FORM_NONE,
+                "negative volition/conjecture",
+                RuleType.ONLY_FINAL,
+            ),
+        )
 
         // -な (command/request)
         add(Rule("な", "", STEM_REN, FORM_NONE, "casual kind request", RuleType.ONLY_FINAL))

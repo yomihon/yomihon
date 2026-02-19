@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.reader
 
 import android.app.Application
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.annotation.IntRange
 import androidx.compose.runtime.Immutable
@@ -40,7 +41,6 @@ import eu.kanade.tachiyomi.util.editCover
 import eu.kanade.tachiyomi.util.lang.byteSize
 import eu.kanade.tachiyomi.util.lang.takeBytes
 import eu.kanade.tachiyomi.util.storage.DiskUtil
-import android.graphics.Bitmap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -56,9 +56,9 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
-import mihon.domain.ocr.repository.OcrRepository
 import mihon.domain.ocr.exception.OcrException
 import mihon.domain.ocr.interactor.OcrProcessor
+import mihon.domain.ocr.repository.OcrRepository
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -845,7 +845,7 @@ class ReaderViewModel @JvmOverloads constructor(
 
     fun processOcrRegion(bitmap: Bitmap) {
         viewModelScope.launchIO {
-                mutableState.update { it.copy(isProcessingOcr = true, ocrSelectionMode = false) }
+            mutableState.update { it.copy(isProcessingOcr = true, ocrSelectionMode = false) }
             try {
                 val text = ocrProcessor.getText(bitmap)
                 withUIContext {
@@ -871,7 +871,7 @@ class ReaderViewModel @JvmOverloads constructor(
                     eventChannel.send(Event.OcrMemoryError)
                 }
             } catch (e: OcrException.InitializationError) {
-                logcat(LogPriority.ERROR,e) { "Cannot recognize text: OCR engine failed to initialize" }
+                logcat(LogPriority.ERROR, e) { "Cannot recognize text: OCR engine failed to initialize" }
                 withUIContext {
                     mutableState.update { it.copy(isProcessingOcr = false) }
                     eventChannel.send(Event.OcrInitializationError)
@@ -1070,7 +1070,7 @@ class ReaderViewModel @JvmOverloads constructor(
         data class ShareImage(val uri: Uri, val page: ReaderPage) : Event
         data class CopyImage(val uri: Uri) : Event
         data object OcrNoTextFound : Event
-        data object OcrMemoryError: Event
+        data object OcrMemoryError : Event
         data object OcrInitializationError : Event
         data object OcrError : Event
     }

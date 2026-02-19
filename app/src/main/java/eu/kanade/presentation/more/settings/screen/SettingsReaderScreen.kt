@@ -10,11 +10,11 @@ import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
-import mihon.domain.ocr.model.OcrModel
-import mihon.feature.ocr.titleRes
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
+import mihon.domain.ocr.model.OcrModel
+import mihon.feature.ocr.titleRes
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource

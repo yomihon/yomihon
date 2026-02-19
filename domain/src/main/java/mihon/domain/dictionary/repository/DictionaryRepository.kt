@@ -1,12 +1,12 @@
 package mihon.domain.dictionary.repository
 
 import kotlinx.coroutines.flow.Flow
+import mihon.domain.dictionary.model.Dictionary
 import mihon.domain.dictionary.model.DictionaryKanji
 import mihon.domain.dictionary.model.DictionaryKanjiMeta
 import mihon.domain.dictionary.model.DictionaryTag
 import mihon.domain.dictionary.model.DictionaryTerm
 import mihon.domain.dictionary.model.DictionaryTermMeta
-import mihon.domain.dictionary.model.Dictionary
 
 interface DictionaryRepository {
     // Dictionary operations

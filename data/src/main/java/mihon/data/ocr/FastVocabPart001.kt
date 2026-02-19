@@ -5,7 +5,7 @@ package mihon.data.ocr
 /**
  * Generated file — do not edit manually.
  */
-internal fun vocabFast_part001(): Array<String> = arrayOf(
+internal fun vocabFastPart001(): Array<String> = arrayOf(
     "牋",
     "牌",
     "牒",
