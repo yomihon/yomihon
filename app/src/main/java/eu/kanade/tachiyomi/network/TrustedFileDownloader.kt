@@ -1,5 +1,13 @@
 package eu.kanade.tachiyomi.network
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
 import java.io.File
 import java.io.IOException
 import java.nio.ByteBuffer
@@ -9,14 +17,6 @@ import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.withContext
-import okhttp3.HttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.Response
 
 /**
  * Downloads zip files from trusted HTTP(S) sources.
@@ -62,7 +62,8 @@ internal class TrustedFileDownloader(
                 if (isRedirect(response)) {
                     response.close()
                     if (redirects >= maxRedirects) throw TrustedDownloadException(Reason.TOO_MANY_REDIRECTS)
-                    val next = resolveRedirect(currentUrl, response) ?: throw TrustedDownloadException(Reason.INVALID_REDIRECT)
+                    val next =
+                        resolveRedirect(currentUrl, response) ?: throw TrustedDownloadException(Reason.INVALID_REDIRECT)
                     validateTrustedUrl(next)
                     currentUrl = next
                     redirects++
@@ -132,7 +133,6 @@ internal class TrustedFileDownloader(
                 if (!looksLikeZip(partial)) {
                     throw TrustedDownloadException(Reason.NOT_A_ZIP)
                 }
-
 
                 try {
                     Files.move(

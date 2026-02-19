@@ -1,8 +1,8 @@
 package eu.kanade.presentation.dictionary.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,17 +17,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.turtlekazu.furiganable.compose.m3.TextWithReading
 import mihon.domain.dictionary.css.BoxStyle
 import mihon.domain.dictionary.css.ParsedCss
 import mihon.domain.dictionary.css.getCssStyles
@@ -41,7 +42,6 @@ import mihon.domain.dictionary.model.containsLink
 import mihon.domain.dictionary.model.extractForms
 import mihon.domain.dictionary.model.hasBlockContent
 import mihon.domain.dictionary.model.hasFurigana
-import com.turtlekazu.furiganable.compose.m3.TextWithReading
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
@@ -222,9 +222,31 @@ private fun StructuredElement(
     textStyle: TextStyle = MaterialTheme.typography.bodyMedium,
 ) {
     when (node.tag) {
-        GlossaryTag.UnorderedList -> StructuredList(node.children, indentLevel, ListType.Unordered, parsedCss, onLinkClick, textStyle)
-        GlossaryTag.OrderedList -> StructuredList(node.children, indentLevel, ListType.Ordered, parsedCss, onLinkClick, textStyle)
-        GlossaryTag.ListItem -> StructuredListItem(node, indentLevel, 0, ListType.Unordered, parsedCss, onLinkClick, textStyle)
+        GlossaryTag.UnorderedList -> StructuredList(
+            node.children,
+            indentLevel,
+            ListType.Unordered,
+            parsedCss,
+            onLinkClick,
+            textStyle,
+        )
+        GlossaryTag.OrderedList -> StructuredList(
+            node.children,
+            indentLevel,
+            ListType.Ordered,
+            parsedCss,
+            onLinkClick,
+            textStyle,
+        )
+        GlossaryTag.ListItem -> StructuredListItem(
+            node,
+            indentLevel,
+            0,
+            ListType.Unordered,
+            parsedCss,
+            onLinkClick,
+            textStyle,
+        )
         GlossaryTag.Ruby -> RubyNode(node, textStyle = textStyle)
         GlossaryTag.Link -> LinkNode(node, onLinkClick, textStyle = textStyle)
         GlossaryTag.Image -> Unit // Ignore images
@@ -234,7 +256,8 @@ private fun StructuredElement(
         GlossaryTag.Div -> DivNode(node, indentLevel, parsedCss, onLinkClick, textStyle)
         GlossaryTag.Span -> SpanNode(node, parsedCss, onLinkClick, textStyle)
         GlossaryTag.Thead, GlossaryTag.Tbody, GlossaryTag.Tfoot, GlossaryTag.Tr,
-        GlossaryTag.Td, GlossaryTag.Th, GlossaryTag.Unknown, GlossaryTag.Rt, GlossaryTag.Rp -> {
+        GlossaryTag.Td, GlossaryTag.Th, GlossaryTag.Unknown, GlossaryTag.Rt, GlossaryTag.Rp,
+        -> {
             Column {
                 node.children.forEach { child -> StructuredNode(child, indentLevel, parsedCss, onLinkClick, textStyle) }
             }
@@ -256,7 +279,15 @@ private fun StructuredList(
     Column(modifier = Modifier.padding(start = bulletIndent(1))) {
         children.forEach { child ->
             if (child is GlossaryNode.Element && child.tag == GlossaryTag.ListItem) {
-                StructuredListItem(child, indentLevel + 1, itemIndex, type, parsedCss, onLinkClick, baseTextStyle = textStyle)
+                StructuredListItem(
+                    child,
+                    indentLevel + 1,
+                    itemIndex,
+                    type,
+                    parsedCss,
+                    onLinkClick,
+                    baseTextStyle = textStyle,
+                )
                 itemIndex += 1
             } else {
                 StructuredNode(child, indentLevel, parsedCss, onLinkClick, textStyle)
@@ -312,7 +343,8 @@ private fun StructuredListItem(
             Column {
                 val children = node.children
                 val firstListIndex = children.indexOfFirst {
-                    it is GlossaryNode.Element && (it.tag == GlossaryTag.OrderedList || it.tag == GlossaryTag.UnorderedList)
+                    it is GlossaryNode.Element &&
+                        (it.tag == GlossaryTag.OrderedList || it.tag == GlossaryTag.UnorderedList)
                 }.let { if (it == -1) children.size else it }
 
                 val inlineChildren = children.subList(0, firstListIndex)
@@ -446,7 +478,7 @@ private fun LinkNode(
                     end = Offset(size.width, y),
                     strokeWidth = strokeWidth,
                 )
-            }
+            },
     )
 }
 
@@ -501,7 +533,7 @@ private fun DivNode(
     val combinedStyleMap = cssStyleMap + node.attributes.style
     val textStyle = applyTypography(baseTextStyle, combinedStyleMap)
 
-    val baseFontSizeSp = baseTextStyle.fontSize.let { if(it.isSp) it.value else 14f }
+    val baseFontSizeSp = baseTextStyle.fontSize.let { if (it.isSp) it.value else 14f }
     val boxStyle = parseBoxStyle(combinedStyleMap, baseFontSizeSp)
 
     // If needed, apply extra top padding so furigana doesn't get cut off
@@ -515,7 +547,7 @@ private fun DivNode(
         boxStyle,
         defaultCornerRadius = 8.dp,
         defaultPadding = defaultPadding,
-        defaultMargin = PaddingValues(vertical = 2.dp)
+        defaultMargin = PaddingValues(vertical = 2.dp),
     )
 
     Column(modifier = boxModifier) {
@@ -534,12 +566,16 @@ private fun SpanNode(
     val combinedStyleMap = cssStyleMap + node.attributes.style
     val textStyle = applyTypography(
         baseTextStyle,
-        combinedStyleMap
+        combinedStyleMap,
     )
 
-    val baseFontSizeSp = baseTextStyle.fontSize.let { if(it.isSp) it.value else 14f }
+    val baseFontSizeSp = baseTextStyle.fontSize.let { if (it.isSp) it.value else 14f }
     val boxStyle = parseBoxStyle(combinedStyleMap, baseFontSizeSp)
-    val boxModifier = Modifier.applyBoxStyle(boxStyle, defaultCornerRadius = 4.dp, defaultPadding = PaddingValues(horizontal = 4.dp))
+    val boxModifier = Modifier.applyBoxStyle(
+        boxStyle,
+        defaultCornerRadius = 4.dp,
+        defaultPadding = PaddingValues(horizontal = 4.dp),
+    )
 
     // Build annotated text for proper character-level wrapping
     val annotatedResult = remember(node.children) { buildAnnotatedText(node.children) }

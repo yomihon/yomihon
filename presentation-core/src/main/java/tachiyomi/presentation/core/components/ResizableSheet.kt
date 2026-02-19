@@ -32,154 +32,154 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 enum class SheetValue(internal val heightFraction: Float) {
-	Expanded(0.80f),
-	PartiallyExpanded(0.35f),
+    Expanded(0.80f),
+    PartiallyExpanded(0.35f),
 }
 
 @Composable
 fun ResizableSheet(
-	onDismissRequest: () -> Unit,
-	modifier: Modifier = Modifier,
-	initialValue: SheetValue = SheetValue.PartiallyExpanded,
-	contentAlignment: Alignment = Alignment.BottomCenter,
-	sheetModifier: Modifier = Modifier.fillMaxWidth(),
-	content: @Composable (Float) -> Unit,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    initialValue: SheetValue = SheetValue.PartiallyExpanded,
+    contentAlignment: Alignment = Alignment.BottomCenter,
+    sheetModifier: Modifier = Modifier.fillMaxWidth(),
+    content: @Composable (Float) -> Unit,
 ) {
-	val density = LocalDensity.current
-	val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
 
-	BoxWithConstraints(
-		modifier = modifier.fillMaxSize(),
-	) {
-		val maxHeightPx = with(density) { maxHeight.toPx() }
-		if (maxHeightPx <= 0f) {
-			return@BoxWithConstraints
-		}
+    BoxWithConstraints(
+        modifier = modifier.fillMaxSize(),
+    ) {
+        val maxHeightPx = with(density) { maxHeight.toPx() }
+        if (maxHeightPx <= 0f) {
+            return@BoxWithConstraints
+        }
 
-		val expandedAnchor = maxHeightPx * SheetValue.Expanded.heightFraction
-		val partialAnchor = maxHeightPx * SheetValue.PartiallyExpanded.heightFraction
-		val anchors = remember(maxHeightPx) {
-			mapOf(
-				SheetValue.Expanded to expandedAnchor,
-				SheetValue.PartiallyExpanded to partialAnchor,
-			)
-		}
+        val expandedAnchor = maxHeightPx * SheetValue.Expanded.heightFraction
+        val partialAnchor = maxHeightPx * SheetValue.PartiallyExpanded.heightFraction
+        val anchors = remember(maxHeightPx) {
+            mapOf(
+                SheetValue.Expanded to expandedAnchor,
+                SheetValue.PartiallyExpanded to partialAnchor,
+            )
+        }
 
-		val minHeightPx = anchors[SheetValue.PartiallyExpanded] ?: partialAnchor
-		val maxHeightPxSheet = anchors[SheetValue.Expanded] ?: expandedAnchor
-		val dismissDistancePx = with(density) { DISMISS_DISTANCE.dp.toPx() }
-		val initialHeightPx = (anchors[initialValue] ?: partialAnchor)
-			.coerceIn(minHeightPx, maxHeightPxSheet)
+        val minHeightPx = anchors[SheetValue.PartiallyExpanded] ?: partialAnchor
+        val maxHeightPxSheet = anchors[SheetValue.Expanded] ?: expandedAnchor
+        val dismissDistancePx = with(density) { DISMISS_DISTANCE.dp.toPx() }
+        val initialHeightPx = (anchors[initialValue] ?: partialAnchor)
+            .coerceIn(minHeightPx, maxHeightPxSheet)
 
-		val sheetHeight = remember(maxHeightPx) {
-			Animatable(initialHeightPx)
-		}
+        val sheetHeight = remember(maxHeightPx) {
+            Animatable(initialHeightPx)
+        }
 
-		LaunchedEffect(minHeightPx, maxHeightPxSheet) {
-			sheetHeight.updateBounds(minHeightPx, maxHeightPxSheet)
-		}
+        LaunchedEffect(minHeightPx, maxHeightPxSheet) {
+            sheetHeight.updateBounds(minHeightPx, maxHeightPxSheet)
+        }
 
-		LaunchedEffect(initialHeightPx) {
-			sheetHeight.snapTo(initialHeightPx)
-		}
+        LaunchedEffect(initialHeightPx) {
+            sheetHeight.snapTo(initialHeightPx)
+        }
 
-		val draggableState = rememberDraggableState { delta ->
-			scope.launch {
-				sheetHeight.stop()
-				sheetHeight.snapTo((sheetHeight.value - delta).coerceIn(minHeightPx, maxHeightPxSheet))
-			}
-		}
+        val draggableState = rememberDraggableState { delta ->
+            scope.launch {
+                sheetHeight.stop()
+                sheetHeight.snapTo((sheetHeight.value - delta).coerceIn(minHeightPx, maxHeightPxSheet))
+            }
+        }
 
-		val sheetHeightValue = sheetHeight.value
-		val sheetHeightDp = with(density) { sheetHeightValue.toDp() }
-		val expansionFraction = if (maxHeightPxSheet > 0f) {
-			(sheetHeightValue / maxHeightPxSheet).coerceIn(0f, 1f)
-		} else {
-			0f
-		}
+        val sheetHeightValue = sheetHeight.value
+        val sheetHeightDp = with(density) { sheetHeightValue.toDp() }
+        val expansionFraction = if (maxHeightPxSheet > 0f) {
+            (sheetHeightValue / maxHeightPxSheet).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
 
-		Box(
-			modifier = Modifier.fillMaxSize(),
-			contentAlignment = contentAlignment,
-		) {
-			// backdrop that dismisses the sheet when clicked
-			Box(
-				modifier = Modifier
-					.fillMaxSize()
-					.clickable(
-						indication = null,
-						interactionSource = remember { MutableInteractionSource() },
-						onClick = onDismissRequest,
-					),
-			)
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = contentAlignment,
+        ) {
+            // backdrop that dismisses the sheet when clicked
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                        onClick = onDismissRequest,
+                    ),
+            )
 
-			Surface(
-				modifier = sheetModifier
-					.height(sheetHeightDp)
-					.draggable(
-						state = draggableState,
-						orientation = Orientation.Vertical,
-						onDragStopped = { velocity ->
-							scope.launch {
-								val current = sheetHeight.value
-								if (velocity > DISMISS_VELOCITY && current <= minHeightPx + dismissDistancePx) {
-									onDismissRequest()
-									return@launch
-								}
+            Surface(
+                modifier = sheetModifier
+                    .height(sheetHeightDp)
+                    .draggable(
+                        state = draggableState,
+                        orientation = Orientation.Vertical,
+                        onDragStopped = { velocity ->
+                            scope.launch {
+                                val current = sheetHeight.value
+                                if (velocity > DISMISS_VELOCITY && current <= minHeightPx + dismissDistancePx) {
+                                    onDismissRequest()
+                                    return@launch
+                                }
 
-								val target = when {
-									velocity < -VELOCITY_THRESHOLD -> maxHeightPxSheet
-									velocity > VELOCITY_THRESHOLD -> minHeightPx
-									abs(maxHeightPxSheet - current) < abs(current - minHeightPx) -> maxHeightPxSheet
-									else -> minHeightPx
-								}
+                                val target = when {
+                                    velocity < -VELOCITY_THRESHOLD -> maxHeightPxSheet
+                                    velocity > VELOCITY_THRESHOLD -> minHeightPx
+                                    abs(maxHeightPxSheet - current) < abs(current - minHeightPx) -> maxHeightPxSheet
+                                    else -> minHeightPx
+                                }
 
-								sheetHeight.stop()
-								sheetHeight.animateTo(
-									targetValue = target,
-									initialVelocity = -velocity,
-								)
-							}
-						},
-					),
-				tonalElevation = 6.dp,
-				shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-				color = MaterialTheme.colorScheme.surface,
-			) {
-				Column(
-					modifier = Modifier.fillMaxSize(),
-				) {
-					HandleBar()
-					Box(
-						modifier = Modifier
-							.weight(1f, fill = true)
-							.fillMaxWidth(),
-					) {
-						content(expansionFraction)
-					}
-				}
-			}
-		}
-	}
+                                sheetHeight.stop()
+                                sheetHeight.animateTo(
+                                    targetValue = target,
+                                    initialVelocity = -velocity,
+                                )
+                            }
+                        },
+                    ),
+                tonalElevation = 6.dp,
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                color = MaterialTheme.colorScheme.surface,
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    HandleBar()
+                    Box(
+                        modifier = Modifier
+                            .weight(1f, fill = true)
+                            .fillMaxWidth(),
+                    ) {
+                        content(expansionFraction)
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
 private fun HandleBar() {
-	val indicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-	Box(
-		modifier = Modifier
-			.fillMaxWidth()
-			.padding(top = 12.dp, bottom = 8.dp),
-	) {
-		Box(
-			modifier = Modifier
-				.align(Alignment.Center)
-				.width(64.dp)
-				.height(4.dp)
-				.clip(CircleShape)
-				.background(indicatorColor),
-		)
-	}
+    val indicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp, bottom = 8.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .width(64.dp)
+                .height(4.dp)
+                .clip(CircleShape)
+                .background(indicatorColor),
+        )
+    }
 }
 
 private const val VELOCITY_THRESHOLD = 600f

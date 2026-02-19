@@ -8,10 +8,10 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import logcat.LogPriority
 import mihon.domain.dictionary.model.DictionaryTermMeta
 import mihon.domain.dictionary.model.TermMetaMode
 import tachiyomi.core.common.util.system.logcat
-import logcat.LogPriority
 
 /**
  * Represents pitch level for a mora.
@@ -254,6 +254,7 @@ internal object PitchAccentFormatter {
 
         return morae
     }
+
     /**
      * Generate SVG strings for all pitch accent patterns from term meta entries.
      * Returns HTML-ready SVG markup suitable for Anki card fields.
@@ -318,7 +319,7 @@ internal object PitchAccentFormatter {
         morae.forEachIndexed { index, moraPitch ->
             val cx = moraWidth * index + moraWidth / 2
             val cy = if (moraPitch.pitch == PitchLevel.HIGH) highY else lowY
-            
+
             when {
                 // Nasal: Hollow circle
                 moraPitch.isNasal -> {
@@ -346,8 +347,8 @@ internal object PitchAccentFormatter {
             val textY = graphHeight + textHeight - 2
             val color = when {
                 moraPitch.isDevoiced -> "#AAAAAA" // Gray for devoiced
-                moraPitch.isNasal -> "#FFFFFF"    // White for nasal (same as standard)
-                else -> "#FFFFFF"                 // White for standard
+                moraPitch.isNasal -> "#FFFFFF" // White for nasal (same as standard)
+                else -> "#FFFFFF" // White for standard
             }
             sb.append("<text x=\"$x\" y=\"$textY\" text-anchor=\"middle\" ")
             sb.append("font-size=\"10\" font-family=\"sans-serif\" fill=\"$color\">")

@@ -41,6 +41,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.getSystemService
 import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.createBitmap
 import androidx.core.net.toUri
 import androidx.core.transition.doOnEnd
 import androidx.core.view.WindowCompat
@@ -55,11 +56,11 @@ import dev.chrisbanes.insetter.applyInsetter
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.reader.DisplayRefreshHost
-import eu.kanade.presentation.reader.OrientationSelectDialog
-import eu.kanade.presentation.reader.PageIndicatorText
 import eu.kanade.presentation.reader.OcrLoadingIndicator
 import eu.kanade.presentation.reader.OcrResultBottomSheet
 import eu.kanade.presentation.reader.OcrSelectionOverlay
+import eu.kanade.presentation.reader.OrientationSelectDialog
+import eu.kanade.presentation.reader.PageIndicatorText
 import eu.kanade.presentation.reader.ReaderContentOverlay
 import eu.kanade.presentation.reader.ReaderPageActionsDialog
 import eu.kanade.presentation.reader.ReadingModeSelectDialog
@@ -92,6 +93,7 @@ import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.setComposeContent
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
@@ -101,6 +103,7 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import logcat.LogPriority
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
@@ -113,9 +116,6 @@ import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.ByteArrayOutputStream
-import androidx.core.graphics.createBitmap
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -516,151 +516,151 @@ class ReaderActivity : BaseActivity() {
                 )
 
                 ReaderAppBars(
-                visible = state.menuVisible,
-                fullscreen = isFullscreen,
+                    visible = state.menuVisible,
+                    fullscreen = isFullscreen,
 
-                mangaTitle = state.manga?.title,
-                chapterTitle = state.currentChapter?.chapter?.name,
-                navigateUp = onBackPressedDispatcher::onBackPressed,
-                onClickTopAppBar = ::openMangaScreen,
-                bookmarked = state.bookmarked,
-                onToggleBookmarked = viewModel::toggleChapterBookmark,
-                onOpenInWebView = ::openChapterInWebView.takeIf { isHttpSource },
-                onOpenInBrowser = ::openChapterInBrowser.takeIf { isHttpSource },
-                onShare = ::shareChapter.takeIf { isHttpSource },
+                    mangaTitle = state.manga?.title,
+                    chapterTitle = state.currentChapter?.chapter?.name,
+                    navigateUp = onBackPressedDispatcher::onBackPressed,
+                    onClickTopAppBar = ::openMangaScreen,
+                    bookmarked = state.bookmarked,
+                    onToggleBookmarked = viewModel::toggleChapterBookmark,
+                    onOpenInWebView = ::openChapterInWebView.takeIf { isHttpSource },
+                    onOpenInBrowser = ::openChapterInBrowser.takeIf { isHttpSource },
+                    onShare = ::shareChapter.takeIf { isHttpSource },
 
-                viewer = state.viewer,
-                onNextChapter = ::loadNextChapter,
-                enabledNext = state.viewerChapters?.nextChapter != null,
-                onPreviousChapter = ::loadPreviousChapter,
-                enabledPrevious = state.viewerChapters?.prevChapter != null,
-                currentPage = state.currentPage,
-                totalPages = state.totalPages,
-                onPageIndexChange = {
-                    isScrollingThroughPages = true
-                    moveToPageIndex(it)
-                },
+                    viewer = state.viewer,
+                    onNextChapter = ::loadNextChapter,
+                    enabledNext = state.viewerChapters?.nextChapter != null,
+                    onPreviousChapter = ::loadPreviousChapter,
+                    enabledPrevious = state.viewerChapters?.prevChapter != null,
+                    currentPage = state.currentPage,
+                    totalPages = state.totalPages,
+                    onPageIndexChange = {
+                        isScrollingThroughPages = true
+                        moveToPageIndex(it)
+                    },
 
-                readingMode = ReadingMode.fromPreference(
-                    viewModel.getMangaReadingMode(resolveDefault = false),
-                ),
-                onClickReadingMode = viewModel::openReadingModeSelectDialog,
-                orientation = ReaderOrientation.fromPreference(
-                    viewModel.getMangaOrientation(resolveDefault = false),
-                ),
-                onClickOrientation = viewModel::openOrientationModeSelectDialog,
-                cropEnabled = cropEnabled,
-                onClickCropBorder = {
-                    val enabled = viewModel.toggleCropBorders()
-                    menuToggleToast?.cancel()
-                    menuToggleToast = toast(if (enabled) MR.strings.on else MR.strings.off)
-                },
-                onClickSettings = viewModel::openSettingsDialog,
-                onClickOcr = ::enterOcrMode,
-            )
-
-            // OCR selection overlay
-            if (state.ocrSelectionMode) {
-                OcrSelectionOverlay(
-                    onCancel = ::exitOcrMode,
-                    startPoint = ocrDragStart,
-                    endPoint = ocrDragEnd,
+                    readingMode = ReadingMode.fromPreference(
+                        viewModel.getMangaReadingMode(resolveDefault = false),
+                    ),
+                    onClickReadingMode = viewModel::openReadingModeSelectDialog,
+                    orientation = ReaderOrientation.fromPreference(
+                        viewModel.getMangaOrientation(resolveDefault = false),
+                    ),
+                    onClickOrientation = viewModel::openOrientationModeSelectDialog,
+                    cropEnabled = cropEnabled,
+                    onClickCropBorder = {
+                        val enabled = viewModel.toggleCropBorders()
+                        menuToggleToast?.cancel()
+                        menuToggleToast = toast(if (enabled) MR.strings.on else MR.strings.off)
+                    },
+                    onClickSettings = viewModel::openSettingsDialog,
+                    onClickOcr = ::enterOcrMode,
                 )
-            }
 
-            if (flashOnPageChange) {
-                DisplayRefreshHost(
-                    hostState = displayRefreshHost,
-                )
-            }
-
-            val onDismissRequest = viewModel::closeDialog
-            when (val dialog = state.dialog) {
-                is ReaderViewModel.Dialog.Loading -> {
-                    AlertDialog(
-                        onDismissRequest = {},
-                        confirmButton = {},
-                        text = {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                CircularProgressIndicator()
-                                Text(stringResource(MR.strings.loading))
-                            }
-                        },
+                // OCR selection overlay
+                if (state.ocrSelectionMode) {
+                    OcrSelectionOverlay(
+                        onCancel = ::exitOcrMode,
+                        startPoint = ocrDragStart,
+                        endPoint = ocrDragEnd,
                     )
                 }
-                is ReaderViewModel.Dialog.Settings -> {
-                    ReaderSettingsDialog(
-                        onDismissRequest = onDismissRequest,
-                        onShowMenus = { setMenuVisibility(true) },
-                        onHideMenus = { setMenuVisibility(false) },
-                        screenModel = settingsScreenModel,
+
+                if (flashOnPageChange) {
+                    DisplayRefreshHost(
+                        hostState = displayRefreshHost,
                     )
                 }
-                is ReaderViewModel.Dialog.ReadingModeSelect -> {
-                    ReadingModeSelectDialog(
-                        onDismissRequest = onDismissRequest,
-                        screenModel = settingsScreenModel,
-                        onChange = { stringRes ->
-                            menuToggleToast?.cancel()
-                            if (!readerPreferences.showReadingMode().get()) {
+
+                val onDismissRequest = viewModel::closeDialog
+                when (val dialog = state.dialog) {
+                    is ReaderViewModel.Dialog.Loading -> {
+                        AlertDialog(
+                            onDismissRequest = {},
+                            confirmButton = {},
+                            text = {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    CircularProgressIndicator()
+                                    Text(stringResource(MR.strings.loading))
+                                }
+                            },
+                        )
+                    }
+                    is ReaderViewModel.Dialog.Settings -> {
+                        ReaderSettingsDialog(
+                            onDismissRequest = onDismissRequest,
+                            onShowMenus = { setMenuVisibility(true) },
+                            onHideMenus = { setMenuVisibility(false) },
+                            screenModel = settingsScreenModel,
+                        )
+                    }
+                    is ReaderViewModel.Dialog.ReadingModeSelect -> {
+                        ReadingModeSelectDialog(
+                            onDismissRequest = onDismissRequest,
+                            screenModel = settingsScreenModel,
+                            onChange = { stringRes ->
+                                menuToggleToast?.cancel()
+                                if (!readerPreferences.showReadingMode().get()) {
+                                    menuToggleToast = toast(stringRes)
+                                }
+                            },
+                        )
+                    }
+                    is ReaderViewModel.Dialog.OrientationModeSelect -> {
+                        OrientationSelectDialog(
+                            onDismissRequest = onDismissRequest,
+                            screenModel = settingsScreenModel,
+                            onChange = { stringRes ->
+                                menuToggleToast?.cancel()
                                 menuToggleToast = toast(stringRes)
-                            }
-                        },
-                    )
+                            },
+                        )
+                    }
+                    is ReaderViewModel.Dialog.PageActions -> {
+                        ReaderPageActionsDialog(
+                            onDismissRequest = onDismissRequest,
+                            onSetAsCover = viewModel::setAsCover,
+                            onShare = viewModel::shareImage,
+                            onSave = viewModel::saveImage,
+                        )
+                    }
+                    is ReaderViewModel.Dialog.OcrResult -> {
+                        val searchState by dictionarySearchScreenModel.state.collectAsState()
+                        OcrResultBottomSheet(
+                            onDismissRequest = onDismissRequest,
+                            text = dialog.text,
+                            onCopyText = {
+                                val clipboard = getSystemService<ClipboardManager>()
+                                clipboard?.setPrimaryClip(
+                                    ClipData.newPlainText(null, searchState.query),
+                                )
+                                toast(MR.strings.action_copy_to_clipboard)
+                            },
+                            searchState = searchState,
+                            onQueryChange = dictionarySearchScreenModel::updateQuery,
+                            onSearch = dictionarySearchScreenModel::search,
+                            onTermClick = { term ->
+                                dictionarySearchScreenModel.selectTerm(term)
+                                lifecycleScope.launchIO {
+                                    val uri = viewModel.getCurrentPageUri()
+                                    dictionarySearchScreenModel.addToAnki(term, uri)
+                                }
+                            },
+                        )
+                    }
+                    null -> {}
                 }
-                is ReaderViewModel.Dialog.OrientationModeSelect -> {
-                    OrientationSelectDialog(
-                        onDismissRequest = onDismissRequest,
-                        screenModel = settingsScreenModel,
-                        onChange = { stringRes ->
-                            menuToggleToast?.cancel()
-                            menuToggleToast = toast(stringRes)
-                        },
-                    )
-                }
-                is ReaderViewModel.Dialog.PageActions -> {
-                    ReaderPageActionsDialog(
-                        onDismissRequest = onDismissRequest,
-                        onSetAsCover = viewModel::setAsCover,
-                        onShare = viewModel::shareImage,
-                        onSave = viewModel::saveImage,
-                    )
-                }
-                is ReaderViewModel.Dialog.OcrResult -> {
-                    val searchState by dictionarySearchScreenModel.state.collectAsState()
-                    OcrResultBottomSheet(
-                        onDismissRequest = onDismissRequest,
-                        text = dialog.text,
-                        onCopyText = {
-                            val clipboard = getSystemService<ClipboardManager>()
-                            clipboard?.setPrimaryClip(
-                                ClipData.newPlainText(null, searchState.query),
-                            )
-                            toast(MR.strings.action_copy_to_clipboard)
-                        },
-                        searchState = searchState,
-                        onQueryChange = dictionarySearchScreenModel::updateQuery,
-                        onSearch = dictionarySearchScreenModel::search,
-                        onTermClick = { term ->
-                            dictionarySearchScreenModel.selectTerm(term)
-                            lifecycleScope.launchIO {
-                                val uri = viewModel.getCurrentPageUri()
-                                dictionarySearchScreenModel.addToAnki(term, uri)
-                            }
-                        },
-                    )
-                }
-                null -> {}
-            }
 
-            // OCR loading bar at bottom of screen
-            OcrLoadingIndicator(
-                visible = state.isProcessingOcr,
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
+                // OCR loading bar at bottom of screen
+                OcrLoadingIndicator(
+                    visible = state.isProcessingOcr,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
             }
         }
 
@@ -874,8 +874,7 @@ class ReaderActivity : BaseActivity() {
 
                 val location = IntArray(2)
                 viewerContainer.getLocationOnScreen(location)
-                val (containerX,containerY) = location
-
+                val (containerX, containerY) = location
 
                 // Crop to the selected region
                 val left = (containerX + rect.left.toInt()).coerceAtLeast(0)
@@ -893,7 +892,7 @@ class ReaderActivity : BaseActivity() {
                         srcRect,
                         croppedBitmap,
                         { result -> continuation.resume(result) { cause, _, _ -> } },
-                        Handler(Looper.getMainLooper())
+                        Handler(Looper.getMainLooper()),
                     )
                 }
 
@@ -968,7 +967,9 @@ class ReaderActivity : BaseActivity() {
         viewModel.enterOcrMode()
 
         val last = lastTouchEvent
-        if (last != null && last.actionMasked != MotionEvent.ACTION_UP && last.actionMasked != MotionEvent.ACTION_CANCEL) {
+        if (last != null && last.actionMasked != MotionEvent.ACTION_UP &&
+            last.actionMasked != MotionEvent.ACTION_CANCEL
+        ) {
             val loc = IntArray(2)
             binding.dialogRoot.getLocationOnScreen(loc)
             val x = last.rawX - loc[0]

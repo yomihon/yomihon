@@ -5,7 +5,7 @@ package mihon.data.ocr
 /**
  * Generated file — do not edit manually.
  */
-internal fun vocabFast_part000(): Array<String> = arrayOf(
+internal fun vocabFastPart000(): Array<String> = arrayOf(
     "[PAD]",
     "[UNK]",
     "[CLS]",

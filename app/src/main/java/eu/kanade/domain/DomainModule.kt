@@ -27,13 +27,12 @@ import eu.kanade.domain.track.interactor.RefreshTracks
 import eu.kanade.domain.track.interactor.SyncChapterProgressWithTrack
 import eu.kanade.domain.track.interactor.TrackChapter
 import mihon.data.ankidroid.AnkiDroidRepositoryImpl
-import mihon.data.repository.ExtensionRepoRepositoryImpl
 import mihon.data.dictionary.DictionaryParserImpl
 import mihon.data.dictionary.DictionaryRepositoryImpl
 import mihon.data.ocr.OcrRepositoryImpl
+import mihon.data.repository.ExtensionRepoRepositoryImpl
 import mihon.domain.ankidroid.interactor.AddDictionaryCard
 import mihon.domain.ankidroid.repository.AnkiDroidRepository
-import tachiyomi.domain.ankidroid.service.AnkiDroidPreferences
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.dictionary.interactor.DictionaryInteractor
 import mihon.domain.dictionary.interactor.ImportDictionary
@@ -61,6 +60,7 @@ import tachiyomi.data.source.SourceRepositoryImpl
 import tachiyomi.data.source.StubSourceRepositoryImpl
 import tachiyomi.data.track.TrackRepositoryImpl
 import tachiyomi.data.updates.UpdatesRepositoryImpl
+import tachiyomi.domain.ankidroid.service.AnkiDroidPreferences
 import tachiyomi.domain.category.interactor.CreateCategoryWithName
 import tachiyomi.domain.category.interactor.DeleteCategory
 import tachiyomi.domain.category.interactor.GetCategories
@@ -231,7 +231,7 @@ class DomainModule : InjektModule {
 
         addSingletonFactory<OcrRepository> {
             OcrRepositoryImpl(
-                context = get<Application>()
+                context = get<Application>(),
             )
         }
         addFactory { OcrProcessor(get()) }

@@ -6,11 +6,10 @@ import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.test.runTest
 import mihon.domain.ocr.interactor.OcrProcessor
-import mihon.domain.ocr.repository.OcrRepository
 import mihon.domain.ocr.model.OcrModel
+import mihon.domain.ocr.repository.OcrRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Before
@@ -18,6 +17,7 @@ import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import tachiyomi.core.common.preference.getEnum
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * Integration test for OCR repository that runs against the device/emulator assets and native inference libraries.
@@ -86,7 +86,7 @@ class OcrRepositoryImplTest {
             "mihon/data/ocr/ocr_test_image.base64" to "でもだいたい見当はついてるの",
             "mihon/data/ocr/ocr_test_image2.base64" to "ぼくが復活する前に",
             "mihon/data/ocr/ocr_test_image2.base64" to "ぼくが復活する前に",
-            )
+        )
 
         for ((resourceName, expectedText) in testCases) {
             val bitmap = getBitmap(resourceName)

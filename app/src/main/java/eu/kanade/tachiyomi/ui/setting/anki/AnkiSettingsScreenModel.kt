@@ -1,18 +1,18 @@
 package eu.kanade.tachiyomi.ui.setting.anki
 
+import android.app.Application
 import androidx.compose.runtime.Immutable
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
-import android.app.Application
 import mihon.domain.ankidroid.repository.AnkiDroidRepository
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.ankidroid.service.AnkiDroidPreferences
+import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import tachiyomi.i18n.MR
 
 class AnkiSettingsScreenModel(
     private val ankiDroidRepository: AnkiDroidRepository = Injekt.get(),
@@ -96,7 +96,11 @@ class AnkiSettingsScreenModel(
 
                 // If model ID is invalid or not in available models, get or create the preferred model
                 if (selectedModelId <= 0 || !models.containsKey(selectedModelId)) {
-                    val modelId = ankiDroidRepository.getOrCreateModel(preferredModelName, selectedDeckId, selectedModelId)
+                    val modelId = ankiDroidRepository.getOrCreateModel(
+                        preferredModelName,
+                        selectedDeckId,
+                        selectedModelId,
+                    )
                     if (modelId != null) {
                         selectedModelId = modelId
                         ankiDroidPreferences.modelId().set(modelId)

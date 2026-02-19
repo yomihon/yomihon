@@ -13,8 +13,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import cafe.adriel.voyager.core.model.rememberScreenModel
-import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.dictionary.DictionarySearchScreen
@@ -81,14 +81,18 @@ data object DictionaryTab : Tab {
                 when (event) {
                     is DictionarySearchScreenModel.Event.ShowError -> {
                         val message = when (val payload = event.message) {
-                            is DictionarySearchScreenModel.UiMessage.Resource -> context.getString(payload.value.resourceId)
+                            is DictionarySearchScreenModel.UiMessage.Resource -> context.getString(
+                                payload.value.resourceId,
+                            )
                             is DictionarySearchScreenModel.UiMessage.Text -> payload.value
                         }
                         screenModel.snackbarHostState.showSnackbar(message)
                     }
                     is DictionarySearchScreenModel.Event.ShowMessage -> {
                         val message = when (val payload = event.message) {
-                            is DictionarySearchScreenModel.UiMessage.Resource -> context.getString(payload.value.resourceId)
+                            is DictionarySearchScreenModel.UiMessage.Resource -> context.getString(
+                                payload.value.resourceId,
+                            )
                             is DictionarySearchScreenModel.UiMessage.Text -> payload.value
                         }
                         screenModel.snackbarHostState.showSnackbar(message)

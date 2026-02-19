@@ -12,13 +12,13 @@ val vocabFast: Array<String> = buildVocab()
 
 private fun buildVocab(): Array<String> {
     val parts: Array<Array<String>> = arrayOf(
-        vocabFast_part000(),
-        vocabFast_part001(),
+        vocabFastPart000(),
+        vocabFastPart001(),
     )
 
     val total = parts.sumOf { it.size }
     val out = Array(total) { "" }
-    
+
     var index = 0
     for (part in parts) {
         part.copyInto(out, destinationOffset = index)

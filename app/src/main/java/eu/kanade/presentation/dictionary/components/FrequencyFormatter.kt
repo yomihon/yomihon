@@ -5,10 +5,10 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import logcat.LogPriority
 import mihon.domain.dictionary.model.DictionaryTermMeta
 import mihon.domain.dictionary.model.TermMetaMode
 import tachiyomi.core.common.util.system.logcat
-import logcat.LogPriority
 
 /**
  * Parsed frequency data from a dictionary term meta entry

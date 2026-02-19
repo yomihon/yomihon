@@ -23,13 +23,13 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.turtlekazu.furiganable.compose.m3.TextWithReading
 import mihon.domain.dictionary.css.ParsedCss
 import mihon.domain.dictionary.css.getCssStyles
 import mihon.domain.dictionary.model.GlossaryNode
 import mihon.domain.dictionary.model.GlossaryTag
 import mihon.domain.dictionary.model.collectText
 import mihon.domain.dictionary.model.hasBlockContent
-import com.turtlekazu.furiganable.compose.m3.TextWithReading
 
 @Composable
 internal fun TableNode(
@@ -288,7 +288,6 @@ private fun buildTableModel(table: GlossaryNode.Element): TableModel {
 
     return TableModel(outRows, columnCount)
 }
-
 
 private data class BaseCell(
     val node: GlossaryNode.Element,

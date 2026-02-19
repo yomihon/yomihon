@@ -86,6 +86,7 @@ internal class FastOcrEngine(
     private lateinit var stepOutputs: Map<String, TensorBuffer>
 
     private val inferenceMutex = Mutex()
+
     @Volatile
     private var initialized = false
 
