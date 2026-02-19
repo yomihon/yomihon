@@ -10,14 +10,32 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - `Fixed` - for any bug fixes.
 - `Other` - for technical stuff.
 
+## [v0.2.0] - 2026-02-20
+
+### Added
+- Add one-click AnkiDroid card creation
+- Add AnkiDroid settings screen and field mappings
+- Download and import recommended dictionaries from in-app
+- "Fast" OCR model option (experimental)
+
+### Improved
+- OCR selection can be done on immediate hold + drag (no finger lift required)
+
+### Changed
+- Dictionaries now import in the background
+- Dictionary import status is shown in notifications
+
+### Fixed
+- Fix broken pitch accent graph display
+
 ## [v0.1.1] - 2026-01-25
+
+### Changed
+- Improve display of OCR results on large screens
 
 ### Fixed
 - Fix crash on tablets when opening dictionary settings
 - Fix missing app language options
-
-### Changed
-- Improve display of OCR results on large screens
 
 ## [v0.1.0] - 2026-01-23
 
@@ -35,6 +53,7 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - The full changelog for Mihon releases is available in their [repository](https://github.com/mihonapp/mihon/blob/main/CHANGELOG.md).
 
 
-[unreleased]: https://github.com/yomihon/yomihon/compare/v0.1.0...main
+[unreleased]: https://github.com/yomihon/yomihon/compare/v0.2.0...main
+[v0.2.0]: https://github.com/yomihon/yomihon/compare/v0.1.1...v0.2.0
 [v0.1.1]: https://github.com/yomihon/yomihon/compare/v0.1.0...v0.1.1
 [v0.1.0]: https://github.com/yomihon/yomihon/compare/c856f12...v0.1.0

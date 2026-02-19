@@ -30,7 +30,7 @@ body:
           required: true
         - label: I have written a short but informative title.
           required: true
-        - label: I have updated the app to version **[0.1.1](https://github.com/yomihon/yomihon/releases/latest)**.
+        - label: I have updated the app to version **[0.2.0](https://github.com/yomihon/yomihon/releases/latest)**.
           required: true
         - label: I will fill out all of the requested information in this form.
           required: true
