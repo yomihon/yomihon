@@ -121,7 +121,7 @@ internal class LegacyOcrEngine(
             try {
                 initModels(Accelerator.GPU)
                 logcat(LogPriority.INFO) { "OCR (legacy) models initialized (GPU)" }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 logcat(LogPriority.WARN, e) { "Failed to initialize OCR (legacy) models with GPU" }
                 closeInternal()
                 initModels(Accelerator.CPU)
@@ -130,7 +130,7 @@ internal class LegacyOcrEngine(
 
             initialized = true
             true
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e) { "Failed to initialize OCR (legacy) models" }
             closeInternal()
             false
@@ -349,7 +349,7 @@ internal class LegacyOcrEngine(
             if (::decoderModel.isInitialized) decoderModel.close()
 
             logcat(LogPriority.INFO) { "OCR (legacy) models closed successfully" }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e) { "Error closing OCR (legacy) models" }
         }
     }

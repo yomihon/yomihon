@@ -231,7 +231,7 @@ internal class FastOcrEngine(
             initialized = true
             logcat(LogPriority.INFO) { "OCR (fast) models initialized (CPU threads=$cpuThreads)" }
             true
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e) { "Failed to initialize OCR (fast) models" }
             closeInternal()
             false
@@ -500,7 +500,7 @@ internal class FastOcrEngine(
             }
 
             logcat(LogPriority.INFO) { "OCR (fast) models closed successfully" }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e) { "Error closing OCR (fast) models" }
         }
     }
