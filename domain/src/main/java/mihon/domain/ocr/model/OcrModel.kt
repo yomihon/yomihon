@@ -13,4 +13,9 @@ enum class OcrModel {
      * Faster model designed for ARM CPU.
      */
     FAST,
+
+    /**
+     * Online Google Lens OCR model.
+     */
+    GLENS,
 }

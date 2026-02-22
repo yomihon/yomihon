@@ -445,6 +445,7 @@ object SettingsReaderScreen : SearchableSettings {
                     entries = persistentMapOf(
                         OcrModel.LEGACY to stringResource(OcrModel.LEGACY.titleRes),
                         OcrModel.FAST to stringResource(OcrModel.FAST.titleRes),
+                        OcrModel.GLENS to stringResource(OcrModel.GLENS.titleRes),
                     ),
                     title = stringResource(MR.strings.pref_ocr_model),
                     subtitle = stringResource(MR.strings.pref_ocr_model_summary),

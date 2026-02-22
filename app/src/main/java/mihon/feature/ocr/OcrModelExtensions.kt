@@ -8,4 +8,5 @@ val OcrModel.titleRes: StringResource
     get() = when (this) {
         OcrModel.LEGACY -> MR.strings.ocr_model_legacy
         OcrModel.FAST -> MR.strings.ocr_model_fast
+        OcrModel.GLENS -> MR.strings.ocr_model_glens
     }
