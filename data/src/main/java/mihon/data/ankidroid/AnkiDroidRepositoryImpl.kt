@@ -100,19 +100,48 @@ class AnkiDroidRepositoryImpl(
 
             val fieldValues = buildFieldValues(card, modelFields, fieldMappings, pictureFilename)
 
-            // Check for duplicates using the first field value
-            if (fieldValues.isNotEmpty() && fieldValues[0].isNotBlank()) {
-                val duplicates = api.findDuplicateNotes(modelId, listOf(fieldValues[0]))
-                if (duplicates?.isNotEmpty() == true) {
-                    return@withContext AnkiDroidRepository.Result.Duplicate
-                }
-            }
-
             val added = api.addNote(modelId, deckId, fieldValues, card.tags)
 
             if (added != null && added > 0) AnkiDroidRepository.Result.Added else AnkiDroidRepository.Result.Error()
         } catch (e: Exception) {
             AnkiDroidRepository.Result.Error(e)
+        }
+    }
+
+    override suspend fun findExistingNotes(expressions: List<String>): Set<String> = withContext(Dispatchers.IO) {
+        if (expressions.isEmpty()) return@withContext emptySet()
+
+        if (AddContentApi.getAnkiDroidPackageName(appContext) == null ||
+            ContextCompat.checkSelfPermission(appContext, READ_WRITE_PERMISSION) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return@withContext emptySet()
+        }
+
+        try {
+            val preferredDeckId = ankiDroidPreferences.deckId().get()
+            val preferredDeckName = ankiDroidPreferences.deckName().get()
+            val preferredModelId = ankiDroidPreferences.modelId().get()
+            val preferredModelName = ankiDroidPreferences.modelName().get()
+
+            val deckId = getOrCreateDeck(name = preferredDeckName, id = preferredDeckId)
+                ?: return@withContext emptySet()
+
+            val modelId = getOrCreateModel(name = preferredModelName, deckId = deckId, id = preferredModelId)
+                ?: return@withContext emptySet()
+
+            val duplicates = api.findDuplicateNotes(modelId, expressions)
+                ?: return@withContext emptySet()
+
+            buildSet {
+                for (i in expressions.indices) {
+                    val notes = duplicates[i]
+                    if (notes != null && notes.isNotEmpty()) {
+                        add(expressions[i])
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            emptySet()
         }
     }
 

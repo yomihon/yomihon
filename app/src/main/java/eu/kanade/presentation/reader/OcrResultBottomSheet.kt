@@ -119,6 +119,7 @@ fun OcrResultBottomSheet(
                         dictionaries = searchState.dictionaries,
                         enabledDictionaryIds = searchState.enabledDictionaryIds.toSet(),
                         termMetaMap = searchState.results?.termMetaMap ?: emptyMap(),
+                        existingTermExpressions = searchState.existingTermExpressions,
                         onTermClick = onTermClick,
                         onQueryChange = onQueryChange,
                         onSearch = onSearch,

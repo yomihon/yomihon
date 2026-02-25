@@ -6,6 +6,13 @@ interface AnkiDroidRepository {
     suspend fun addCard(card: DictionaryTermCard): Result
 
     /**
+     * Bulk check which of the given expressions already have notes in AnkiDroid.
+     * Returns a set of expressions (first-field values) that have matching notes.
+     * Returns an empty set if AnkiDroid is unavailable or permission is missing.
+     */
+    suspend fun findExistingNotes(expressions: List<String>): Set<String>
+
+    /**
      * Returns map of deck ID to deck name
      */
     suspend fun getDecks(): Map<Long, String>

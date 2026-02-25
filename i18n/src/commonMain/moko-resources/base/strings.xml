@@ -1101,8 +1101,7 @@
 
     <!-- AnkiDroid Settings -->
     <string name="anki_add_success">Added card to AnkiDroid</string>
-    <string name="anki_add_duplicate">Card already exists in AnkiDroid</string>
-    <string name="anki_add_fallback">Sent card to AnkiDroid via share</string>
+    <string name="anki_add_duplicate">Duplicate card not added</string>
     <string name="anki_add_not_available">AnkiDroid is not available</string>
     <string name="anki_add_failed">Failed to add card to AnkiDroid</string>
     <string name="pref_category_ankidroid">AnkiDroid</string>

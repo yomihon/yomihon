@@ -25,6 +25,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.LibraryAddCheck
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -80,6 +81,7 @@ fun DictionaryResults(
     dictionaries: List<Dictionary>,
     enabledDictionaryIds: Set<Long>,
     termMetaMap: Map<String, List<DictionaryTermMeta>>,
+    existingTermExpressions: Set<String> = emptySet(),
     onTermClick: (DictionaryTerm) -> Unit,
     onQueryChange: (String) -> Unit,
     onSearch: (String) -> Unit,
@@ -139,6 +141,7 @@ fun DictionaryResults(
                 results = searchResults,
                 dictionaries = dictionaries,
                 termMetaMap = termMetaMap,
+                existingTermExpressions = existingTermExpressions,
                 onTermClick = onTermClick,
                 onQueryChange = onQueryChange,
                 onSearch = onSearch,
@@ -183,6 +186,7 @@ private fun SearchResultsList(
     results: List<DictionaryTerm>,
     dictionaries: List<Dictionary>,
     termMetaMap: Map<String, List<DictionaryTermMeta>>,
+    existingTermExpressions: Set<String>,
     onTermClick: (DictionaryTerm) -> Unit,
     onQueryChange: (String) -> Unit,
     onSearch: (String) -> Unit,
@@ -215,6 +219,7 @@ private fun SearchResultsList(
                 dictionaryName = dictionaries.find { it.id == term.dictionaryId }?.title ?: "",
                 termMeta = termMetaMap[term.expression] ?: emptyList(),
                 dictionaries = dictionaries,
+                isDuplicatePending = term.expression in existingTermExpressions,
                 onClick = { onTermClick(term) },
                 onQueryChange = onQueryChange,
                 onSearch = onSearch,
@@ -229,6 +234,7 @@ private fun DictionaryTermCard(
     dictionaryName: String,
     termMeta: List<DictionaryTermMeta>,
     dictionaries: List<Dictionary>,
+    isDuplicatePending: Boolean,
     onClick: () -> Unit,
     onQueryChange: (String) -> Unit,
     onSearch: (String) -> Unit,
@@ -267,9 +273,15 @@ private fun DictionaryTermCard(
                     onClick = onClick,
                     modifier = Modifier.offset(x = 8.dp, y = (-8).dp),
                 ) {
+                    val (icon, tint) = if (isDuplicatePending) {
+                        Icons.Default.LibraryAddCheck to MaterialTheme.colorScheme.primary
+                    } else {
+                        Icons.Default.Add to MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                     Icon(
-                        imageVector = Icons.Default.Add,
+                        imageVector = icon,
                         contentDescription = stringResource(MR.strings.action_add),
+                        tint = tint,
                     )
                 }
             }

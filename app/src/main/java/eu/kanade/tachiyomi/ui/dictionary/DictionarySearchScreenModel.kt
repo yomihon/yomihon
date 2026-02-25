@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.domain.ankidroid.interactor.AddDictionaryCard
+import mihon.domain.ankidroid.interactor.FindExistingAnkiNotes
 import mihon.domain.ankidroid.repository.AnkiDroidRepository
 import mihon.domain.dictionary.interactor.DictionaryInteractor
 import mihon.domain.dictionary.interactor.SearchDictionaryTerms
@@ -32,6 +33,7 @@ class DictionarySearchScreenModel(
     private val searchDictionaryTerms: SearchDictionaryTerms = Injekt.get(),
     private val dictionaryInteractor: DictionaryInteractor = Injekt.get(),
     private val addDictionaryCard: AddDictionaryCard = Injekt.get(),
+    private val findExistingAnkiNotes: FindExistingAnkiNotes = Injekt.get(),
 ) : StateScreenModel<DictionarySearchScreenModel.State>(State()) {
 
     val snackbarHostState = SnackbarHostState()
@@ -177,11 +179,24 @@ class DictionarySearchScreenModel(
                         ),
                         isSearching = false,
                         hasSearched = true,
+                        existingTermExpressions = emptySet(),
                     )
                 }
+
+                // Proactively check which result expressions already exist in AnkiDroid
+                checkExistingNotesInBackground(items.map { it.expression }.distinct())
             } catch (e: Exception) {
                 mutableState.update { it.copy(isSearching = false) }
                 _events.send(Event.ShowError(UiMessage.Text(e.message ?: "Search failed")))
+            }
+        }
+    }
+
+    private fun checkExistingNotesInBackground(expressions: List<String>) {
+        screenModelScope.launch {
+            val existing = findExistingAnkiNotes(expressions)
+            if (existing.isNotEmpty()) {
+                mutableState.update { it.copy(existingTermExpressions = existing) }
             }
         }
     }
@@ -218,6 +233,8 @@ class DictionarySearchScreenModel(
 
             when (val result = addDictionaryCard(card)) {
                 AnkiDroidRepository.Result.Added -> {
+                    // Mark expression as existing so the icon updates immediately
+                    mutableState.update { it.copy(existingTermExpressions = it.existingTermExpressions + term.expression) }
                     _events.send(Event.ShowMessage(UiMessage.Resource(MR.strings.anki_add_success)))
                 }
                 AnkiDroidRepository.Result.Duplicate -> {
@@ -265,6 +282,7 @@ class DictionarySearchScreenModel(
         val isLoading: Boolean = true,
         val isSearching: Boolean = false,
         val hasSearched: Boolean = false,
+        val existingTermExpressions: Set<String> = emptySet(),
     )
 
     sealed interface UiMessage {

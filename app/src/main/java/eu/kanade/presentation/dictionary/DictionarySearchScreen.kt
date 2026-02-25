@@ -60,6 +60,7 @@ fun DictionarySearchScreen(
                 dictionaries = state.dictionaries,
                 enabledDictionaryIds = state.enabledDictionaryIds.toSet(),
                 termMetaMap = state.results?.termMetaMap ?: emptyMap(),
+                existingTermExpressions = state.existingTermExpressions,
                 onTermClick = onTermClick,
                 onQueryChange = onQueryChange,
                 onSearch = onSearch,
