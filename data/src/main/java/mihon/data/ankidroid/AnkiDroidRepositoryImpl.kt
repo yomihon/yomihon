@@ -162,6 +162,12 @@ class AnkiDroidRepositoryImpl(
                 } else {
                     ""
                 }
+            } else if (appField == "furigana") {
+                if (card.reading.isNotBlank() && card.reading != card.expression) {
+                    "<ruby>${card.expression}<rt>${card.reading}</rt></ruby>"
+                } else {
+                    card.expression
+                }
             } else if (appField != null) {
                 card.getFieldValue(appField)
             } else {

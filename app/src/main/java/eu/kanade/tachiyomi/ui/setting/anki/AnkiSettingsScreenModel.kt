@@ -211,6 +211,7 @@ class AnkiSettingsScreenModel(
 
     companion object {
         val APP_FIELDS = listOf(
+            "furigana",
             "reading",
             "expression",
             "glossary",

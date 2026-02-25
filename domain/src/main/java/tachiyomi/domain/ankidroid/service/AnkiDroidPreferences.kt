@@ -43,7 +43,7 @@ class AnkiDroidPreferences(
 
         val DEFAULT_FIELD_MAPPINGS = mapOf(
             "Word" to "expression",
-            "Word Reading" to "reading",
+            "Word Reading" to "furigana",
             "Word Meaning" to "glossary",
             "Sentence" to "sentence",
             "Pitch Accent" to "pitchAccent",
