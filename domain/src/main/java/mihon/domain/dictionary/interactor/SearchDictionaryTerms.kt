@@ -15,6 +15,12 @@ import java.util.LinkedHashMap
 class SearchDictionaryTerms(
     private val dictionaryRepository: DictionaryRepository,
 ) {
+    data class FirstWordMatch(
+        val word: String,
+        val sourceOffset: Int,
+        val sourceLength: Int,
+    )
+
     suspend fun search(query: String, dictionaryIds: List<Long>): List<DictionaryTerm> {
         if (dictionaryIds.isEmpty()) return emptyList()
 
@@ -58,11 +64,21 @@ class SearchDictionaryTerms(
      * Parses the first word of a "sentence" based on the longest dictionary match.
      */
     suspend fun findFirstWord(sentence: String, dictionaryIds: List<Long>): String {
-        if (sentence.isBlank() || dictionaryIds.isEmpty()) return ""
+        return findFirstWordMatch(sentence, dictionaryIds).word
+    }
 
-        // Remove leading punctuation and brackets
-        val sanitized = sentence.trimStart { it in LEADING_PUNCTUATION }
-        if (sanitized.isEmpty()) return ""
+    /**
+     * Parses the first word of a sentence and returns both the normalized search word and
+     * source position information for highlighting.
+     */
+    suspend fun findFirstWordMatch(sentence: String, dictionaryIds: List<Long>): FirstWordMatch {
+        if (sentence.isBlank() || dictionaryIds.isEmpty()) return FirstWordMatch("", 0, 0)
+
+        // Remove leading punctuation and brackets, while preserving offset in source text
+        val leadingTrimmedCount = sentence.indexOfFirst { it !in LEADING_PUNCTUATION }
+            .let { if (it == -1) sentence.length else it }
+        val sanitized = sentence.drop(leadingTrimmedCount)
+        if (sanitized.isEmpty()) return FirstWordMatch("", leadingTrimmedCount, 0)
 
         // Convert romaji to kana
         val normalized = convertToKana(sanitized)
@@ -87,15 +103,24 @@ class SearchDictionaryTerms(
                         isValidMatch(dbTerm, candidatesForTerm)
                     }
                     if (validMatch) {
-                        // Returns the matched word text
-                        return substring
+                        val sourceLength = mapSourceLength(sanitized, substring)
+                        return FirstWordMatch(
+                            word = substring,
+                            sourceOffset = leadingTrimmedCount,
+                            sourceLength = sourceLength,
+                        )
                     }
                 }
             }
         }
 
         // No dictionary match found - return the first character as fallback
-        return normalized.take(1)
+        val fallbackWord = normalized.take(1)
+        return FirstWordMatch(
+            word = fallbackWord,
+            sourceOffset = leadingTrimmedCount,
+            sourceLength = mapSourceLength(sanitized, fallbackWord),
+        )
     }
 
     /**
@@ -132,9 +157,36 @@ class SearchDictionaryTerms(
     }
 
     private fun convertToKana(input: String): String {
-        return input.trim().let { if (Wanakana.isRomaji(it) || Wanakana.isMixed(it)) Wanakana.toKana(it) else it }
+        return input.trim().let {
+            if (it.any(Char::isLatinLetter) || Wanakana.isRomaji(it) || Wanakana.isMixed(it)) {
+                Wanakana.toKana(it)
+            } else {
+                it
+            }
+        }
+    }
+
+    /*
+    * Maps the length of the normalized prefix back to the source string, accounting for romaji
+    */
+    private fun mapSourceLength(source: String, normalizedPrefix: String): Int {
+        if (normalizedPrefix.isEmpty()) return 0
+
+        for (index in 1..source.length) {
+            val convertedPrefix = convertToKana(source.take(index))
+            if (convertedPrefix.length >= normalizedPrefix.length &&
+                convertedPrefix.startsWith(normalizedPrefix)
+            ) {
+                return index
+            }
+        }
+
+        return minOf(source.length, normalizedPrefix.length)
     }
 }
+
+private fun Char.isLatinLetter(): Boolean =
+    (this in 'a'..'z') || (this in 'A'..'Z')
 
 private const val MAX_RESULTS = 100
 private const val MAX_WORD_LENGTH = 20

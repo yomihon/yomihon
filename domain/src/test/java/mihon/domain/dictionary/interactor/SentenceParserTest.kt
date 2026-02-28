@@ -65,6 +65,32 @@ class SentenceParserTest {
     }
 
     @Test
+    fun `findFirstWordMatch returns full romaji source length`() = runTest {
+        coEvery { dictionaryRepository.searchTerms("かつて", testDictionaryIds) } returns listOf(
+            mockTerm("かつて", "かつて", "v1"),
+        )
+
+        val match = searchDictionaryTerms.findFirstWordMatch("katsute", testDictionaryIds)
+
+        match.word shouldBe "かつて"
+        match.sourceOffset shouldBe 0
+        match.sourceLength shouldBe 7
+    }
+
+    @Test
+    fun `findFirstWordMatch tracks leading punctuation offset`() = runTest {
+        coEvery { dictionaryRepository.searchTerms("たべる", testDictionaryIds) } returns listOf(
+            mockTerm("たべる", "たべる", "v1"),
+        )
+
+        val match = searchDictionaryTerms.findFirstWordMatch("「taberu」", testDictionaryIds)
+
+        match.word shouldBe "たべる"
+        match.sourceOffset shouldBe 1
+        match.sourceLength shouldBe 6
+    }
+
+    @Test
     fun `gets the longest word match`() = runTest {
         // Setup: both "食べ" "食べる" and "食べ物" exist, but "食べ物" is longer
         coEvery { dictionaryRepository.searchTerms("食べ物", testDictionaryIds) } returns listOf(
