@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.pager
 
 import android.annotation.SuppressLint
+import android.graphics.BitmapFactory
 import android.content.Context
 import android.view.LayoutInflater
 import androidx.core.view.isVisible
@@ -29,6 +30,9 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.ImageUtil
+import tachiyomi.core.common.util.system.Panel
+import tachiyomi.core.common.util.system.PanelDetector
+import tachiyomi.core.common.util.system.ReadingDirection
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
@@ -44,6 +48,10 @@ class PagerPageHolder(
 ) : ReaderPageImageView(readerThemedContext), ViewPagerAdapter.PositionableView {
 
     private val ocrRepository: OcrRepository by injectLazy()
+
+    private var panels: List<Panel> = emptyList()
+    private var currentPanelIndex = -1
+    private var panelDetectionDone = false
 
     /**
      * Item that identifies this view. Needed by the adapter to not recreate views.
@@ -176,7 +184,7 @@ class PagerPageHolder(
         val streamFn = page.stream ?: return
 
         try {
-            val (source, isAnimated, background) = withIOContext {
+            val (source, isAnimated, background, detectedPanels) = withIOContext {
                 val source = streamFn().use { process(item, Buffer().readFrom(it)) }
                 val isAnimated = ImageUtil.isAnimatedAndSupported(source)
                 val background = if (!isAnimated && viewer.config.automaticBackground) {
@@ -184,9 +192,17 @@ class PagerPageHolder(
                 } else {
                     null
                 }
-                Triple(source, isAnimated, background)
+                val detectedPanels = if (viewer.config.panelNavigation && !isAnimated) {
+                    detectPanels(source)
+                } else {
+                    emptyList()
+                }
+                Quadruple(source, isAnimated, background, detectedPanels)
             }
             withUIContext {
+                panels = detectedPanels
+                currentPanelIndex = -1
+                panelDetectionDone = true
                 setImage(
                     source,
                     isAnimated,
@@ -210,6 +226,65 @@ class PagerPageHolder(
                 setError(e)
             }
         }
+    }
+
+    private fun detectPanels(source: BufferedSource): List<Panel> {
+        val bitmap = BitmapFactory.decodeStream(source.peek().inputStream()) ?: return emptyList()
+        return try {
+            PanelDetector.detectPanels(bitmap, readingDirection())
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    private fun readingDirection(): ReadingDirection {
+        return when (viewer) {
+            is R2LPagerViewer -> ReadingDirection.RTL
+            is VerticalPagerViewer -> ReadingDirection.VERTICAL
+            else -> ReadingDirection.LTR
+        }
+    }
+
+    fun hasPanels(): Boolean = panelDetectionDone && panels.isNotEmpty()
+
+    fun hasNextPanel(): Boolean = hasPanels() && currentPanelIndex < panels.lastIndex
+
+    fun hasPreviousPanel(): Boolean = hasPanels() && currentPanelIndex > 0
+
+    fun zoomToNextPanel(): Boolean {
+        if (!hasNextPanel()) return false
+        val nextIndex = currentPanelIndex + 1
+        val zoomed = zoomToPanel(panels[nextIndex])
+        if (zoomed) {
+            currentPanelIndex = nextIndex
+        }
+        return zoomed
+    }
+
+    fun zoomToPreviousPanel(): Boolean {
+        if (!hasPreviousPanel()) return false
+        val previousIndex = currentPanelIndex - 1
+        val zoomed = zoomToPanel(panels[previousIndex])
+        if (zoomed) {
+            currentPanelIndex = previousIndex
+        }
+        return zoomed
+    }
+
+    fun zoomToFirstPanel(forward: Boolean) {
+        if (!hasPanels()) return
+        val firstIndex = if (forward) 0 else panels.lastIndex
+        if (zoomToPanel(panels[firstIndex])) {
+            currentPanelIndex = firstIndex
+        }
+    }
+
+    protected override fun onPageReady(forward: Boolean) {
+        if (viewer.config.panelNavigation && hasPanels()) {
+            zoomToFirstPanel(forward)
+            return
+        }
+        super.onPageReady(forward)
     }
 
     private fun process(page: ReaderPage, imageSource: BufferedSource): BufferedSource {
@@ -348,3 +423,10 @@ class PagerPageHolder(
         errorLayout = null
     }
 }
+
+private data class Quadruple<A, B, C, D>(
+    val first: A,
+    val second: B,
+    val third: C,
+    val fourth: D,
+)
