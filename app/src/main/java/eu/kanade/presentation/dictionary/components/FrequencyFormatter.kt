@@ -37,7 +37,7 @@ object FrequencyFormatter {
     /**
      * Parse frequency data from term meta entries.
      */
-    private fun parseFrequencies(termMetaList: List<DictionaryTermMeta>): List<FrequencyData> {
+    fun parseFrequencies(termMetaList: List<DictionaryTermMeta>): List<FrequencyData> {
         val frequencies = termMetaList
             .filter { it.mode == TermMetaMode.FREQUENCY }
             .mapNotNull { parseFrequency(it) }

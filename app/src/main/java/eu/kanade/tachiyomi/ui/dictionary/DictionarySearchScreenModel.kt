@@ -264,13 +264,13 @@ class DictionarySearchScreenModel(
     }
 
     private fun formatFrequencyText(termMeta: List<DictionaryTermMeta>): String {
-        val grouped = FrequencyFormatter.parseGroupedFrequencies(termMeta)
-        if (grouped.isEmpty()) return ""
+        val frequencies = FrequencyFormatter.parseFrequencies(termMeta)
+        if (frequencies.isEmpty()) return ""
 
         val dictionaries = state.value.dictionaries
-        val listItems = grouped.joinToString("") { freqData ->
+        val listItems = frequencies.joinToString("") { freqData ->
             val dictName = dictionaries.find { it.id == freqData.dictionaryId }?.title ?: ""
-            val entry = if (dictName.isNotBlank()) "$dictName: ${freqData.frequencies}" else freqData.frequencies
+            val entry = if (dictName.isNotBlank()) "$dictName: ${freqData.frequency}" else freqData.frequency
             "<li>$entry</li>"
         }
         return "<ul>$listItems</ul>"
