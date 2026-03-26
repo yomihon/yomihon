@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.BitmapFactory
 import androidx.core.app.NotificationCompat
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.notificationBuilder
@@ -36,70 +35,28 @@ class DictionaryImportNotifier(private val context: Context) {
         context.notify(id, build())
     }
 
-    fun showDownloadingNotification(progress: Int?) {
+    fun showMigrationProgressNotification(
+        dictionaryTitle: String,
+        stage: String,
+        completed: Int,
+        total: Int,
+    ) {
         with(progressNotificationBuilder) {
-            if (progress != null) {
-                setContentTitle(context.stringResource(MR.strings.dictionary_import_download_progress, "$progress%"))
-                setProgress(100, progress, false)
-            } else {
-                setContentTitle(context.stringResource(MR.strings.dictionary_import_downloading))
-                setProgress(0, 0, true)
-            }
-
+            setContentTitle(context.stringResource(MR.strings.dictionary_migration_in_progress))
+            setContentText("$dictionaryTitle • $stage ($completed/$total)")
+            setProgress(total.coerceAtLeast(1), completed.coerceAtMost(total), false)
             setOnlyAlertOnce(true)
-
             clearActions()
-            addAction(
-                R.drawable.ic_close_24dp,
-                context.stringResource(MR.strings.action_cancel),
-                NotificationReceiver.cancelDictionaryImportPendingBroadcast(
-                    context,
-                    Notifications.ID_DICTIONARY_IMPORT_PROGRESS,
-                ),
-            )
-
             show(Notifications.ID_DICTIONARY_IMPORT_PROGRESS)
         }
     }
 
-    fun showParsingNotification(entriesImported: Int) {
-        with(progressNotificationBuilder) {
-            setContentTitle(context.stringResource(MR.strings.importing_dictionary))
-            setContentText(context.stringResource(MR.strings.dictionary_import_progress, entriesImported))
-            setProgress(0, 0, true)
-            setOnlyAlertOnce(true)
-
-            clearActions()
-            addAction(
-                R.drawable.ic_close_24dp,
-                context.stringResource(MR.strings.action_cancel),
-                NotificationReceiver.cancelDictionaryImportPendingBroadcast(
-                    context,
-                    Notifications.ID_DICTIONARY_IMPORT_PROGRESS,
-                ),
-            )
-
-            show(Notifications.ID_DICTIONARY_IMPORT_PROGRESS)
-        }
-    }
-
-    fun showCompleteNotification(dictionaryTitle: String) {
+    fun showMigrationCompleteNotification() {
         context.cancelNotification(Notifications.ID_DICTIONARY_IMPORT_PROGRESS)
 
         with(completeNotificationBuilder) {
-            setContentTitle(context.stringResource(MR.strings.dictionary_import_success))
-            setContentText(dictionaryTitle)
-
-            show(Notifications.ID_DICTIONARY_IMPORT_COMPLETE)
-        }
-    }
-
-    fun showErrorNotification(error: String?) {
-        context.cancelNotification(Notifications.ID_DICTIONARY_IMPORT_PROGRESS)
-
-        with(completeNotificationBuilder) {
-            setContentTitle(context.stringResource(MR.strings.dictionary_import_fail))
-            setContentText(error)
+            setContentTitle(context.stringResource(MR.strings.dictionary_migration_complete))
+            setContentText(context.stringResource(MR.strings.dictionary_migration_complete_summary))
 
             show(Notifications.ID_DICTIONARY_IMPORT_COMPLETE)
         }

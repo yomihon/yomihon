@@ -1,6 +1,8 @@
 package mihon.domain.dictionary.interactor
 
 import mihon.domain.dictionary.model.Dictionary
+import mihon.domain.dictionary.model.DictionaryBackend
+import mihon.domain.dictionary.model.DictionaryIndex
 import mihon.domain.dictionary.repository.DictionaryRepository
 
 class DictionaryInteractor(
@@ -20,6 +22,35 @@ class DictionaryInteractor(
 
     suspend fun updateDictionary(dictionary: Dictionary) {
         dictionaryRepository.updateDictionary(dictionary)
+    }
+
+    suspend fun createDictionary(
+        index: DictionaryIndex,
+        styles: String? = null,
+        backend: DictionaryBackend = DictionaryBackend.LEGACY_DB,
+        storagePath: String? = null,
+        storageReady: Boolean = false,
+    ): Long {
+        dictionaryRepository.bumpAllPrioritiesUp()
+
+        return dictionaryRepository.insertDictionary(
+            Dictionary(
+                title = index.title,
+                revision = index.revision,
+                version = index.effectiveVersion,
+                author = index.author,
+                url = index.url,
+                description = index.description,
+                attribution = index.attribution,
+                styles = styles,
+                sourceLanguage = index.sourceLanguage,
+                targetLanguage = index.targetLanguage,
+                priority = 1,
+                backend = backend,
+                storagePath = storagePath,
+                storageReady = storageReady,
+            ),
+        )
     }
 
     suspend fun deleteDictionary(dictionaryId: Long) {

@@ -82,6 +82,7 @@ moko-core = { module = "dev.icerock.moko:resources", version.ref = "moko" }
 
 logcat = "com.squareup.logcat:logcat:0.4"
 litert = { module = "com.google.ai.edge.litert:litert", version.ref = "litert" }
+hoshidicts = "de.manhhao.hoshi:hoshidicts:local-SNAPSHOT"
 
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
 firebase-analytics = { module = "com.google.firebase:firebase-analytics" }

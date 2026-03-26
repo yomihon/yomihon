@@ -43,6 +43,7 @@ dependencies {
     implementation(libs.litert)
 
     implementation(libs.anki.android)
+    implementation(libs.hoshidicts)
 
     api(libs.bundles.sqldelight)
 

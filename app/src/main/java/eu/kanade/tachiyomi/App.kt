@@ -37,6 +37,8 @@ import eu.kanade.tachiyomi.data.coil.MangaKeyer
 import eu.kanade.tachiyomi.data.coil.TachiyomiImageDecoder
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.ocr.OcrScanManager
+import eu.kanade.tachiyomi.data.dictionary.DictionaryMigrationJob
+import eu.kanade.tachiyomi.data.dictionary.DictionaryMigrationRecovery
 import eu.kanade.tachiyomi.di.AppModule
 import eu.kanade.tachiyomi.di.PreferenceModule
 import eu.kanade.tachiyomi.network.NetworkHelper
@@ -56,6 +58,7 @@ import logcat.LogPriority
 import logcat.LogcatLogger
 import mihon.core.migration.Migrator
 import mihon.core.migration.migrations.migrations
+import mihon.domain.dictionary.repository.DictionaryRepository
 import mihon.domain.ocr.repository.OcrRepository
 import mihon.telemetry.TelemetryConfig
 import org.conscrypt.Conscrypt
@@ -166,6 +169,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         }
 
         initializeMigrator()
+        scheduleDictionaryMigration(scope)
     }
 
     private fun initializeMigrator() {
@@ -181,6 +185,19 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                 preference.set(BuildConfig.VERSION_CODE)
             },
         )
+    }
+
+    private fun scheduleDictionaryMigration(scope: androidx.lifecycle.LifecycleCoroutineScope) {
+        scope.launchWhenCreated {
+            val repository = Injekt.get<DictionaryRepository>()
+            val hasPendingMigration = DictionaryMigrationRecovery.hasPendingMigration(
+                hasLegacyDictionaries = repository.getLegacyDictionaries().isNotEmpty(),
+                states = repository.getAllMigrationStatuses().map { it.state },
+            )
+            if (hasPendingMigration && !DictionaryMigrationJob.isScheduledOrRunning(this@App)) {
+                DictionaryMigrationJob.enqueue(this@App)
+            }
+        }
     }
 
     override fun newImageLoader(context: Context): ImageLoader {

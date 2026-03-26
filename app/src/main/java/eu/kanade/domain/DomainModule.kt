@@ -37,6 +37,8 @@ import eu.kanade.tachiyomi.data.ocr.OcrScanStore
 import eu.kanade.tachiyomi.data.ocr.OcrScanWorkerController
 import eu.kanade.tachiyomi.data.ocr.WorkManagerOcrScanWorkerController
 import mihon.data.ankidroid.AnkiDroidRepositoryImpl
+import mihon.data.dictionary.HoshiDictionaryStore
+import mihon.data.dictionary.LegacyDictionaryArchiveBuilder
 import mihon.data.dictionary.DictionaryParserImpl
 import mihon.data.dictionary.DictionaryRepositoryImpl
 import mihon.data.ocr.OcrRepositoryImpl
@@ -46,9 +48,9 @@ import mihon.domain.ankidroid.interactor.FindExistingAnkiNotes
 import mihon.domain.ankidroid.repository.AnkiDroidRepository
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.dictionary.interactor.DictionaryInteractor
-import mihon.domain.dictionary.interactor.ImportDictionary
 import mihon.domain.dictionary.interactor.SearchDictionaryTerms
 import mihon.domain.dictionary.repository.DictionaryRepository
+import mihon.domain.dictionary.service.DictionarySearchBackend
 import mihon.domain.dictionary.service.DictionaryParser
 import mihon.domain.extensionrepo.interactor.CreateExtensionRepo
 import mihon.domain.extensionrepo.interactor.DeleteExtensionRepo
@@ -250,9 +252,11 @@ class DomainModule : InjektModule {
 
         addSingletonFactory<DictionaryRepository> { DictionaryRepositoryImpl(get()) }
         addSingletonFactory<DictionaryParser> { DictionaryParserImpl() }
+        addSingletonFactory { HoshiDictionaryStore(get<Application>(), get()) }
+        addSingletonFactory<DictionarySearchBackend> { get<HoshiDictionaryStore>() }
+        addSingletonFactory { LegacyDictionaryArchiveBuilder(get()) }
         addFactory { DictionaryInteractor(get()) }
-        addFactory { SearchDictionaryTerms(get()) }
-        addFactory { ImportDictionary(get()) }
+        addFactory { SearchDictionaryTerms(get(), get()) }
 
         addSingletonFactory { AnkiDroidPreferences(get()) }
         addSingletonFactory<AnkiDroidRepository> { AnkiDroidRepositoryImpl(get<Application>(), get()) }

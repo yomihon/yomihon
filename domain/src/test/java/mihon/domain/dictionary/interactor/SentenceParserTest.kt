@@ -2,15 +2,21 @@ package mihon.domain.dictionary.interactor
 
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import mihon.domain.dictionary.model.Dictionary
+import mihon.domain.dictionary.model.DictionaryBackend
 import mihon.domain.dictionary.model.DictionaryTerm
+import mihon.domain.dictionary.service.DictionaryLookupMatch
+import mihon.domain.dictionary.service.DictionarySearchBackend
 import mihon.domain.dictionary.repository.DictionaryRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class SentenceParserTest {
     private lateinit var dictionaryRepository: DictionaryRepository
+    private lateinit var dictionarySearchBackend: DictionarySearchBackend
     private lateinit var searchDictionaryTerms: SearchDictionaryTerms
     private val testDictionaryIds = listOf(1L)
 
@@ -33,18 +39,22 @@ class SentenceParserTest {
     @BeforeEach
     fun setup() {
         dictionaryRepository = mockk()
+        dictionarySearchBackend = mockk()
 
         // Default: return empty for any query
         coEvery { dictionaryRepository.searchTerms(any(), any()) } returns emptyList()
-        coEvery { dictionaryRepository.getDictionary(any()) } returns mihon.domain.dictionary.model.Dictionary(
+        coEvery { dictionaryRepository.getDictionary(any()) } returns Dictionary(
             id = 1L,
             title = "Test",
             revision = "1",
             version = 1,
             sourceLanguage = null,
         )
+        coEvery { dictionarySearchBackend.exactSearch(any(), any()) } returns emptyList()
+        coEvery { dictionarySearchBackend.lookup(any(), any(), any()) } returns emptyList<DictionaryLookupMatch>()
+        coEvery { dictionaryRepository.getTermMetaForExpression(any(), any()) } returns emptyList()
 
-        searchDictionaryTerms = SearchDictionaryTerms(dictionaryRepository)
+        searchDictionaryTerms = SearchDictionaryTerms(dictionaryRepository, dictionarySearchBackend)
     }
 
     @Test
@@ -152,15 +162,30 @@ class SentenceParserTest {
 
     @Test
     fun `handles deinflection for longest match`() = runTest {
-        // Setup: "食べる" (dictionary form of 食べた) exists
-        coEvery { dictionaryRepository.searchTerms("食べる", testDictionaryIds) } returns listOf(
-            mockTerm("食べる", "たべる", "v1"),
+        coEvery { dictionaryRepository.getDictionary(1L) } returns Dictionary(
+            id = 1L,
+            title = "Japanese",
+            revision = "1",
+            version = 1,
+            sourceLanguage = "ja",
+            backend = DictionaryBackend.HOSHI,
+            storageReady = true,
+        )
+        coEvery { dictionarySearchBackend.lookup("食べたって言ったよ", testDictionaryIds, any()) } returns listOf(
+            DictionaryLookupMatch(
+                matched = "食べた",
+                deinflected = "食べる",
+                process = listOf("past"),
+                term = mockTerm("食べる", "たべる", "v1"),
+                termMeta = emptyList(),
+            ),
         )
 
         val word = searchDictionaryTerms.findFirstWord("食べたって言ったよ", testDictionaryIds)
 
-        // Returns the original substring "食べた", not the deinflected form "食べる"
         word shouldBe "食べた"
+        coVerify(exactly = 1) { dictionarySearchBackend.lookup("食べたって言ったよ", testDictionaryIds, any()) }
+        coVerify(exactly = 0) { dictionaryRepository.searchTerms("食べる", testDictionaryIds) }
     }
 
     @Test
