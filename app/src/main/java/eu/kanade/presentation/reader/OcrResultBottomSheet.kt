@@ -4,16 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,7 +25,6 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ResizableSheet
 import tachiyomi.presentation.core.components.SheetValue
 import tachiyomi.presentation.core.components.material.padding
-import tachiyomi.presentation.core.i18n.stringResource
 
 private const val SHEET_EXPANSION_THRESHOLD = 0.80f
 
@@ -80,30 +74,12 @@ fun OcrResultBottomSheet(
                     verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
                 ) {
                     if (isSheetExpanded) {
-                        Row(
+                        SearchBar(
+                            query = searchState.query,
+                            onQueryChange = onQueryChange,
+                            onSearch = { onSearch(searchState.query) },
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            SearchBar(
-                                query = searchState.query,
-                                onQueryChange = onQueryChange,
-                                onSearch = { onSearch(searchState.query) },
-                                modifier = Modifier.weight(1f),
-                            )
-
-                            FilledTonalButton(
-                                onClick = {
-                                    onCopyText()
-                                },
-                                contentPadding = PaddingValues(vertical = 12.dp, horizontal = 12.dp),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.ContentCopy,
-                                    contentDescription = stringResource(MR.strings.action_copy),
-                                )
-                            }
-                        }
+                        )
 
                         HorizontalDivider()
                     }
@@ -123,6 +99,7 @@ fun OcrResultBottomSheet(
                         onTermClick = onTermClick,
                         onQueryChange = onQueryChange,
                         onSearch = onSearch,
+                        onCopyText = onCopyText,
                         contentPadding = PaddingValues(bottom = 8.dp),
                     )
                 }
