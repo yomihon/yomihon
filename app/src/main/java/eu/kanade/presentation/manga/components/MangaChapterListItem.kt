@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
@@ -99,6 +100,7 @@ fun MangaChapterListItem(
                     onLongClick = onLongClick,
                 )
                 .padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(
                 modifier = Modifier.weight(1f),
@@ -138,12 +140,13 @@ fun MangaChapterListItem(
                     )
                 }
 
-                Row {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val subtitleColor = LocalContentColor.current
+                        .copy(alpha = if (read) DISABLED_ALPHA else SECONDARY_ALPHA)
                     val subtitleStyle = MaterialTheme.typography.bodySmall
-                        .merge(
-                            color = LocalContentColor.current
-                                .copy(alpha = if (read) DISABLED_ALPHA else SECONDARY_ALPHA),
-                        )
+                        .merge(color = subtitleColor)
                     ProvideTextStyle(value = subtitleStyle) {
                         if (date != null) {
                             Text(
@@ -151,7 +154,9 @@ fun MangaChapterListItem(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
-                            if (readProgress != null || scanlator != null) DotSeparatorText()
+                            if (readProgress != null || scanlator != null || hasScanResults) {
+                                DotSeparatorText()
+                            }
                         }
                         if (readProgress != null) {
                             Text(
@@ -160,7 +165,7 @@ fun MangaChapterListItem(
                                 overflow = TextOverflow.Ellipsis,
                                 color = LocalContentColor.current.copy(alpha = DISABLED_ALPHA),
                             )
-                            if (scanlator != null) DotSeparatorText()
+                            if (scanlator != null || hasScanResults) DotSeparatorText()
                         }
                         if (scanlator != null) {
                             Text(
@@ -168,18 +173,21 @@ fun MangaChapterListItem(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
+                            if (hasScanResults) DotSeparatorText()
+                        }
+                        if (hasScanResults) {
+                            Icon(
+                                imageVector = Icons.Outlined.DocumentScanner,
+                                contentDescription = stringResource(MR.strings.ocr_preprocess_title),
+                                modifier = Modifier
+                                    .sizeIn(maxHeight = with(LocalDensity.current) {
+                                        subtitleStyle.fontSize.toDp()
+                                    }),
+                                tint = subtitleColor,
+                            )
                         }
                     }
                 }
-            }
-
-            if (hasScanResults) {
-                Icon(
-                    imageVector = Icons.Outlined.DocumentScanner,
-                    contentDescription = stringResource(MR.strings.ocr_preprocess_title),
-                    modifier = Modifier.padding(start = 4.dp),
-                    tint = MaterialTheme.colorScheme.secondary,
-                )
             }
 
             ChapterDownloadIndicator(
