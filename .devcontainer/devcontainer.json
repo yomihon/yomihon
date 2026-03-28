@@ -1,0 +1,42 @@
+{
+  "name": "Yomihon Android Dev",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "options": [
+      "--platform=linux/amd64"
+    ]
+  },
+  "runArgs": [
+    "--platform=linux/amd64"
+  ],
+  "remoteUser": "vscode",
+  "initializeCommand": "mkdir -p \"${localWorkspaceFolder}/.gradle-cache\" \"${localWorkspaceFolder}/.android-adb\"",
+  "containerEnv": {
+    "ANDROID_HOME": "/opt/android-sdk",
+    "ANDROID_SDK_ROOT": "/opt/android-sdk",
+    "GRADLE_USER_HOME": "/home/vscode/.gradle",
+    "JAVA_HOME": "/usr/lib/jvm/temurin-17-jdk-current"
+  },
+  "mounts": [
+    "source=${localWorkspaceFolder}/.gradle-cache,target=/home/vscode/.gradle,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/.android-adb,target=/home/vscode/.android,type=bind,consistency=cached"
+  ],
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "mathiasfrohlich.Kotlin",
+        "naco-siren.gradle-language",
+        "vscjava.vscode-gradle",
+        "redhat.java",
+        "vscjava.vscode-java-pack"
+      ],
+      "settings": {
+        "android.sdk.path": "/opt/android-sdk",
+        "java.import.gradle.java.home": "/usr/lib/jvm/temurin-17-jdk-current",
+        "java.jdt.ls.java.home": "/usr/lib/jvm/temurin-17-jdk-current",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  }
+}

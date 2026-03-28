@@ -1,7 +1,9 @@
 # Build files
 .gradle
+.gradle-cache/
 .kotlin
 build
+.android-adb/
 
 # IDE files
 *.iml
