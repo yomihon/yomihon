@@ -25,6 +25,7 @@ Before you start, please note that the ability to use following technologies is 
 ### Tools
 
 - [Android Studio](https://developer.android.com/studio)
+- [VS Code DevContainer workflow](./.devcontainer/README.md) for a containerized Android toolchain on macOS/Linux
 - Emulator or phone with developer options enabled to test changes.
 
 # Translations
