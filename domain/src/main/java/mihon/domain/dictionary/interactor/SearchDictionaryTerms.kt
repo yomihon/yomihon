@@ -47,10 +47,11 @@ class SearchDictionaryTerms(
         this != Script.JAPANESE && this != Script.CHINESE && this != Script.KOREAN
 
     private suspend fun getAllowedScripts(dictionaryIds: List<Long>): Set<Script>? {
+        val dictionariesById = dictionaryRepository.getAllDictionaries().associateBy { it.id }
         val allowed = mutableSetOf<Script>()
         for (id in dictionaryIds) {
             val scripts = dictionaryScriptCache.getOrPut(id) {
-                val dict = dictionaryRepository.getDictionary(id) ?: return@getOrPut emptySet()
+                val dict = dictionariesById[id] ?: return@getOrPut emptySet()
                 val src = dict.sourceLanguage.orEmpty()
 
                 if (src.isEmpty() || src == "unrestricted") {
@@ -144,11 +145,12 @@ class SearchDictionaryTerms(
     }
 
     private suspend fun partitionDictionaryIds(dictionaryIds: List<Long>): DictionaryIdPartition {
+        val dictionariesById = dictionaryRepository.getAllDictionaries().associateBy { it.id }
         val legacy = mutableListOf<Long>()
         val hoshi = mutableListOf<Long>()
 
         dictionaryIds.forEach { id ->
-            val dictionary = dictionaryRepository.getDictionary(id)
+            val dictionary = dictionariesById[id]
             if (dictionary?.backend == DictionaryBackend.HOSHI && dictionary.storageReady) {
                 hoshi += id
             } else {
@@ -631,9 +633,13 @@ class SearchDictionaryTerms(
     }
 
     private suspend fun sortTermsByPriority(terms: List<DictionaryTerm>): List<DictionaryTerm> {
-        val priorityCache = terms.map { it.dictionaryId }.distinct().associateWith { dictionaryId ->
-            dictionaryRepository.getDictionary(dictionaryId)?.priority ?: Int.MAX_VALUE
-        }
+        if (terms.isEmpty()) return emptyList()
+
+        val dictionaryIds = terms.map { it.dictionaryId }.distinct().toSet()
+        val priorityCache = dictionaryRepository.getAllDictionaries()
+            .asSequence()
+            .filter { it.id in dictionaryIds }
+            .associate { it.id to it.priority }
 
         return terms.sortedWith(
             compareBy<DictionaryTerm> { priorityCache[it.dictionaryId] ?: Int.MAX_VALUE }

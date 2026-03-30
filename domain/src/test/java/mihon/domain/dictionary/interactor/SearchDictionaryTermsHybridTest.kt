@@ -29,7 +29,6 @@ class SearchDictionaryTermsHybridTest {
         dictionarySearchBackend = mockk()
 
         coEvery { dictionaryRepository.searchTerms(any(), any()) } returns emptyList()
-        coEvery { dictionaryRepository.getTermsByExpression(any(), any()) } returns emptyList()
         coEvery { dictionaryRepository.getTermMetaForExpression(any(), any()) } returns emptyList()
         coEvery { dictionaryRepository.getAllDictionaries() } returns emptyList()
         coEvery { dictionarySearchBackend.exactSearch(any(), any()) } returns emptyList()
@@ -67,7 +66,7 @@ class SearchDictionaryTermsHybridTest {
             termTags = null,
         )
 
-        coEvery { dictionaryRepository.getDictionary(1L) } returns migratedDictionary
+        coEvery { dictionaryRepository.getAllDictionaries() } returns listOf(migratedDictionary)
         coEvery { dictionarySearchBackend.exactSearch("apple", listOf(1L)) } returns listOf(
             DictionarySearchEntry(term = term, termMeta = listOf(meta)),
         )
@@ -101,8 +100,7 @@ class SearchDictionaryTermsHybridTest {
             priority = 2,
         )
 
-        coEvery { dictionaryRepository.getDictionary(1L) } returns legacyDictionary
-        coEvery { dictionaryRepository.getDictionary(2L) } returns migratedDictionary
+        coEvery { dictionaryRepository.getAllDictionaries() } returns listOf(legacyDictionary, migratedDictionary)
 
         coEvery { dictionaryRepository.searchTerms("apple", listOf(1L)) } returns listOf(
             DictionaryTerm(
@@ -173,7 +171,7 @@ class SearchDictionaryTermsHybridTest {
             termTags = null,
         )
 
-        coEvery { dictionaryRepository.getDictionary(1L) } returns japaneseDictionary
+        coEvery { dictionaryRepository.getAllDictionaries() } returns listOf(japaneseDictionary)
         coEvery { dictionarySearchBackend.lookup("食べた", listOf(1L), any()) } returns listOf(
             DictionaryLookupMatch(
                 matched = "食べた",
@@ -214,7 +212,7 @@ class SearchDictionaryTermsHybridTest {
             termTags = null,
         )
 
-        coEvery { dictionaryRepository.getDictionary(1L) } returns englishDictionary
+        coEvery { dictionaryRepository.getAllDictionaries() } returns listOf(englishDictionary)
         coEvery { dictionarySearchBackend.exactSearch("looked", listOf(1L)) } returns emptyList()
         coEvery { dictionarySearchBackend.exactSearch("look", listOf(1L)) } returns listOf(
             DictionarySearchEntry(term = term, termMeta = emptyList()),
