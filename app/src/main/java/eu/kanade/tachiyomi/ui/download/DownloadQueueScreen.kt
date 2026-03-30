@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material3.DropdownMenuItem
@@ -317,10 +318,11 @@ object DownloadQueueScreen : Screen() {
                 if (hasOcrQueue) {
                     OcrQueueSection(
                         state = ocrQueue,
-                        onAction = screenModel::handleOcrAction,
+                        screenModel = screenModel,
                         constrainHeight = hasDownloadQueue,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .let { if (!hasDownloadQueue) it.weight(1f).nestedScroll(nestedScrollConnection) else it }
                             .padding(top = if (hasDownloadQueue) 12.dp else 0.dp),
                     )
                 }
@@ -368,7 +370,7 @@ private fun QueueSectionHeader(
 @Composable
 private fun OcrQueueSection(
     state: OcrQueueUiState,
-    onAction: (Long, OcrQueueAction) -> Unit,
+    screenModel: DownloadQueueScreenModel,
     constrainHeight: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -376,7 +378,7 @@ private fun OcrQueueSection(
         Modifier
             .heightIn(max = 280.dp)
     } else {
-        Modifier
+        Modifier.fillMaxSize()
     }
 
     Column(modifier = modifier) {
@@ -386,185 +388,26 @@ private fun OcrQueueSection(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        Surface(
+        Box(
             modifier = listContainerModifier
-                .fillMaxWidth()
                 .padding(top = 8.dp),
-            shape = MaterialTheme.shapes.medium,
-            tonalElevation = 1.dp,
         ) {
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                itemsIndexed(
-                    items = state.items,
-                    key = { _, item -> item.chapterId },
-                ) { index, item ->
-                    if (index != 0) {
-                        HorizontalDivider()
-                    }
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { context ->
+                    screenModel.ocrControllerBinding = DownloadListBinding.inflate(LayoutInflater.from(context))
+                    screenModel.ocrAdapter = OcrAdapter(screenModel.ocrListener)
+                    screenModel.ocrControllerBinding.root.adapter = screenModel.ocrAdapter
+                    screenModel.ocrAdapter?.isHandleDragEnabled = true
+                    screenModel.ocrControllerBinding.root.layoutManager = LinearLayoutManager(context)
 
-                    OcrQueueRow(
-                        item = item,
-                        canMoveToTop = item.state != OcrQueueItemState.Scanning && index > 0,
-                        canMoveToBottom = item.state != OcrQueueItemState.Scanning && index < state.items.lastIndex,
-                        onAction = onAction,
-                    )
-                }
-            }
-        }
-    }
-}
+                    ViewCompat.setNestedScrollingEnabled(screenModel.ocrControllerBinding.root, true)
 
-@Composable
-private fun OcrQueueRow(
-    item: OcrQueueChapterItem,
-    canMoveToTop: Boolean,
-    canMoveToBottom: Boolean,
-    onAction: (Long, OcrQueueAction) -> Unit,
-) {
-    val stateLabel = when (item.state) {
-        OcrQueueItemState.Queued -> stringResource(MR.strings.ocr_preprocess_queued)
-        OcrQueueItemState.Error -> item.lastError ?: stringResource(MR.strings.ocr_preprocess_failed, item.chapterName)
-        OcrQueueItemState.Scanning -> null
-    }
-    var menuExpanded by remember(item.chapterId) { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-            ) {
-                if (item.mangaTitle.isNotBlank()) {
-                    Text(
-                        text = item.mangaTitle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-
-                Text(
-                    text = item.chapterName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-
-                if (item.sourceName.isNotBlank()) {
-                    Text(
-                        text = item.sourceName,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
-            }
-
-            Box {
-                IconButton(
-                    onClick = { menuExpanded = true },
-                    modifier = Modifier.size(40.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.MoreVert,
-                        contentDescription = stringResource(MR.strings.action_menu),
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = menuExpanded,
-                    onDismissRequest = { menuExpanded = false },
-                ) {
-                    if (canMoveToTop) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(MR.strings.action_move_to_top)) },
-                            onClick = {
-                                menuExpanded = false
-                                onAction(item.chapterId, OcrQueueAction.MoveToTop)
-                            },
-                        )
-                    }
-                    DropdownMenuItem(
-                        text = { Text(stringResource(MR.strings.action_move_to_top_all_for_series)) },
-                        onClick = {
-                            menuExpanded = false
-                            onAction(item.chapterId, OcrQueueAction.MoveSeriesToTop)
-                        },
-                    )
-                    if (canMoveToBottom) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(MR.strings.action_move_to_bottom)) },
-                            onClick = {
-                                menuExpanded = false
-                                onAction(item.chapterId, OcrQueueAction.MoveToBottom)
-                            },
-                        )
-                    }
-                    DropdownMenuItem(
-                        text = { Text(stringResource(MR.strings.action_move_to_bottom_all_for_series)) },
-                        onClick = {
-                            menuExpanded = false
-                            onAction(item.chapterId, OcrQueueAction.MoveSeriesToBottom)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(MR.strings.action_cancel)) },
-                        onClick = {
-                            menuExpanded = false
-                            onAction(item.chapterId, OcrQueueAction.Cancel)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(MR.strings.cancel_all_for_series)) },
-                        onClick = {
-                            menuExpanded = false
-                            onAction(item.chapterId, OcrQueueAction.CancelSeries)
-                        },
-                    )
-                }
-            }
-        }
-
-        if (item.state == OcrQueueItemState.Scanning && item.totalPages != null && item.totalPages > 0) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                LinearProgressIndicator(
-                    progress = { item.processedPages.toFloat() / item.totalPages.toFloat() },
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = "${item.processedPages}/${item.totalPages}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 8.dp),
-                )
-            }
-        } else {
-            Text(
-                text = stateLabel.orEmpty(),
-                style = MaterialTheme.typography.labelSmall,
-                color = if (item.state == OcrQueueItemState.Error) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                    screenModel.ocrControllerBinding.root
                 },
-                modifier = Modifier.padding(top = 8.dp),
+                update = {
+                    screenModel.ocrAdapter?.updateDataSet(state.items)
+                },
             )
         }
     }
