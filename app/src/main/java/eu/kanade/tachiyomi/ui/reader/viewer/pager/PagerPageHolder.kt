@@ -17,6 +17,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.ReaderOcrRegionSelection
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
+import eu.kanade.tachiyomi.util.view.isVisibleOnScreen
 import eu.kanade.tachiyomi.widget.ViewPagerAdapter
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
@@ -25,6 +26,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import logcat.LogPriority
 import mihon.domain.ocr.repository.OcrRepository
+import mihon.domain.panel.interactor.DetectPanels
 import okio.Buffer
 import okio.BufferedSource
 import tachiyomi.core.common.i18n.stringResource
@@ -33,10 +35,11 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.Panel
-import tachiyomi.core.common.util.system.PanelDetector
 import tachiyomi.core.common.util.system.ReadingDirection
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -50,9 +53,13 @@ class PagerPageHolder(
 ) : ReaderPageImageView(readerThemedContext), ViewPagerAdapter.PositionableView {
 
     private val ocrRepository: OcrRepository by injectLazy()
+    private val detectPanels: DetectPanels by lazy { Injekt.get() }
 
     private var panels: List<Panel> = emptyList()
     private var currentPanelIndex = -1
+    private var panelDetectionJob: Job? = null
+    private var panelDetectionGeneration = 0
+    private var lastPageReadyDirection: Boolean? = null
 
     /**
      * Item that identifies this view. Needed by the adapter to not recreate views.
@@ -106,6 +113,8 @@ class PagerPageHolder(
         loadJob?.cancel()
         loadJob = null
         clearOcrPageIdentity()
+        panelDetectionJob?.cancel()
+        panelDetectionJob = null
     }
 
     private fun initProgressIndicator() {
@@ -183,6 +192,9 @@ class PagerPageHolder(
         progressIndicator?.setProgress(0)
         panels = emptyList()
         currentPanelIndex = -1
+        lastPageReadyDirection = null
+        panelDetectionJob?.cancel()
+        panelDetectionGeneration++
 
         val streamFn = page.stream ?: return
 
@@ -195,15 +207,9 @@ class PagerPageHolder(
                 } else {
                     null
                 }
-                val detectedPanels = if (viewer.config.panelNavigation && !isAnimated) {
-                    detectPanels(source)
-                } else {
-                    emptyList()
-                }
-                LoadResult(source, isAnimated, background, detectedPanels)
+                LoadResult(source, isAnimated, background)
             }
             withUIContext {
-                panels = loadResult.detectedPanels
                 setImage(
                     loadResult.source,
                     loadResult.isAnimated,
@@ -220,6 +226,7 @@ class PagerPageHolder(
                 }
                 removeErrorLayout()
                 loadCachedOcrResult()
+                maybeStartPanelDetection(loadResult)
             }
         } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e)
@@ -229,16 +236,44 @@ class PagerPageHolder(
         }
     }
 
-    private fun detectPanels(source: BufferedSource): List<Panel> {
-        val bitmap = decodePanelBitmap(source) ?: return emptyList()
-        return try {
-            PanelDetector.detectPanels(bitmap, readingDirection())
-        } finally {
-            bitmap.recycle()
+    private fun maybeStartPanelDetection(loadResult: LoadResult) {
+        if (!viewer.config.panelNavigation || loadResult.isAnimated) {
+            return
+        }
+
+        val generation = panelDetectionGeneration
+        val cacheKey = panelDetectionCacheKey()
+        val detectionSource = loadResult.source.peek()
+
+        panelDetectionJob = scope.launchIO {
+            val decoded = decodePanelBitmap(detectionSource) ?: return@launchIO
+            val result = try {
+                detectPanels.await(
+                    cacheKey = cacheKey,
+                    image = decoded.bitmap,
+                    originalWidth = decoded.originalWidth,
+                    originalHeight = decoded.originalHeight,
+                    direction = readingDirection(),
+                )
+            } finally {
+                decoded.bitmap.recycle()
+            }
+
+            withUIContext {
+                if (generation != panelDetectionGeneration) return@withUIContext
+
+                panels = result.panels
+                currentPanelIndex = -1
+                if (viewer.config.panelNavigation && panels.isNotEmpty() && lastPageReadyDirection != null &&
+                    isVisibleOnScreen()
+                ) {
+                    zoomToFirstPanel(lastPageReadyDirection!!)
+                }
+            }
         }
     }
 
-    private fun decodePanelBitmap(source: BufferedSource): Bitmap? {
+    private fun decodePanelBitmap(source: BufferedSource): DecodedPanelBitmap? {
         val options = BitmapFactory.Options().apply {
             inJustDecodeBounds = true
         }
@@ -252,13 +287,19 @@ class PagerPageHolder(
         val sampleSize = generateSequence(1) { it * 2 }
             .first { largestDimension / it <= 800 }
 
-        return source.peek().inputStream().use {
+        val bitmap = source.peek().inputStream().use {
             BitmapFactory.decodeStream(
                 it,
                 null,
                 BitmapFactory.Options().apply { inSampleSize = sampleSize },
             )
-        }
+        } ?: return null
+
+        return DecodedPanelBitmap(
+            bitmap = bitmap,
+            originalWidth = options.outWidth,
+            originalHeight = options.outHeight,
+        )
     }
 
     private fun readingDirection(): ReadingDirection {
@@ -304,11 +345,32 @@ class PagerPageHolder(
     }
 
     protected override fun onPageReady(forward: Boolean) {
+        lastPageReadyDirection = forward
         if (viewer.config.panelNavigation && hasPanels()) {
             zoomToFirstPanel(forward)
             return
         }
         super.onPageReady(forward)
+    }
+
+    override fun onPageSelected(forward: Boolean) {
+        super.onPageSelected(forward)
+        lastPageReadyDirection = forward
+    }
+
+    private fun panelDetectionCacheKey(): String {
+        val pageType = if (page is InsertPage) "insert" else "page"
+        return buildString {
+            append(page.chapter.chapter.id)
+            append(':')
+            append(page.index)
+            append(':')
+            append(pageType)
+            append(':')
+            append(page.url)
+            append(':')
+            append(page.imageUrl ?: "")
+        }
     }
 
     private fun process(page: ReaderPage, imageSource: BufferedSource): BufferedSource {
@@ -452,5 +514,10 @@ private data class LoadResult(
     val source: BufferedSource,
     val isAnimated: Boolean,
     val background: Drawable?,
-    val detectedPanels: List<Panel>,
+)
+
+private data class DecodedPanelBitmap(
+    val bitmap: Bitmap,
+    val originalWidth: Int,
+    val originalHeight: Int,
 )

@@ -9,6 +9,7 @@ android {
     namespace = "tachiyomi.data"
 
     defaultConfig {
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }
 
@@ -50,4 +51,8 @@ dependencies {
     testImplementation(libs.bundles.test)
     testImplementation(kotlinx.coroutines.test)
     testRuntimeOnly(libs.junit.platform.launcher)
+
+    androidTestImplementation(androidx.test.ext)
+    androidTestImplementation(libs.core.ktx)
+    androidTestImplementation(libs.runner)
 }

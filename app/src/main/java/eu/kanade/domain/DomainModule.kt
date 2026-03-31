@@ -43,6 +43,7 @@ import mihon.data.dictionary.DictionarySearchGatewayImpl
 import mihon.data.dictionary.HoshiDictionaryStore
 import mihon.data.dictionary.LegacyDictionaryArchiveBuilder
 import mihon.data.ocr.OcrRepositoryImpl
+import mihon.data.panel.PanelDetectionRepositoryImpl
 import mihon.data.repository.ExtensionRepoRepositoryImpl
 import mihon.domain.ankidroid.interactor.AddDictionaryCard
 import mihon.domain.ankidroid.interactor.FindExistingAnkiNotes
@@ -78,6 +79,8 @@ import mihon.domain.ocr.interactor.OcrProcessor
 import mihon.domain.ocr.interactor.ScanPageOcr
 import mihon.domain.ocr.interactor.WithOcrScanSession
 import mihon.domain.ocr.repository.OcrRepository
+import mihon.domain.panel.interactor.DetectPanels
+import mihon.domain.panel.repository.PanelDetectionRepository
 import mihon.domain.upcoming.interactor.GetUpcomingManga
 import tachiyomi.data.category.CategoryRepositoryImpl
 import tachiyomi.data.chapter.ChapterRepositoryImpl
@@ -301,5 +304,12 @@ class DomainModule : InjektModule {
         addFactory { ClearCachedChapterOcr(get()) }
         addFactory { ClearOcrCache(get()) }
         addFactory { GetOcrCacheSize(get()) }
+
+        addSingletonFactory<PanelDetectionRepository> {
+            PanelDetectionRepositoryImpl(
+                context = get<Application>(),
+            )
+        }
+        addFactory { DetectPanels(get()) }
     }
 }

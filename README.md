@@ -43,6 +43,9 @@ Yomihon takes the features of Mihon and enhances them with advanced tools for la
 
 Core Reader Features:
 
+* [OCR support](https://huggingface.co/bluolightning/manga-ocr-tflite) 
+* Experimental on-device panel detection support.
+* Partial Yomitan dictionary support.
 * Local reading of content.
 * A configurable reader with multiple viewers, reading directions and other settings.
 * Tracker support: [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://mangaupdates.com), [Shikimori](https://shikimori.one), and [Bangumi](https://bgm.tv/) support.
@@ -59,6 +62,8 @@ Feature requests, bug reports, and pull requests are welcome. For major changes,
 Before opening an issue, please check the [FAQ](https://yomihon.github.io/docs/faq/general) and search [existing issues](https://github.com/yomihon/yomihon/issues).
 
 [Code of conduct](./CODE_OF_CONDUCT.md) · [Contributing guide](./CONTRIBUTING.md)
+
+Model and dataset attribution for externally fetched ML assets is documented in [MODEL_ATTRIBUTION.md](./MODEL_ATTRIBUTION.md).
 
 ## Credits
 
