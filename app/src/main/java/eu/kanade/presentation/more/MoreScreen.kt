@@ -7,6 +7,7 @@ import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.AttachMoney
 import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.GetApp
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.QueryStats
@@ -109,7 +110,7 @@ fun MoreScreen(
             item {
                 val ocrQueueState = ocrQueueStateProvider()
                 TextPreferenceWidget(
-                    title = stringResource(MR.strings.ocr_preprocess_title),
+                    title = stringResource(MR.strings.label_ocr),
                     subtitle = when (ocrQueueState) {
                         OcrQueueState.Stopped -> null
                         is OcrQueueState.Paused -> {
@@ -131,7 +132,7 @@ fun MoreScreen(
                             pluralStringResource(MR.plurals.download_queue_summary, count = pending, pending)
                         }
                     },
-                    icon = Icons.Outlined.GetApp,
+                    icon = Icons.Outlined.DocumentScanner,
                     onPreferenceClick = onClickOcrQueue,
                 )
             }

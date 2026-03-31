@@ -6,11 +6,14 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -38,17 +41,24 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import eu.kanade.presentation.more.settings.widget.ListPreferenceWidget
+import eu.kanade.presentation.more.settings.widget.PreferenceGroupHeader
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.databinding.DownloadListBinding
 import kotlinx.collections.immutable.toPersistentList
+import mihon.domain.ocr.model.OcrModel
+import mihon.domain.ocr.service.OcrPreferences
+import mihon.feature.ocr.titleRes
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.Pill
 import tachiyomi.presentation.core.components.material.ExtendedFloatingActionButton
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 object OcrQueueScreen : Screen() {
 
@@ -59,6 +69,9 @@ object OcrQueueScreen : Screen() {
         val state by screenModel.state.collectAsState()
         val isQueueRunning by screenModel.isQueueRunning.collectAsState()
         val hasQueue = state.totalCount > 0
+        val ocrPreferences = remember { Injekt.get<OcrPreferences>() }
+        val ocrModelPreference = remember { ocrPreferences.ocrModel() }
+        val ocrModel by ocrModelPreference.changes().collectAsState(initial = ocrModelPreference.get())
 
         val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
         var fabExpanded by remember { mutableStateOf(true) }
@@ -89,7 +102,7 @@ object OcrQueueScreen : Screen() {
                     titleContent = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = stringResource(MR.strings.ocr_preprocess_title),
+                                text = stringResource(MR.strings.label_ocr),
                                 maxLines = 1,
                                 modifier = Modifier.weight(1f, false),
                                 overflow = TextOverflow.Ellipsis,
@@ -154,37 +167,58 @@ object OcrQueueScreen : Screen() {
                 }
             },
         ) { contentPadding ->
-            if (!hasQueue) {
-                EmptyScreen(
-                    message = stringResource(MR.strings.ocr_preprocess_title),
-                    modifier = Modifier.padding(contentPadding),
-                )
-                return@Scaffold
-            }
-
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(contentPadding)
                     .nestedScroll(nestedScrollConnection),
             ) {
-                AndroidView(
-                    modifier = Modifier.fillMaxSize(),
-                    factory = { context ->
-                        screenModel.controllerBinding = DownloadListBinding.inflate(LayoutInflater.from(context))
-                        screenModel.adapter = OcrAdapter(screenModel.listener)
-                        screenModel.controllerBinding.root.adapter = screenModel.adapter
-                        screenModel.adapter?.isHandleDragEnabled = true
-                        screenModel.controllerBinding.root.layoutManager = LinearLayoutManager(context)
-
-                        ViewCompat.setNestedScrollingEnabled(screenModel.controllerBinding.root, true)
-
-                        screenModel.controllerBinding.root
-                    },
-                    update = {
-                        screenModel.adapter?.updateDataSet(state.items)
-                    },
+                PreferenceGroupHeader(title = stringResource(MR.strings.label_settings))
+                ListPreferenceWidget(
+                    value = ocrModel,
+                    title = stringResource(MR.strings.pref_ocr_model),
+                    subtitle = "${stringResource(ocrModel.titleRes)} • ${stringResource(MR.strings.pref_ocr_model_summary)}",
+                    icon = Icons.Outlined.DocumentScanner,
+                    entries = mapOf(
+                        OcrModel.LEGACY to stringResource(OcrModel.LEGACY.titleRes),
+                        OcrModel.FAST to stringResource(OcrModel.FAST.titleRes),
+                        OcrModel.GLENS to stringResource(OcrModel.GLENS.titleRes),
+                    ),
+                    onValueChange = ocrModelPreference::set,
                 )
+
+                PreferenceGroupHeader(title = stringResource(MR.strings.ocr_preprocess_title))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                ) {
+                    if (!hasQueue) {
+                        EmptyScreen(
+                            message = stringResource(MR.strings.ocr_preprocess_title),
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        AndroidView(
+                            modifier = Modifier.fillMaxSize(),
+                            factory = { context ->
+                                screenModel.controllerBinding = DownloadListBinding.inflate(LayoutInflater.from(context))
+                                screenModel.adapter = OcrAdapter(screenModel.listener)
+                                screenModel.controllerBinding.root.adapter = screenModel.adapter
+                                screenModel.adapter?.isHandleDragEnabled = true
+                                screenModel.controllerBinding.root.layoutManager = LinearLayoutManager(context)
+
+                                ViewCompat.setNestedScrollingEnabled(screenModel.controllerBinding.root, true)
+
+                                screenModel.controllerBinding.root
+                            },
+                            update = {
+                                screenModel.adapter?.updateDataSet(state.items)
+                            },
+                        )
+                    }
+                }
             }
         }
     }
