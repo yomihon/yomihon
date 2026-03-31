@@ -7,7 +7,6 @@ import mihon.domain.dictionary.model.DictionaryMigrationState
 import mihon.domain.dictionary.model.DictionaryMigrationStatus
 import mihon.domain.dictionary.model.Dictionary
 import mihon.domain.dictionary.model.DictionaryKanjiExport
-import mihon.domain.dictionary.model.DictionaryKanji
 import mihon.domain.dictionary.model.DictionaryKanjiMetaExport
 import mihon.domain.dictionary.model.DictionaryLegacyRowCounts
 import mihon.domain.dictionary.model.DictionaryTag
@@ -237,15 +236,6 @@ class DictionaryRepositoryImpl(
         return handler.awaitOneExecutable {
             dictionaryQueries.getKanjiCountForDictionary(dictionaryId)
         }
-    }
-
-    override suspend fun getKanjiByCharacter(character: String, dictionaryIds: List<Long>): List<DictionaryKanji> {
-        return handler.awaitList {
-            dictionaryQueries.getKanjiByCharacter(
-                character = character,
-                dictionaryIds = dictionaryIds,
-            )
-        }.map { it.toDomain() }
     }
 
     override suspend fun deleteKanjiForDictionary(dictionaryId: Long) {

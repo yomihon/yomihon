@@ -3,7 +3,6 @@ package mihon.domain.dictionary.repository
 import kotlinx.coroutines.flow.Flow
 import mihon.domain.dictionary.model.DictionaryBackend
 import mihon.domain.dictionary.model.Dictionary
-import mihon.domain.dictionary.model.DictionaryKanji
 import mihon.domain.dictionary.model.DictionaryTag
 import mihon.domain.dictionary.model.DictionaryTerm
 import mihon.domain.dictionary.model.DictionaryTermMeta
@@ -32,9 +31,6 @@ interface DictionaryRepository {
 
     // Term operations
     suspend fun searchTerms(query: String, dictionaryIds: List<Long>): List<DictionaryTerm>
-
-    // Kanji operations
-    suspend fun getKanjiByCharacter(character: String, dictionaryIds: List<Long>): List<DictionaryKanji>
 
     // Term meta operations
     suspend fun getTermMetaForExpression(expression: String, dictionaryIds: List<Long>): List<DictionaryTermMeta>

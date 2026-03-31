@@ -257,14 +257,6 @@ WHERE dictionary_id = :dictionaryId;
 
 -- Kanji queries
 
-getKanjiByCharacter:
-SELECT K.*
-FROM dictionary_kanji AS K
-JOIN dictionaries AS D ON K.dictionary_id = D._id
-WHERE K.character = :character
-  AND K.dictionary_id IN :dictionaryIds
-  AND D.is_enabled = 1;
-
 getKanjiExportForDictionary:
 SELECT character, onyomi, kunyomi, tags, meanings, stats
 FROM dictionary_kanji
