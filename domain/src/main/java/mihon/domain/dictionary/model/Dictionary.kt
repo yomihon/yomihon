@@ -18,7 +18,7 @@ data class Dictionary(
     val isEnabled: Boolean = true,
     val priority: Int = 0,
     val dateAdded: Long = System.currentTimeMillis(),
-    val backend: DictionaryBackend = DictionaryBackend.LEGACY_DB,
+    val backend: DictionaryBackend = DictionaryBackend.HOSHI,
     val storagePath: String? = null,
     val storageReady: Boolean = false,
 )

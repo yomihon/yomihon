@@ -54,7 +54,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -79,7 +78,6 @@ import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.tachiyomi.ui.setting.dictionary.DictionarySettingsScreenModel
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import mihon.domain.dictionary.model.Dictionary
 import mihon.domain.dictionary.model.DictionaryMigrationState
 import mihon.domain.dictionary.model.DictionaryMigrationStatus
@@ -101,7 +99,6 @@ object SettingsDictionaryScreen : Screen {
         val screenModel = rememberScreenModel { DictionarySettingsScreenModel() }
         val state by screenModel.state.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
-        val scope = rememberCoroutineScope()
         val lazyListState = rememberLazyListState()
 
         // File picker for dictionary import
@@ -118,10 +115,8 @@ object SettingsDictionaryScreen : Screen {
         // Show error messages
         LaunchedEffect(state.error) {
             state.error?.let { error ->
-                scope.launch {
-                    snackbarHostState.showSnackbar(error)
-                    screenModel.clearError()
-                }
+                snackbarHostState.showSnackbar(error)
+                screenModel.clearError()
             }
         }
 
