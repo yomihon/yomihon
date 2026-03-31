@@ -105,23 +105,42 @@ class TextPostprocessor {
     fun postprocess(text: String): String {
         if (text.isEmpty()) return text
 
+        val hasJapaneseText = text.any { it.isJapaneseScript() }
+
         stringBuilder.setLength(0)
         stringBuilder.ensureCapacity(text.length)
 
-        // Single pass: remove whitespace, replace ellipsis, convert to full-width
+        // Single pass: normalize whitespace, replace ellipsis, and optionally convert to full-width
         var i = 0
         val len = text.length
+        var previousNonWhitespace: Char? = null
 
         while (i < len) {
             val char = text[i]
 
             if (char.isWhitespace()) {
-                i++
+                var nextIndex = i + 1
+                while (nextIndex < len && text[nextIndex].isWhitespace()) {
+                    nextIndex++
+                }
+
+                val nextNonWhitespace = text.getOrNull(nextIndex)
+                val shouldKeepSpace = previousNonWhitespace != null &&
+                    nextNonWhitespace != null &&
+                    !previousNonWhitespace.isJapaneseScript() &&
+                    !nextNonWhitespace.isJapaneseScript()
+
+                if (shouldKeepSpace && (stringBuilder.isEmpty() || stringBuilder.last() != ' ')) {
+                    stringBuilder.append(' ')
+                }
+
+                i = nextIndex
                 continue
             }
 
             if (char == '…') {
                 stringBuilder.append("...")
+                previousNonWhitespace = char
                 i++
                 continue
             }
@@ -137,22 +156,36 @@ class TextPostprocessor {
                 if (dotCount >= 2) {
                     // Replace with periods
                     repeat(dotCount) { stringBuilder.append('.') }
+                    previousNonWhitespace = text[laterCharIndex - 1]
                     i = laterCharIndex
                     continue
                 }
             }
 
-            // Convert half-width to full-width
-            val code = char.code
-            if (code < HALF_TO_FULL_TABLE.size) {
-                stringBuilder.append(HALF_TO_FULL_TABLE[code])
+            if (hasJapaneseText) {
+                // Convert half-width to full-width only when the sentence contains Japanese text.
+                val code = char.code
+                if (code < HALF_TO_FULL_TABLE.size) {
+                    stringBuilder.append(HALF_TO_FULL_TABLE[code])
+                } else {
+                    stringBuilder.append(char)
+                }
             } else {
                 stringBuilder.append(char)
             }
+            previousNonWhitespace = char
 
             i++
         }
 
         return stringBuilder.toString()
+    }
+
+    private fun Char.isJapaneseScript(): Boolean {
+        val codePoint = code
+        return codePoint in 0x3040..0x30FF || // Hiragana + Katakana
+            codePoint in 0x4E00..0x9FFF || // CJK Unified Ideographs (common kanji)
+            codePoint in 0x3400..0x4DBF || // CJK Extension A
+            codePoint in 0xF900..0xFAFF // CJK Compatibility Ideographs
     }
 }

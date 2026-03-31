@@ -10,5 +10,4 @@ class GetSavedSearchById(
     suspend fun await(savedSearchId: Long): SavedSearch {
         return savedSearchRepository.getById(savedSearchId)!!
     }
-
 }

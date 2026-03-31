@@ -34,6 +34,7 @@ import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.data.ocr.OcrScanManager
 import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.network.HttpException
@@ -56,6 +57,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
+import mihon.domain.ocr.interactor.GetCachedChapterIdsOcr
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
@@ -120,6 +122,8 @@ class MangaScreenModel(
     private val setMangaCategories: SetMangaCategories = Injekt.get(),
     private val mangaRepository: MangaRepository = Injekt.get(),
     private val filterChaptersForDownload: FilterChaptersForDownload = Injekt.get(),
+    private val getCachedChapterIdsOcr: GetCachedChapterIdsOcr = Injekt.get(),
+    private val ocrScanManager: OcrScanManager = Injekt.get(),
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<MangaScreenModel.State>(State.Loading) {
 
@@ -206,6 +210,7 @@ class MangaScreenModel(
         }
 
         observeDownloads()
+        observeScanCache()
 
         screenModelScope.launchIO {
             val manga = getMangaAndChapters.awaitManga(mangaId)
@@ -516,8 +521,31 @@ class MangaScreenModel(
         }
     }
 
-    private fun List<Chapter>.toChapterListItems(manga: Manga): List<ChapterList.Item> {
+    private fun observeScanCache() {
+        screenModelScope.launchIO {
+            ocrScanManager.cacheEvents
+                .flowWithLifecycle(lifecycle)
+                .collect { event ->
+                    updateSuccessState { successState ->
+                        val modifiedIndex = successState.chapters.indexOfFirst { it.id == event.chapterId }
+                        if (modifiedIndex < 0) {
+                            return@updateSuccessState successState
+                        }
+
+                        val newChapters = successState.chapters.toMutableList().apply {
+                            val item = removeAt(modifiedIndex)
+                                .copy(hasScanResults = event.hasResults)
+                            add(modifiedIndex, item)
+                        }
+                        successState.copy(chapters = newChapters)
+                    }
+                }
+        }
+    }
+
+    private suspend fun List<Chapter>.toChapterListItems(manga: Manga): List<ChapterList.Item> {
         val isLocal = manga.isLocal()
+        val cachedChapterIds = getCachedChapterIdsOcr.await(mapNotNull(Chapter::id))
         return map { chapter ->
             val activeDownload = if (isLocal) {
                 null
@@ -539,6 +567,7 @@ class MangaScreenModel(
                 chapter = chapter,
                 downloadState = downloadState,
                 downloadProgress = activeDownload?.progress ?: 0,
+                hasScanResults = chapter.id in cachedChapterIds,
                 selected = chapter.id in selectedChapterIds,
             )
         }
@@ -709,6 +738,14 @@ class MangaScreenModel(
         }
         if (chaptersToDownload.isNotEmpty()) {
             startDownload(chaptersToDownload, false)
+        }
+    }
+
+    fun scanChapters(chapters: List<Chapter>) {
+        if (chapters.isEmpty()) return
+        toggleAllSelection(false)
+        screenModelScope.launchIO {
+            ocrScanManager.enqueue(chapters.mapNotNull(Chapter::id))
         }
     }
 
@@ -1206,6 +1243,7 @@ sealed class ChapterList {
         val chapter: Chapter,
         val downloadState: Download.State,
         val downloadProgress: Int,
+        val hasScanResults: Boolean = false,
         val selected: Boolean = false,
     ) : ChapterList() {
         val id = chapter.id

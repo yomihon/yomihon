@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.text.format.Formatter
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -61,6 +63,8 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import mihon.domain.ocr.interactor.ClearOcrCache
+import mihon.domain.ocr.interactor.GetOcrCacheSize
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.displayablePath
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -282,10 +286,18 @@ object SettingsDataScreen : SearchableSettings {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val libraryPreferences = remember { Injekt.get<LibraryPreferences>() }
+        val clearOcrCache = remember { Injekt.get<ClearOcrCache>() }
+        val getOcrCacheSize = remember { Injekt.get<GetOcrCacheSize>() }
 
         val chapterCache = remember { Injekt.get<ChapterCache>() }
         var cacheReadableSizeSema by remember { mutableIntStateOf(0) }
         val cacheReadableSize = remember(cacheReadableSizeSema) { chapterCache.readableSize }
+        var ocrCacheRefreshToken by remember { mutableIntStateOf(0) }
+        var ocrCacheSizeBytes by remember { mutableLongStateOf(0L) }
+
+        LaunchedEffect(ocrCacheRefreshToken) {
+            ocrCacheSizeBytes = getOcrCacheSize.await()
+        }
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_storage_usage),
@@ -323,6 +335,27 @@ object SettingsDataScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = libraryPreferences.autoClearChapterCache(),
                     title = stringResource(MR.strings.pref_auto_clear_chapter_cache),
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_clear_ocr_cache),
+                    subtitle = stringResource(
+                        MR.strings.used_cache,
+                        Formatter.formatFileSize(context, ocrCacheSizeBytes),
+                    ),
+                    onClick = {
+                        scope.launchNonCancellable {
+                            try {
+                                clearOcrCache.await()
+                                withUIContext {
+                                    context.toast(MR.strings.ocr_cache_deleted)
+                                    ocrCacheRefreshToken++
+                                }
+                            } catch (e: Throwable) {
+                                logcat(LogPriority.ERROR, e)
+                                withUIContext { context.toast(MR.strings.ocr_cache_delete_error) }
+                            }
+                        }
+                    },
                 ),
             ),
         )

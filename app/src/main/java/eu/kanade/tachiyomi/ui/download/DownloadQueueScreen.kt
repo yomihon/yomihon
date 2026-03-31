@@ -7,7 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Sort
@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
@@ -33,15 +32,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
-import androidx.core.view.updatePadding
 import androidx.recyclerview.widget.LinearLayoutManager
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -52,7 +48,7 @@ import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.components.NestedMenuItem
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.databinding.DownloadListBinding
-import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.Pill
@@ -60,7 +56,6 @@ import tachiyomi.presentation.core.components.material.ExtendedFloatingActionBut
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
-import kotlin.math.roundToInt
 
 object DownloadQueueScreen : Screen() {
 
@@ -70,14 +65,15 @@ object DownloadQueueScreen : Screen() {
         val scope = rememberCoroutineScope()
         val screenModel = rememberScreenModel { DownloadQueueScreenModel() }
         val downloadList by screenModel.state.collectAsState()
+        val isQueueRunning by screenModel.isDownloadQueueRunning.collectAsState()
         val downloadCount by remember {
             derivedStateOf { downloadList.sumOf { it.subItems.size } }
         }
+        val hasQueue = downloadList.isNotEmpty()
 
         val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
         var fabExpanded by remember { mutableStateOf(true) }
         val nestedScrollConnection = remember {
-            // All this lines just for fab state :/
             object : NestedScrollConnection {
                 override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                     fabExpanded = available.y >= 0
@@ -114,7 +110,7 @@ object DownloadQueueScreen : Screen() {
                                 Pill(
                                     text = "$downloadCount",
                                     modifier = Modifier.padding(start = 4.dp),
-                                    color = MaterialTheme.colorScheme.onBackground
+                                    color = androidx.compose.material3.MaterialTheme.colorScheme.onBackground
                                         .copy(alpha = pillAlpha),
                                     fontSize = 14.sp,
                                 )
@@ -123,7 +119,7 @@ object DownloadQueueScreen : Screen() {
                     },
                     navigateUp = navigator::pop,
                     actions = {
-                        if (downloadList.isNotEmpty()) {
+                        if (hasQueue) {
                             var sortExpanded by remember { mutableStateOf(false) }
                             val onDismissRequest = { sortExpanded = false }
                             DropdownMenu(
@@ -183,7 +179,7 @@ object DownloadQueueScreen : Screen() {
                             }
 
                             AppBarActions(
-                                persistentListOf(
+                                listOf(
                                     AppBar.Action(
                                         title = stringResource(MR.strings.action_sort),
                                         icon = Icons.AutoMirrored.Outlined.Sort,
@@ -191,9 +187,9 @@ object DownloadQueueScreen : Screen() {
                                     ),
                                     AppBar.OverflowAction(
                                         title = stringResource(MR.strings.action_cancel_all),
-                                        onClick = { screenModel.clearQueue() },
+                                        onClick = screenModel::clearQueue,
                                     ),
-                                ),
+                                ).toPersistentList(),
                             )
                         }
                     },
@@ -202,33 +198,29 @@ object DownloadQueueScreen : Screen() {
             },
             floatingActionButton = {
                 AnimatedVisibility(
-                    visible = downloadList.isNotEmpty(),
+                    visible = hasQueue,
                     enter = fadeIn(),
                     exit = fadeOut(),
                 ) {
-                    val isRunning by screenModel.isDownloaderRunning.collectAsState()
                     ExtendedFloatingActionButton(
                         text = {
-                            val id = if (isRunning) {
-                                MR.strings.action_pause
-                            } else {
-                                MR.strings.action_resume
-                            }
-                            Text(text = stringResource(id))
+                            Text(
+                                text = stringResource(
+                                    if (isQueueRunning) MR.strings.action_pause else MR.strings.action_resume,
+                                ),
+                            )
                         },
                         icon = {
-                            val icon = if (isRunning) {
-                                Icons.Outlined.Pause
-                            } else {
-                                Icons.Filled.PlayArrow
-                            }
-                            Icon(imageVector = icon, contentDescription = null)
+                            Icon(
+                                imageVector = if (isQueueRunning) Icons.Outlined.Pause else Icons.Filled.PlayArrow,
+                                contentDescription = null,
+                            )
                         },
                         onClick = {
-                            if (isRunning) {
+                            if (isQueueRunning) {
                                 screenModel.pauseDownloads()
                             } else {
-                                screenModel.startDownloads()
+                                screenModel.resumeDownloads()
                             }
                         },
                         expanded = fabExpanded,
@@ -236,7 +228,7 @@ object DownloadQueueScreen : Screen() {
                 }
             },
         ) { contentPadding ->
-            if (downloadList.isEmpty()) {
+            if (!hasQueue) {
                 EmptyScreen(
                     stringRes = MR.strings.information_no_downloads,
                     modifier = Modifier.padding(contentPadding),
@@ -244,16 +236,14 @@ object DownloadQueueScreen : Screen() {
                 return@Scaffold
             }
 
-            val density = LocalDensity.current
-            val layoutDirection = LocalLayoutDirection.current
-            val left = with(density) { contentPadding.calculateLeftPadding(layoutDirection).toPx().roundToInt() }
-            val top = with(density) { contentPadding.calculateTopPadding().toPx().roundToInt() }
-            val right = with(density) { contentPadding.calculateRightPadding(layoutDirection).toPx().roundToInt() }
-            val bottom = with(density) { contentPadding.calculateBottomPadding().toPx().roundToInt() }
-
-            Box(modifier = Modifier.nestedScroll(nestedScrollConnection)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(contentPadding)
+                    .nestedScroll(nestedScrollConnection),
+            ) {
                 AndroidView(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxSize(),
                     factory = { context ->
                         screenModel.controllerBinding = DownloadListBinding.inflate(LayoutInflater.from(context))
                         screenModel.adapter = DownloadAdapter(screenModel.listener)
@@ -275,14 +265,6 @@ object DownloadQueueScreen : Screen() {
                         screenModel.controllerBinding.root
                     },
                     update = {
-                        screenModel.controllerBinding.root
-                            .updatePadding(
-                                left = left,
-                                top = top,
-                                right = right,
-                                bottom = bottom,
-                            )
-
                         screenModel.adapter?.updateDataSet(downloadList)
                     },
                 )

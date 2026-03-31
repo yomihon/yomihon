@@ -5,6 +5,8 @@ import androidx.core.graphics.scale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
+import mihon.domain.ocr.model.OcrBoundingBox
+import mihon.domain.ocr.model.OcrRegion
 import tachiyomi.core.common.util.system.logcat
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -17,6 +19,8 @@ import kotlin.random.Random
  * Extracts plain text from text-layout boxes in the protobuf response.
  */
 internal class GlensOcrEngine : OcrEngine {
+    private val textPostprocessor = TextPostprocessor()
+
     override suspend fun recognizeText(image: Bitmap): String = withContext(Dispatchers.IO) {
         require(!image.isRecycled) { "Input bitmap is recycled" }
 
@@ -25,13 +29,32 @@ internal class GlensOcrEngine : OcrEngine {
             val preparedImage = prepareImage(image)
             val payload = buildRequestPayload(preparedImage)
             val responseBytes = executeRequest(payload)
-            val extractedText = parseResponseText(responseBytes)
+            val extractedText = parseResponsePage(responseBytes).text
 
             val totalTime = (System.nanoTime() - startTime) / 1_000_000
             logcat(LogPriority.INFO) { "OCR(glens) Runtime: recognizeText total time: $totalTime ms" }
             extractedText
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "OCR (glens) failed" }
+            throw e
+        }
+    }
+
+    internal suspend fun recognizePage(image: Bitmap): GlensPageResult = withContext(Dispatchers.IO) {
+        require(!image.isRecycled) { "Input bitmap is recycled" }
+
+        val startTime = System.nanoTime()
+        try {
+            val preparedImage = prepareImage(image)
+            val payload = buildRequestPayload(preparedImage)
+            val responseBytes = executeRequest(payload)
+            val pageResult = parseResponsePage(responseBytes)
+
+            val totalTime = (System.nanoTime() - startTime) / 1_000_000
+            logcat(LogPriority.INFO) { "OCR(glens) Runtime: recognizePage total time: $totalTime ms" }
+            pageResult
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e) { "OCR (glens) page recognition failed" }
             throw e
         }
     }
@@ -142,9 +165,9 @@ internal class GlensOcrEngine : OcrEngine {
         }
     }
 
-    private fun parseResponseText(responseBytes: ByteArray): String {
+    private fun parseResponsePage(responseBytes: ByteArray): GlensPageResult {
         val reader = ProtoReader(responseBytes)
-        val paragraphs = mutableListOf<String>()
+        val allLines = mutableListOf<ParsedLine>()
 
         while (reader.hasRemaining()) {
             val tag = reader.readTag()
@@ -153,23 +176,41 @@ internal class GlensOcrEngine : OcrEngine {
             val field = tag ushr 3
             val wireType = tag and WIRE_TYPE_MASK
             if (field == SERVER_RESPONSE_OBJECTS_RESPONSE && wireType == WIRE_TYPE_LENGTH_DELIMITED) {
-                paragraphs += parseObjectsResponse(reader.readBytes())
+                allLines += parseObjectsResponse(reader.readBytes())
             } else {
                 reader.skipField(wireType)
             }
         }
 
-        return paragraphs
-            .asSequence()
-            .map(String::trim)
-            .filter(String::isNotEmpty)
-            // collapse into a single line for viewing and format consistency between engines
-            .joinToString(separator = " ")
+        // Full-page furigana filter (across all text-layout blocks)
+        val verticalLines = allLines.filter { it.isVertical && it.hasJpText }
+        val horizontalLines = allLines.filter { !it.isVertical && it.hasJpText }
+        val nonJpLines = allLines.filter { !it.hasJpText }
+
+        val filteredVertical = filterRuby(
+            verticalLines.sortedByDescending { it.centerX + it.width / 2f },
+            isVertical = true,
+        )
+        val filteredHorizontal = filterRuby(
+            horizontalLines.sortedBy { it.centerY },
+            isVertical = false,
+        )
+        val filteredLines = filteredVertical + filteredHorizontal + nonJpLines
+
+        val bubbles = mergeIntoBubbles(filteredLines)
+        val regions = bubbles
+            .mapIndexedNotNull { index, bubble -> bubble.toRegion(index) }
+            .filter { it.text.isNotBlank() }
+
+        return GlensPageResult(
+            text = regions.joinToString(separator = " ") { it.text }.trim(),
+            regions = regions,
+        )
     }
 
-    private fun parseObjectsResponse(objectsBytes: ByteArray): List<String> {
+    private fun parseObjectsResponse(objectsBytes: ByteArray): List<ParsedLine> {
         val reader = ProtoReader(objectsBytes)
-        val paragraphs = mutableListOf<String>()
+        val paragraphs = mutableListOf<ParsedLine>()
 
         while (reader.hasRemaining()) {
             val tag = reader.readTag()
@@ -187,9 +228,9 @@ internal class GlensOcrEngine : OcrEngine {
         return paragraphs
     }
 
-    private fun parseText(textBytes: ByteArray): List<String> {
+    private fun parseText(textBytes: ByteArray): List<ParsedLine> {
         val reader = ProtoReader(textBytes)
-        val paragraphs = mutableListOf<String>()
+        val paragraphs = mutableListOf<ParsedLine>()
 
         while (reader.hasRemaining()) {
             val tag = reader.readTag()
@@ -207,7 +248,7 @@ internal class GlensOcrEngine : OcrEngine {
         return paragraphs
     }
 
-    private fun parseTextLayout(layoutBytes: ByteArray): List<String> {
+    private fun parseTextLayout(layoutBytes: ByteArray): List<ParsedLine> {
         val reader = ProtoReader(layoutBytes)
         val allLines = mutableListOf<ParsedLine>()
 
@@ -224,24 +265,7 @@ internal class GlensOcrEngine : OcrEngine {
             }
         }
 
-        if (allLines.isEmpty()) return emptyList()
-
-        val verticalLines = allLines.filter { it.isVertical }
-        val horizontalLines = allLines.filter { !it.isVertical }
-
-        val filteredVertical = filterRuby(
-            verticalLines.sortedByDescending { it.centerX + it.width / 2f },
-            isVertical = true,
-        )
-
-        val filteredHorizontal = filterRuby(
-            horizontalLines.sortedBy { it.centerY },
-            isVertical = false,
-        )
-
-        return (filteredVertical + filteredHorizontal)
-            .map { it.text }
-            .filter { it.isNotBlank() }
+        return allLines
     }
 
     /** Parses one paragraph proto, returning its [ParsedLine] objects without filtering. */
@@ -404,6 +428,111 @@ internal class GlensOcrEngine : OcrEngine {
         return results
     }
 
+    private fun mergeIntoBubbles(lines: List<ParsedLine>): List<ParsedLine> {
+        if (lines.isEmpty()) return emptyList()
+
+        val verticalLines = lines
+            .filter { it.isVertical }
+            .sortedByDescending { it.centerX }
+
+        val horizontalLines = lines
+            .filter { !it.isVertical }
+            .sortedBy { it.centerY }
+
+        return mergeBubbleGroup(verticalLines, isVertical = true) +
+            mergeBubbleGroup(horizontalLines, isVertical = false)
+    }
+
+    /** Groups a pre-sorted list of same-orientation lines into bubble clusters. */
+    private fun mergeBubbleGroup(lines: List<ParsedLine>, isVertical: Boolean): List<ParsedLine> {
+        if (lines.isEmpty()) return emptyList()
+
+        val used = BooleanArray(lines.size)
+        val bubbles = mutableListOf<ParsedLine>()
+
+        for (i in lines.indices) {
+            if (used[i]) continue
+
+            val cluster = mutableListOf(lines[i])
+            used[i] = true
+
+            var expanded = true
+            while (expanded) {
+                expanded = false
+                for (j in lines.indices) {
+                    if (used[j]) continue
+                    if (cluster.any { isSameBubble(it, lines[j], isVertical) }) {
+                        cluster += lines[j]
+                        used[j] = true
+                        expanded = true
+                    }
+                }
+            }
+
+            bubbles += if (cluster.size == 1) {
+                cluster[0]
+            } else {
+                combineBubbleCluster(cluster, isVertical)
+            }
+        }
+
+        return bubbles
+    }
+
+    private fun isSameBubble(a: ParsedLine, b: ParsedLine, isVertical: Boolean): Boolean {
+        return if (isVertical) {
+            val vOverlap = verticalOverlapRatio(a, b)
+            val hGap = kotlin.math.abs(a.centerX - b.centerX) -
+                (a.width + b.width) / 2f
+            val maxWidth = maxOf(a.width, b.width)
+            vOverlap >= 0.4f && hGap <= maxWidth * 2f
+        } else {
+            val hOverlap = horizontalOverlapRatio(a, b)
+            val vGap = kotlin.math.abs(a.centerY - b.centerY) -
+                (a.height + b.height) / 2f
+            val maxHeight = maxOf(a.height, b.height)
+            hOverlap >= 0.3f && vGap <= maxHeight * 2f
+        }
+    }
+
+    private fun combineBubbleCluster(cluster: List<ParsedLine>, isVertical: Boolean): ParsedLine {
+        val sorted = if (isVertical) {
+            cluster.sortedWith(
+                compareByDescending<ParsedLine> { it.centerX }
+                    .thenBy { it.centerY },
+            )
+        } else {
+            cluster.sortedBy { it.centerY }
+        }
+
+        val text = sorted.joinToString("\n") { it.text }
+
+        val minX = sorted.minOf { it.centerX - it.width / 2f }
+        val maxX = sorted.maxOf { it.centerX + it.width / 2f }
+        val minY = sorted.minOf { it.centerY - it.height / 2f }
+        val maxY = sorted.maxOf { it.centerY + it.height / 2f }
+        val newWidth = maxX - minX
+        val newHeight = maxY - minY
+        val newCenterX = minX + newWidth / 2f
+        val newCenterY = minY + newHeight / 2f
+
+        val representativeWords = sorted.flatMap { it.words }
+        val medianCharSize = sorted.map { it.characterSize }.sorted().let { it[it.size / 2] }
+
+        return ParsedLine(
+            words = representativeWords,
+            text = text,
+            hasJpText = sorted.any { it.hasJpText },
+            hasKanji = sorted.any { it.hasKanji },
+            isVertical = isVertical,
+            centerX = newCenterX,
+            centerY = newCenterY,
+            width = newWidth,
+            height = newHeight,
+            characterSize = medianCharSize,
+        )
+    }
+
     private fun isVerticalLine(words: List<ParsedWord>): Boolean {
         val positioned = words.filter { it.centerX > 0f || it.centerY > 0f }
         if (positioned.size >= 2) {
@@ -557,6 +686,38 @@ internal class GlensOcrEngine : OcrEngine {
         val height: Float,
         val characterSize: Float,
     )
+
+    internal data class GlensPageResult(
+        val text: String,
+        val regions: List<OcrRegion>,
+    )
+
+    private fun ParsedLine.toRegion(order: Int): OcrRegion? {
+        if (text.isBlank() || width <= 0f || height <= 0f) {
+            return null
+        }
+
+        val left = (centerX - width / 2f).coerceIn(0f, 1f)
+        val top = (centerY - height / 2f).coerceIn(0f, 1f)
+        val right = (centerX + width / 2f).coerceIn(0f, 1f)
+        val bottom = (centerY + height / 2f).coerceIn(0f, 1f)
+        val box = OcrBoundingBox(
+            left = left,
+            top = top,
+            right = right,
+            bottom = bottom,
+        )
+
+        if (!box.isValid()) {
+            return null
+        }
+
+        return OcrRegion(
+            order = order,
+            text = textPostprocessor.postprocess(text),
+            boundingBox = box,
+        )
+    }
 
     private data class PreparedImage(
         val bytes: ByteArray,

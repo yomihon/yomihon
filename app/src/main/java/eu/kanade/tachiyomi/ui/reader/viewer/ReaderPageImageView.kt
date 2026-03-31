@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.reader.viewer
 
 import android.content.Context
+import android.graphics.Matrix
 import android.graphics.PointF
 import android.graphics.RectF
 import android.graphics.drawable.Animatable
@@ -12,6 +13,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
+import android.widget.ImageView
 import androidx.annotation.AttrRes
 import androidx.annotation.CallSuper
 import androidx.annotation.StyleRes
@@ -39,6 +41,7 @@ import eu.kanade.tachiyomi.data.coil.customDecoder
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonSubsamplingImageView
 import eu.kanade.tachiyomi.util.system.animatorDurationScale
 import eu.kanade.tachiyomi.util.view.isVisibleOnScreen
+import mihon.domain.ocr.model.OcrPageResult
 import okio.BufferedSource
 import tachiyomi.core.common.util.system.ImageUtil
 import uy.kohesive.injekt.Injekt
@@ -67,11 +70,13 @@ open class ReaderPageImageView @JvmOverloads constructor(
     private var pageView: View? = null
 
     private var config: Config? = null
+    private var cachedOcrResult: OcrPageResult? = null
 
     var onImageLoaded: (() -> Unit)? = null
     var onImageLoadError: ((Throwable?) -> Unit)? = null
     var onScaleChanged: ((newScale: Float) -> Unit)? = null
     var onViewClicked: (() -> Unit)? = null
+    var onOcrRegionClicked: ((String) -> Unit)? = null
 
     /**
      * For automatic background. Will be set as background color when [onImageLoaded] is called.
@@ -92,6 +97,7 @@ open class ReaderPageImageView @JvmOverloads constructor(
     @CallSuper
     open fun onScaleChanged(newScale: Float) {
         onScaleChanged?.invoke(newScale)
+        invalidate()
     }
 
     @CallSuper
@@ -170,6 +176,7 @@ open class ReaderPageImageView @JvmOverloads constructor(
     }
 
     fun recycle() = pageView?.let {
+        clearCachedOcrResult()
         when (it) {
             is SubsamplingScaleImageView -> it.recycle()
             is AppCompatImageView -> it.dispose()
@@ -251,7 +258,7 @@ open class ReaderPageImageView @JvmOverloads constructor(
                     }
 
                     override fun onCenterChanged(newCenter: PointF?, origin: Int) {
-                        // Not used
+                        invalidate()
                     }
                 },
             )
@@ -351,6 +358,9 @@ open class ReaderPageImageView @JvmOverloads constructor(
 
             if (this is PhotoView) {
                 setScaleLevels(1F, 2F, MAX_ZOOM_SCALE)
+                setOnMatrixChangeListener {
+                    invalidate()
+                }
                 // Force 2 scale levels on double tap
                 setOnDoubleTapListener(
                     object : GestureDetector.SimpleOnGestureListener() {
@@ -406,6 +416,70 @@ open class ReaderPageImageView @JvmOverloads constructor(
             .crossfade(false)
             .build()
         context.imageLoader.enqueue(request)
+    }
+
+    fun setCachedOcrResult(result: OcrPageResult?) {
+        cachedOcrResult = result
+        invalidate()
+    }
+
+    fun clearCachedOcrResult() {
+        cachedOcrResult = null
+        invalidate()
+    }
+
+    fun tryConsumeOcrTap(rawX: Float, rawY: Float): Boolean {
+        val localPoint = rawPointToLocalPoint(rawX, rawY) ?: return false
+        return tryConsumeOcrTapLocal(localPoint.x, localPoint.y)
+    }
+
+    fun tryConsumeOcrTapLocal(localX: Float, localY: Float): Boolean {
+        val result = cachedOcrResult ?: return false
+        val sourcePoint = localPointToSourcePoint(localX, localY) ?: return false
+        val region = result.findRegionAt(sourcePoint.x, sourcePoint.y) ?: return false
+
+        onOcrRegionClicked?.invoke(region.text)
+        return true
+    }
+
+    private fun rawPointToLocalPoint(rawX: Float, rawY: Float): PointF? {
+        val screenLocation = IntArray(2)
+        val windowLocation = IntArray(2)
+        getLocationOnScreen(screenLocation)
+        getLocationInWindow(windowLocation)
+
+        return PointF(
+            rawX - screenLocation[0] + windowLocation[0],
+            rawY - screenLocation[1] + windowLocation[1],
+        )
+    }
+
+    private fun localPointToSourcePoint(localX: Float, localY: Float): PointF? {
+        return when (val currentPageView = pageView) {
+            is SubsamplingScaleImageView -> {
+                if (!currentPageView.isReady) return null
+                currentPageView.viewToSourceCoord(localX, localY)
+            }
+            is ImageView -> {
+                val drawable = currentPageView.drawable ?: return null
+                val inverse = Matrix()
+                if (!currentPageView.imageMatrix.invert(inverse)) return null
+
+                val points = floatArrayOf(localX, localY)
+                inverse.mapPoints(points)
+                val sourceX = points[0]
+                val sourceY = points[1]
+                if (sourceX < 0f || sourceY < 0f ||
+                    sourceX > drawable.intrinsicWidth.toFloat() ||
+                    sourceY > drawable.intrinsicHeight.toFloat()
+                ) {
+                    null
+                } else {
+                    PointF(sourceX, sourceY)
+                }
+            }
+            else -> null
+        }
     }
 
     private fun Int.getSystemScaledDuration(): Int {

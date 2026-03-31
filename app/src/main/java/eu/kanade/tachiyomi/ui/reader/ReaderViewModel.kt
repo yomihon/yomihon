@@ -40,6 +40,7 @@ import eu.kanade.tachiyomi.util.chapter.removeDuplicates
 import eu.kanade.tachiyomi.util.editCover
 import eu.kanade.tachiyomi.util.lang.byteSize
 import eu.kanade.tachiyomi.util.lang.takeBytes
+import eu.kanade.tachiyomi.util.ocr.toOcrImage
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -847,10 +848,11 @@ class ReaderViewModel @JvmOverloads constructor(
         viewModelScope.launchIO {
             mutableState.update { it.copy(isProcessingOcr = true, ocrSelectionMode = false) }
             try {
-                val text = ocrProcessor.getText(bitmap)
+                val text = ocrProcessor.getText(bitmap.toOcrImage())
                 withUIContext {
                     if (text.isNotBlank()) {
-                        mutableState.update { it.copy(dialog = Dialog.OcrResult(text), isProcessingOcr = false) }
+                        showOcrResult(text)
+                        mutableState.update { it.copy(isProcessingOcr = false) }
                     } else {
                         mutableState.update { it.copy(isProcessingOcr = false) }
                         eventChannel.send(Event.OcrNoTextFound)
@@ -887,6 +889,12 @@ class ReaderViewModel @JvmOverloads constructor(
                     bitmap.recycle()
                 }
             }
+        }
+    }
+
+    fun showOcrResult(text: String) {
+        mutableState.update {
+            it.copy(dialog = Dialog.OcrResult(text))
         }
     }
 

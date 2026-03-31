@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import logcat.LogPriority
+import mihon.domain.ocr.repository.OcrRepository
 import okio.Buffer
 import okio.BufferedSource
 import tachiyomi.core.common.i18n.stringResource
@@ -33,6 +34,7 @@ import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
+import uy.kohesive.injekt.injectLazy
 
 /**
  * Holder of the webtoon reader for a single page of a chapter.
@@ -45,6 +47,8 @@ class WebtoonPageHolder(
     private val frame: ReaderPageImageView,
     viewer: WebtoonViewer,
 ) : WebtoonBaseHolder(frame, viewer) {
+
+    private val ocrRepository: OcrRepository by injectLazy()
 
     /**
      * Loading progress bar to indicate the current progress.
@@ -86,6 +90,9 @@ class WebtoonPageHolder(
         frame.onImageLoaded = { onImageDecoded() }
         frame.onImageLoadError = { error -> setError(error) }
         frame.onScaleChanged = { viewer.activity.hideMenu() }
+        frame.onOcrRegionClicked = { text ->
+            viewer.activity.viewModel.showOcrResult(text)
+        }
     }
 
     /**
@@ -94,6 +101,7 @@ class WebtoonPageHolder(
     fun bind(page: ReaderPage) {
         this.page = page
         loadJob?.cancel()
+        frame.clearCachedOcrResult()
         loadJob = scope.launch { loadPageAndProcessStatus() }
         refreshLayoutParams()
     }
@@ -119,6 +127,7 @@ class WebtoonPageHolder(
 
         removeErrorLayout()
         frame.recycle()
+        frame.clearCachedOcrResult()
         progressIndicator.setProgress(0)
         progressContainer.isVisible = true
     }
@@ -161,6 +170,7 @@ class WebtoonPageHolder(
         progressContainer.isVisible = true
         progressIndicator.show()
         removeErrorLayout()
+        frame.clearCachedOcrResult()
     }
 
     /**
@@ -170,6 +180,7 @@ class WebtoonPageHolder(
         progressContainer.isVisible = true
         progressIndicator.show()
         removeErrorLayout()
+        frame.clearCachedOcrResult()
     }
 
     /**
@@ -179,6 +190,7 @@ class WebtoonPageHolder(
         progressContainer.isVisible = true
         progressIndicator.show()
         removeErrorLayout()
+        frame.clearCachedOcrResult()
     }
 
     /**
@@ -206,6 +218,7 @@ class WebtoonPageHolder(
                     ),
                 )
                 removeErrorLayout()
+                loadCachedOcrResult()
             }
         } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e)
@@ -247,6 +260,7 @@ class WebtoonPageHolder(
     private fun setError(error: Throwable?) {
         progressContainer.isVisible = false
         initErrorLayout(error)
+        frame.clearCachedOcrResult()
     }
 
     /**
@@ -255,6 +269,17 @@ class WebtoonPageHolder(
     private fun onImageDecoded() {
         progressContainer.isVisible = false
         removeErrorLayout()
+    }
+
+    private fun loadCachedOcrResult() {
+        val currentPage = page ?: return frame.clearCachedOcrResult()
+        val chapterId = currentPage.chapter.chapter.id ?: return frame.clearCachedOcrResult()
+        scope.launchIO {
+            val cachedResult = ocrRepository.getCachedPage(chapterId, currentPage.index)
+            withUIContext {
+                frame.setCachedOcrResult(cachedResult)
+            }
+        }
     }
 
     /**

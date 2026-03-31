@@ -441,8 +441,7 @@
     <string name="pref_read_with_long_tap">Show actions on long tap</string>
     <string name="pref_long_tap_ocr">Activate OCR on long tap</string>
     <string name="pref_long_tap_ocr_summary">Overrides default long tap action</string>
-    <string name="pref_ocr_model">OCR model</string>
-    <string name="pref_ocr_model_summary">Select the OCR model to use</string>
+    <string name="pref_ocr_model">Text recognition model</string>
     <string name="ocr_model_legacy">Legacy</string>
     <string name="ocr_model_fast">Fast (Experimental)</string>
     <string name="ocr_model_glens">Online</string>
@@ -536,6 +535,7 @@
     <string name="save_chapter_as_cbz">Save as CBZ archive</string>
     <string name="split_tall_images">Split tall images</string>
     <string name="split_tall_images_summary">Improves reader performance</string>
+    <string name="pref_auto_ocr_on_download">Auto OCR on chapter download</string>
 
     <!-- Tracking section -->
     <string name="tracking_guide">Tracking guide</string>
@@ -598,6 +598,9 @@
     <string name="cache_deleted">Cache cleared, %1$d files deleted</string>
     <string name="cache_delete_error">Error occurred while clearing</string>
     <string name="pref_auto_clear_chapter_cache">Clear chapter cache on app launch</string>
+    <string name="pref_clear_ocr_cache">Clear OCR Cache</string>
+    <string name="ocr_cache_deleted">OCR cache cleared</string>
+    <string name="ocr_cache_delete_error">Could not clear OCR cache</string>
     <string name="export">Export</string>
     <string name="library_list">Library List</string>
     <string name="library_exported">Library Exported</string>
@@ -991,6 +994,7 @@
 
     <!-- Notification channels -->
     <string name="channel_common">Common</string>
+    <string name="label_text_recognition">Text Recognition</string>
     <string name="channel_progress">Progress</string>
     <string name="channel_complete">Complete</string>
     <string name="channel_errors">Errors</string>
@@ -1167,9 +1171,18 @@
 
     <!-- OCR Related -->
     <string name="action_ocr">Trigger region selection for text recognition</string>
+    <string name="action_preprocess_ocr">Scan OCR</string>
     <string name="action_copy">Copy</string>
     <string name="ocr_select_region">Drag to select text region</string>
     <string name="ocr_processing">Processing OCR…</string>
+    <string name="ocr_queue_header">Text recognition queue</string>
+    <string name="ocr_queue_empty">No OCR scans</string>
+    <string name="ocr_preprocess_title">OCR scanning</string>
+    <string name="ocr_preprocess_queued">Queued</string>
+    <string name="ocr_preprocess_progress">%1$s - %2$d/%3$d pages scanned</string>
+    <string name="ocr_preprocess_completed">%1$s scanned</string>
+    <string name="ocr_preprocess_failed">%1$s could not be scanned</string>
+    <string name="ocr_scan_manga_not_found">Manga not found</string>
     <string name="error_unknown">Unknown OCR Error Occurred</string>
     <string name="ocr_memory_error">Not Enough Memory to Run OCR</string>
     <string name="ocr_initialization_error">OCR Initialization Failed</string>

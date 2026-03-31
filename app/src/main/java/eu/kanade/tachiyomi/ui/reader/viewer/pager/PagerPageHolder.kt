@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import logcat.LogPriority
+import mihon.domain.ocr.repository.OcrRepository
 import okio.Buffer
 import okio.BufferedSource
 import tachiyomi.core.common.i18n.stringResource
@@ -28,6 +29,7 @@ import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
+import uy.kohesive.injekt.injectLazy
 
 /**
  * View of the ViewPager that contains a page of a chapter.
@@ -38,6 +40,8 @@ class PagerPageHolder(
     val viewer: PagerViewer,
     val page: ReaderPage,
 ) : ReaderPageImageView(readerThemedContext), ViewPagerAdapter.PositionableView {
+
+    private val ocrRepository: OcrRepository by injectLazy()
 
     /**
      * Item that identifies this view. Needed by the adapter to not recreate views.
@@ -63,6 +67,10 @@ class PagerPageHolder(
     private var loadJob: Job? = null
 
     init {
+        // TODO: Based on setting, use bottom sheet or a popup
+        onOcrRegionClicked = { text ->
+            viewer.activity.viewModel.showOcrResult(text)
+        }
         loadJob = scope.launch { loadPageAndProcessStatus() }
     }
 
@@ -121,6 +129,7 @@ class PagerPageHolder(
         initProgressIndicator()
         progressIndicator?.show()
         removeErrorLayout()
+        clearCachedOcrResult()
     }
 
     /**
@@ -130,6 +139,7 @@ class PagerPageHolder(
         initProgressIndicator()
         progressIndicator?.show()
         removeErrorLayout()
+        clearCachedOcrResult()
     }
 
     /**
@@ -139,6 +149,7 @@ class PagerPageHolder(
         initProgressIndicator()
         progressIndicator?.show()
         removeErrorLayout()
+        clearCachedOcrResult()
     }
 
     /**
@@ -176,6 +187,7 @@ class PagerPageHolder(
                     pageBackground = background
                 }
                 removeErrorLayout()
+                loadCachedOcrResult()
             }
         } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e)
@@ -248,6 +260,7 @@ class PagerPageHolder(
     private fun setError(error: Throwable?) {
         progressIndicator?.hide()
         showErrorLayout(error)
+        clearCachedOcrResult()
     }
 
     override fun onImageLoaded() {
@@ -261,6 +274,16 @@ class PagerPageHolder(
     override fun onImageLoadError(error: Throwable?) {
         super.onImageLoadError(error)
         setError(error)
+    }
+
+    private fun loadCachedOcrResult() {
+        val chapterId = page.chapter.chapter.id ?: return clearCachedOcrResult()
+        scope.launchIO {
+            val cachedResult = ocrRepository.getCachedPage(chapterId, page.index)
+            withUIContext {
+                setCachedOcrResult(cachedResult)
+            }
+        }
     }
 
     /**

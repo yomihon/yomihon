@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.system.isDebugBuildType
+import mihon.domain.ocr.service.OcrPreferences
 import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.storage.AndroidStorageFolderProvider
@@ -49,6 +50,9 @@ class PreferenceModule(val app: Application) : InjektModule {
         }
         addSingletonFactory {
             ReaderPreferences(get())
+        }
+        addSingletonFactory {
+            OcrPreferences(get())
         }
         addSingletonFactory {
             TrackPreferences(get())

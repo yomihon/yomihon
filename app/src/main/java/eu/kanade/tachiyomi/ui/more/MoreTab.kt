@@ -7,7 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
@@ -22,8 +21,11 @@ import eu.kanade.presentation.more.MoreScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.download.DownloadManager
+import eu.kanade.tachiyomi.data.ocr.OcrQueueStatus
+import eu.kanade.tachiyomi.data.ocr.OcrScanManager
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
+import eu.kanade.tachiyomi.ui.download.OcrQueueScreen
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.stats.StatsScreen
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,17 +59,19 @@ data object MoreTab : Tab {
 
     @Composable
     override fun Content() {
-        val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = rememberScreenModel { MoreScreenModel() }
         val downloadQueueState by screenModel.downloadQueueState.collectAsState()
+        val ocrQueueState by screenModel.ocrQueueState.collectAsState()
         MoreScreen(
             downloadQueueStateProvider = { downloadQueueState },
+            ocrQueueStateProvider = { ocrQueueState },
             downloadedOnly = screenModel.downloadedOnly,
             onDownloadedOnlyChange = { screenModel.downloadedOnly = it },
             incognitoMode = screenModel.incognitoMode,
             onIncognitoModeChange = { screenModel.incognitoMode = it },
             onClickDownloadQueue = { navigator.push(DownloadQueueScreen) },
+            onClickOcrQueue = { navigator.push(OcrQueueScreen) },
             onClickCategories = { navigator.push(CategoryScreen()) },
             onClickStats = { navigator.push(StatsScreen()) },
             onClickDataAndStorage = { navigator.push(SettingsScreen(SettingsScreen.Destination.DataAndStorage)) },
@@ -80,6 +84,7 @@ data object MoreTab : Tab {
 
 private class MoreScreenModel(
     private val downloadManager: DownloadManager = Injekt.get(),
+    private val ocrScanManager: OcrScanManager = Injekt.get(),
     preferences: BasePreferences = Injekt.get(),
 ) : ScreenModel {
 
@@ -88,6 +93,9 @@ private class MoreScreenModel(
 
     private var _downloadQueueState: MutableStateFlow<DownloadQueueState> = MutableStateFlow(DownloadQueueState.Stopped)
     val downloadQueueState: StateFlow<DownloadQueueState> = _downloadQueueState.asStateFlow()
+
+    private var _ocrQueueState: MutableStateFlow<OcrQueueState> = MutableStateFlow(OcrQueueState.Stopped)
+    val ocrQueueState: StateFlow<OcrQueueState> = _ocrQueueState.asStateFlow()
 
     init {
         // Handle running/paused status change and queue progress updating
@@ -105,6 +113,13 @@ private class MoreScreenModel(
                     }
                 }
         }
+
+        screenModelScope.launchIO {
+            ocrScanManager.status
+                .collectLatest { status ->
+                    _ocrQueueState.value = status.toUiState()
+                }
+        }
     }
 }
 
@@ -112,4 +127,18 @@ sealed interface DownloadQueueState {
     data object Stopped : DownloadQueueState
     data class Paused(val pending: Int) : DownloadQueueState
     data class Downloading(val pending: Int) : DownloadQueueState
+}
+
+sealed interface OcrQueueState {
+    data object Stopped : OcrQueueState
+    data class Paused(val pending: Int) : OcrQueueState
+    data class Running(val pending: Int) : OcrQueueState
+}
+
+private fun OcrQueueStatus.toUiState(): OcrQueueState {
+    return when {
+        pending == 0 -> OcrQueueState.Stopped
+        isPaused -> OcrQueueState.Paused(pending)
+        else -> OcrQueueState.Running(pending)
+    }
 }

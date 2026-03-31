@@ -17,6 +17,7 @@ import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
 import kotlinx.coroutines.MainScope
@@ -112,18 +113,27 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
             },
         )
         recycler.tapListener = { event ->
-            val viewPosition = IntArray(2)
-            recycler.getLocationOnScreen(viewPosition)
-            val viewPositionRelativeToWindow = IntArray(2)
-            recycler.getLocationInWindow(viewPositionRelativeToWindow)
-            val pos = PointF(
-                (event.rawX - viewPosition[0] + viewPositionRelativeToWindow[0]) / recycler.width,
-                (event.rawY - viewPosition[1] + viewPositionRelativeToWindow[1]) / recycler.originalHeight,
-            )
-            when (config.navigator.getAction(pos)) {
-                NavigationRegion.MENU -> activity.toggleMenu()
-                NavigationRegion.NEXT, NavigationRegion.RIGHT -> scrollDown()
-                NavigationRegion.PREV, NavigationRegion.LEFT -> scrollUp()
+            val child = recycler.findChildViewUnder(event.x, event.y) as? ReaderPageImageView
+            val consumedOcrTap = child?.let {
+                // Webtoon can be scaled/translated; use recycler-local coordinates for stable hit-testing.
+                val localX = event.x - it.x
+                val localY = event.y - it.y
+                it.tryConsumeOcrTapLocal(localX, localY)
+            } == true
+            if (!consumedOcrTap) {
+                val viewPosition = IntArray(2)
+                recycler.getLocationOnScreen(viewPosition)
+                val viewPositionRelativeToWindow = IntArray(2)
+                recycler.getLocationInWindow(viewPositionRelativeToWindow)
+                val pos = PointF(
+                    (event.rawX - viewPosition[0] + viewPositionRelativeToWindow[0]) / recycler.width,
+                    (event.rawY - viewPosition[1] + viewPositionRelativeToWindow[1]) / recycler.originalHeight,
+                )
+                when (config.navigator.getAction(pos)) {
+                    NavigationRegion.MENU -> activity.toggleMenu()
+                    NavigationRegion.NEXT, NavigationRegion.RIGHT -> scrollDown()
+                    NavigationRegion.PREV, NavigationRegion.LEFT -> scrollUp()
+                }
             }
         }
         recycler.longTapListener = f@{ event ->

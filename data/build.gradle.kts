@@ -19,6 +19,12 @@ android {
                 dialect(libs.sqldelight.dialects.sql)
                 schemaOutputDirectory.set(project.file("./src/main/sqldelight"))
             }
+            create("OcrCacheDatabase") {
+                packageName.set("tachiyomi.data.ocr")
+                dialect(libs.sqldelight.dialects.sql)
+                schemaOutputDirectory.set(project.file("./src/main/sqldelight-ocr"))
+                srcDirs.setFrom("src/main/sqldelight-ocr")
+            }
         }
     }
 }

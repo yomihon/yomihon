@@ -118,6 +118,7 @@ fun MangaScreen(
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
     onMultiMarkAsReadClicked: (List<Chapter>, markAsRead: Boolean) -> Unit,
     onMarkPreviousAsReadClicked: (Chapter) -> Unit,
+    onOcrClicked: ((List<Chapter>) -> Unit)? = null,
     onMultiDeleteClicked: (List<Chapter>) -> Unit,
 
     // For chapter swipe
@@ -165,6 +166,7 @@ fun MangaScreen(
             onMultiBookmarkClicked = onMultiBookmarkClicked,
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
             onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
+            onOcrClicked = onOcrClicked,
             onMultiDeleteClicked = onMultiDeleteClicked,
             onChapterSwipe = onChapterSwipe,
             onChapterSelected = onChapterSelected,
@@ -201,6 +203,7 @@ fun MangaScreen(
             onMultiBookmarkClicked = onMultiBookmarkClicked,
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
             onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
+            onOcrClicked = onOcrClicked,
             onMultiDeleteClicked = onMultiDeleteClicked,
             onChapterSwipe = onChapterSwipe,
             onChapterSelected = onChapterSelected,
@@ -249,6 +252,7 @@ private fun MangaScreenSmallImpl(
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
     onMultiMarkAsReadClicked: (List<Chapter>, markAsRead: Boolean) -> Unit,
     onMarkPreviousAsReadClicked: (Chapter) -> Unit,
+    onOcrClicked: ((List<Chapter>) -> Unit)? = null,
     onMultiDeleteClicked: (List<Chapter>) -> Unit,
 
     // For chapter swipe
@@ -320,6 +324,7 @@ private fun MangaScreenSmallImpl(
                 onMultiBookmarkClicked = onMultiBookmarkClicked,
                 onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
                 onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
+                onOcrClicked = onOcrClicked,
                 onDownloadChapter = onDownloadChapter,
                 onMultiDeleteClicked = onMultiDeleteClicked,
                 fillFraction = 1f,
@@ -493,6 +498,7 @@ fun MangaScreenLargeImpl(
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
     onMultiMarkAsReadClicked: (List<Chapter>, markAsRead: Boolean) -> Unit,
     onMarkPreviousAsReadClicked: (Chapter) -> Unit,
+    onOcrClicked: ((List<Chapter>) -> Unit)? = null,
     onMultiDeleteClicked: (List<Chapter>) -> Unit,
 
     // For swipe actions
@@ -561,6 +567,7 @@ fun MangaScreenLargeImpl(
                     onMultiBookmarkClicked = onMultiBookmarkClicked,
                     onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
                     onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
+                    onOcrClicked = onOcrClicked,
                     onDownloadChapter = onDownloadChapter,
                     onMultiDeleteClicked = onMultiDeleteClicked,
                     fillFraction = 0.5f,
@@ -701,6 +708,7 @@ private fun SharedMangaBottomActionMenu(
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
     onMultiMarkAsReadClicked: (List<Chapter>, markAsRead: Boolean) -> Unit,
     onMarkPreviousAsReadClicked: (Chapter) -> Unit,
+    onOcrClicked: ((List<Chapter>) -> Unit)? = null,
     onDownloadChapter: ((List<ChapterList.Item>, ChapterDownloadAction) -> Unit)?,
     onMultiDeleteClicked: (List<Chapter>) -> Unit,
     fillFraction: Float,
@@ -709,6 +717,10 @@ private fun SharedMangaBottomActionMenu(
     MangaBottomActionMenu(
         visible = selected.isNotEmpty(),
         modifier = modifier.fillMaxWidth(fillFraction),
+        onOcrClicked = {
+            onOcrClicked?.invoke(selected.fastMap { it.chapter })
+            Unit
+        }.takeIf { onOcrClicked != null },
         onBookmarkClicked = {
             onMultiBookmarkClicked.invoke(selected.fastMap { it.chapter }, true)
         }.takeIf { selected.fastAny { !it.chapter.bookmark } },
@@ -787,6 +799,7 @@ private fun LazyListScope.sharedChapterItems(
                     read = item.chapter.read,
                     bookmark = item.chapter.bookmark,
                     selected = item.selected,
+                    hasScanResults = item.hasScanResults,
                     downloadIndicatorEnabled = !isAnyChapterSelected && !manga.isLocal(),
                     downloadStateProvider = { item.downloadState },
                     downloadProgressProvider = { item.downloadProgress },

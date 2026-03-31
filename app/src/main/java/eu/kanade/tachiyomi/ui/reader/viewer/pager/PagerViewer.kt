@@ -102,20 +102,24 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
         pager.adapter = adapter
         pager.addOnPageChangeListener(pagerListener)
         pager.tapListener = { event ->
-            val viewPosition = IntArray(2)
-            pager.getLocationOnScreen(viewPosition)
-            val viewPositionRelativeToWindow = IntArray(2)
-            pager.getLocationInWindow(viewPositionRelativeToWindow)
-            val pos = PointF(
-                (event.rawX - viewPosition[0] + viewPositionRelativeToWindow[0]) / pager.width,
-                (event.rawY - viewPosition[1] + viewPositionRelativeToWindow[1]) / pager.height,
-            )
-            when (config.navigator.getAction(pos)) {
-                NavigationRegion.MENU -> activity.toggleMenu()
-                NavigationRegion.NEXT -> moveToNext()
-                NavigationRegion.PREV -> moveToPrevious()
-                NavigationRegion.RIGHT -> moveRight()
-                NavigationRegion.LEFT -> moveLeft()
+            val currentPage = adapter.items.getOrNull(pager.currentItem) as? ReaderPage
+            val pageHolder = currentPage?.let(::getPageHolder)
+            if (pageHolder?.tryConsumeOcrTap(event.rawX, event.rawY) != true) {
+                val viewPosition = IntArray(2)
+                pager.getLocationOnScreen(viewPosition)
+                val viewPositionRelativeToWindow = IntArray(2)
+                pager.getLocationInWindow(viewPositionRelativeToWindow)
+                val pos = PointF(
+                    (event.rawX - viewPosition[0] + viewPositionRelativeToWindow[0]) / pager.width,
+                    (event.rawY - viewPosition[1] + viewPositionRelativeToWindow[1]) / pager.height,
+                )
+                when (config.navigator.getAction(pos)) {
+                    NavigationRegion.MENU -> activity.toggleMenu()
+                    NavigationRegion.NEXT -> moveToNext()
+                    NavigationRegion.PREV -> moveToPrevious()
+                    NavigationRegion.RIGHT -> moveRight()
+                    NavigationRegion.LEFT -> moveLeft()
+                }
             }
         }
         pager.longTapListener = f@{

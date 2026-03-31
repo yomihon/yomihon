@@ -26,6 +26,16 @@ import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.domain.track.interactor.RefreshTracks
 import eu.kanade.domain.track.interactor.SyncChapterProgressWithTrack
 import eu.kanade.domain.track.interactor.TrackChapter
+import eu.kanade.tachiyomi.data.ocr.OcrChapterScanner
+import eu.kanade.tachiyomi.data.ocr.OcrPageSourceGateway
+import eu.kanade.tachiyomi.data.ocr.OcrPageSourceGatewayImpl
+import eu.kanade.tachiyomi.data.ocr.OcrPageSourceResolver
+import eu.kanade.tachiyomi.data.ocr.OcrQueueActions
+import eu.kanade.tachiyomi.data.ocr.OcrScanManager
+import eu.kanade.tachiyomi.data.ocr.OcrScanNotifier
+import eu.kanade.tachiyomi.data.ocr.OcrScanStore
+import eu.kanade.tachiyomi.data.ocr.OcrScanWorkerController
+import eu.kanade.tachiyomi.data.ocr.WorkManagerOcrScanWorkerController
 import mihon.data.ankidroid.AnkiDroidRepositoryImpl
 import mihon.data.dictionary.DictionaryParserImpl
 import mihon.data.dictionary.DictionaryRepositoryImpl
@@ -49,7 +59,14 @@ import mihon.domain.extensionrepo.interactor.UpdateExtensionRepo
 import mihon.domain.extensionrepo.repository.ExtensionRepoRepository
 import mihon.domain.extensionrepo.service.ExtensionRepoService
 import mihon.domain.migration.usecases.MigrateMangaUseCase
+import mihon.domain.ocr.interactor.ClearCachedChapterOcr
+import mihon.domain.ocr.interactor.ClearOcrCache
+import mihon.domain.ocr.interactor.GetCachedChapterIdsOcr
+import mihon.domain.ocr.interactor.GetCachedPageOcr
+import mihon.domain.ocr.interactor.GetOcrCacheSize
 import mihon.domain.ocr.interactor.OcrProcessor
+import mihon.domain.ocr.interactor.ScanPageOcr
+import mihon.domain.ocr.interactor.WithOcrScanSession
 import mihon.domain.ocr.repository.OcrRepository
 import mihon.domain.upcoming.interactor.GetUpcomingManga
 import tachiyomi.data.category.CategoryRepositoryImpl
@@ -245,8 +262,24 @@ class DomainModule : InjektModule {
         addSingletonFactory<OcrRepository> {
             OcrRepositoryImpl(
                 context = get<Application>(),
+                downloadPreferences = get(),
             )
         }
+        addSingletonFactory { OcrScanStore(get<Application>(), get()) }
+        addSingletonFactory<OcrPageSourceGateway> { OcrPageSourceGatewayImpl(get<Application>(), get(), get()) }
+        addSingletonFactory { OcrPageSourceResolver(get(), get(), get()) }
+        addSingletonFactory { OcrScanNotifier(get<Application>()) }
+        addSingletonFactory { OcrChapterScanner(get(), get(), get(), get(), get(), get()) }
+        addSingletonFactory<OcrScanWorkerController> { WorkManagerOcrScanWorkerController(get<Application>()) }
+        addSingletonFactory { OcrScanManager(get(), get(), get(), get()) }
+        addFactory { OcrQueueActions(get(), get()) }
         addFactory { OcrProcessor(get()) }
+        addFactory { WithOcrScanSession(get()) }
+        addFactory { ScanPageOcr(get()) }
+        addFactory { GetCachedChapterIdsOcr(get()) }
+        addFactory { GetCachedPageOcr(get()) }
+        addFactory { ClearCachedChapterOcr(get()) }
+        addFactory { ClearOcrCache(get()) }
+        addFactory { GetOcrCacheSize(get()) }
     }
 }
