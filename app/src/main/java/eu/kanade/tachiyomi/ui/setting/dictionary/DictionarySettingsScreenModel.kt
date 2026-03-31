@@ -30,6 +30,9 @@ internal class DictionarySettingsScreenModel(
     private val context: Application = Injekt.get(),
 ) : StateScreenModel<DictionarySettingsScreenModel.State>(State()) {
 
+    private var shouldShowImportCompletionToast = false
+    private var hasObservedPendingImportRunning = false
+
     init {
         observeDictionaries()
         observeMigrationStatuses()
@@ -37,6 +40,16 @@ internal class DictionarySettingsScreenModel(
         screenModelScope.launch {
             DictionaryImportJob.isRunningFlow(context)
                 .collectLatest { isRunning ->
+                    if (shouldShowImportCompletionToast) {
+                        if (isRunning) {
+                            hasObservedPendingImportRunning = true
+                        } else if (hasObservedPendingImportRunning) {
+                            context.toast(MR.strings.dictionary_import_success.getString(context))
+                            shouldShowImportCompletionToast = false
+                            hasObservedPendingImportRunning = false
+                        }
+                    }
+
                     mutableState.update {
                         it.copy(
                             isImporting = isRunning,
@@ -76,10 +89,14 @@ internal class DictionarySettingsScreenModel(
     }
 
     fun importDictionaryFromUri(uri: Uri) {
+        shouldShowImportCompletionToast = true
+        hasObservedPendingImportRunning = state.value.isImporting
         DictionaryImportJob.start(context, uri)
     }
 
     fun importDictionaryFromUrl(url: String) {
+        shouldShowImportCompletionToast = true
+        hasObservedPendingImportRunning = state.value.isImporting
         DictionaryImportJob.start(context, url)
     }
 
