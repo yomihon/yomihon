@@ -217,6 +217,10 @@ class DictionaryImportJob(
 
         const val MAX_DICTIONARY_DOWNLOAD_BYTES: Long = 300L * 1024L * 1024L
 
+        fun startFromUriString(context: Context, uriString: String) {
+            start(context, uriString.toUri())
+        }
+
         fun start(context: Context, uri: Uri) {
             val inputData = workDataOf(
                 KEY_URI to uri.toString(),

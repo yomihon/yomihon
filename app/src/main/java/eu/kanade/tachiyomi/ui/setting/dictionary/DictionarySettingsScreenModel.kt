@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.compose.runtime.Immutable
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.tachiyomi.domain.dictionary.DictionaryImportRequest
 import eu.kanade.tachiyomi.domain.dictionary.DictionarySettingsCoordinator
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.collectLatest
@@ -71,11 +72,11 @@ class DictionarySettingsScreenModel(
     }
 
     fun importDictionaryFromUri(uri: Uri) {
-        dictionarySettingsCoordinator.startFromUri(uri)
+        dictionarySettingsCoordinator.startImport(DictionaryImportRequest.LocalArchive(uri.toString()))
     }
 
     fun importDictionaryFromUrl(url: String) {
-        dictionarySettingsCoordinator.startFromUrl(url)
+        dictionarySettingsCoordinator.startImport(DictionaryImportRequest.RemoteUrl(url))
     }
 
     fun updateDictionary(context: Context, dictionary: Dictionary) {

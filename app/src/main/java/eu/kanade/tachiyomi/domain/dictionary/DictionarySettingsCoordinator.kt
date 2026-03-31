@@ -1,12 +1,18 @@
 package eu.kanade.tachiyomi.domain.dictionary
 
-import android.net.Uri
+import android.app.Application
+import eu.kanade.tachiyomi.data.dictionary.DictionaryImportJob
 import kotlinx.coroutines.flow.Flow
-import eu.kanade.tachiyomi.data.dictionary.DictionaryImportCoordinator
 import mihon.domain.dictionary.model.Dictionary
 import mihon.domain.dictionary.model.DictionaryMigrationStatus
 import mihon.domain.dictionary.repository.DictionaryMigrationStatusRepository
 import mihon.domain.dictionary.repository.DictionaryRepository
+
+sealed interface DictionaryImportRequest {
+    data class LocalArchive(val uriString: String) : DictionaryImportRequest
+
+    data class RemoteUrl(val url: String) : DictionaryImportRequest
+}
 
 interface DictionarySettingsCoordinator {
     fun observeDictionaries(): Flow<List<Dictionary>>
@@ -15,15 +21,13 @@ interface DictionarySettingsCoordinator {
 
     fun isRunningFlow(): Flow<Boolean>
 
-    fun startFromUri(uri: Uri)
-
-    fun startFromUrl(url: String)
+    fun startImport(request: DictionaryImportRequest)
 }
 
 internal class DictionarySettingsCoordinatorImpl(
+    private val application: Application,
     private val dictionaryRepository: DictionaryRepository,
     private val dictionaryMigrationStatusRepository: DictionaryMigrationStatusRepository,
-    private val dictionaryImportCoordinator: DictionaryImportCoordinator,
 ) : DictionarySettingsCoordinator {
 
     override fun observeDictionaries(): Flow<List<Dictionary>> {
@@ -35,14 +39,13 @@ internal class DictionarySettingsCoordinatorImpl(
     }
 
     override fun isRunningFlow(): Flow<Boolean> {
-        return dictionaryImportCoordinator.isRunningFlow()
+        return DictionaryImportJob.isRunningFlow(application)
     }
 
-    override fun startFromUri(uri: Uri) {
-        dictionaryImportCoordinator.startFromUri(uri)
-    }
-
-    override fun startFromUrl(url: String) {
-        dictionaryImportCoordinator.startFromUrl(url)
+    override fun startImport(request: DictionaryImportRequest) {
+        when (request) {
+            is DictionaryImportRequest.LocalArchive -> DictionaryImportJob.startFromUriString(application, request.uriString)
+            is DictionaryImportRequest.RemoteUrl -> DictionaryImportJob.start(application, request.url)
+        }
     }
 }
