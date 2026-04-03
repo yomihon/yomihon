@@ -24,6 +24,7 @@ import mihon.domain.dictionary.service.DictionarySearchBackend
 import mihon.domain.dictionary.service.DictionarySearchEntry
 import mihon.domain.dictionary.service.DictionaryStorageGateway
 import mihon.domain.dictionary.service.DictionaryStorageImportOutcome
+import tachiyomi.core.common.util.system.logcat
 import java.io.File
 import java.text.Normalizer
 import java.util.concurrent.atomic.AtomicBoolean
@@ -263,7 +264,11 @@ class HoshiDictionaryStore(
                     definitionTags = glossaryEntry.definitionTags.ifBlank { null },
                     rules = termResult.rules.ifBlank { null },
                     score = termResult.score,
-                    glossary = parseGlossary(glossaryEntry.glossary),
+                    glossary = parseGlossary(glossaryEntry.glossary).also {
+                        logcat {
+                            "Hoshi Glossary: ${glossaryEntry.dictName} | ${termResult.expression} | ${glossaryEntry.glossary}"
+                        }
+                    },
                     sequence = null,
                     termTags = glossaryEntry.termTags.ifBlank { null },
                 ),

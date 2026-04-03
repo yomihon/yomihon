@@ -20,6 +20,7 @@ import mihon.domain.dictionary.model.DictionaryTermMetaExport
 import mihon.domain.dictionary.repository.DictionaryLegacyRepository
 import mihon.domain.dictionary.repository.DictionaryMigrationStatusRepository
 import mihon.domain.dictionary.repository.DictionaryRepository
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.DatabaseHandler
 
 class DictionaryRepositoryImpl(
@@ -213,7 +214,9 @@ class DictionaryRepositoryImpl(
                     definitionTags = definitionTags,
                     rules = rules,
                     score = score.toInt(),
-                    glossaryJson = glossary,
+                    glossaryJson = glossary.also {
+                        logcat { "Legacy Term Meta Export: $expression | $glossary" }
+                    },
                     sequence = sequence,
                     termTags = termTags,
                 )
@@ -234,7 +237,10 @@ class DictionaryRepositoryImpl(
                 dictionaryIds = dictionaryIds,
                 limit = 100,
             )
-        }.map { it.toDomain() }
+        }.map { term ->
+            logcat { "Legacy Term Search: ${term.expression} | ${term.glossary}" }
+            term.toDomain()
+        }
     }
 
     override suspend fun deleteTermsForDictionary(dictionaryId: Long) {
