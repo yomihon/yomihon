@@ -313,6 +313,150 @@ class SearchDictionaryTermsHybridTest {
     }
 
     @Test
+    fun `japanese lookup ranks exact expression then reading then deinflected matches`() = runTest {
+        val japaneseDictionary = Dictionary(
+            id = 1L,
+            title = "Japanese",
+            revision = "1",
+            version = 3,
+            sourceLanguage = "ja",
+            backend = DictionaryBackend.HOSHI,
+            storageReady = true,
+            priority = 1,
+        )
+
+        val exactExpression = DictionaryTerm(
+            dictionaryId = 1L,
+            expression = "まじ",
+            reading = "まじ",
+            definitionTags = null,
+            rules = null,
+            score = 1,
+            glossary = emptyList(),
+            termTags = null,
+        )
+        val readingMatch = DictionaryTerm(
+            dictionaryId = 1L,
+            expression = "交じ",
+            reading = "まじ",
+            definitionTags = null,
+            rules = null,
+            score = 50,
+            glossary = emptyList(),
+            termTags = null,
+        )
+        val deinflectedMatch = DictionaryTerm(
+            dictionaryId = 1L,
+            expression = "混じる",
+            reading = "まじる",
+            definitionTags = null,
+            rules = "v1",
+            score = 999,
+            glossary = emptyList(),
+            termTags = null,
+        )
+
+        coEvery { dictionaryRepository.getAllDictionaries() } returns listOf(japaneseDictionary)
+        coEvery { dictionarySearchGateway.lookup("まじ", listOf(1L), any()) } returns listOf(
+            DictionaryLookupMatch(
+                matched = "まじ",
+                deinflected = "まじ",
+                process = listOf("dictionary"),
+                term = exactExpression,
+                termMeta = emptyList(),
+            ),
+            DictionaryLookupMatch(
+                matched = "まじ",
+                deinflected = "まじ",
+                process = listOf("dictionary"),
+                term = readingMatch,
+                termMeta = emptyList(),
+            ),
+            DictionaryLookupMatch(
+                matched = "まじ",
+                deinflected = "まじる",
+                process = listOf("deinflect"),
+                term = deinflectedMatch,
+                termMeta = emptyList(),
+            ),
+        )
+
+        val results = searchDictionaryTerms.search("まじ", listOf(1L))
+
+        results.map { it.expression } shouldBe listOf("まじ", "交じ", "混じる")
+    }
+
+    @Test
+    fun `japanese exact expression lookup outranks higher priority reading match`() = runTest {
+        val higherPriorityDictionary = Dictionary(
+            id = 1L,
+            title = "HigherPriority",
+            revision = "1",
+            version = 3,
+            sourceLanguage = "ja",
+            backend = DictionaryBackend.HOSHI,
+            storageReady = true,
+            priority = 1,
+        )
+        val lowerPriorityDictionary = Dictionary(
+            id = 2L,
+            title = "LowerPriority",
+            revision = "1",
+            version = 3,
+            sourceLanguage = "ja",
+            backend = DictionaryBackend.HOSHI,
+            storageReady = true,
+            priority = 2,
+        )
+
+        val readingMatch = DictionaryTerm(
+            dictionaryId = 1L,
+            expression = "交じ",
+            reading = "まじ",
+            definitionTags = null,
+            rules = null,
+            score = 999,
+            glossary = emptyList(),
+            termTags = null,
+        )
+        val exactExpression = DictionaryTerm(
+            dictionaryId = 2L,
+            expression = "まじ",
+            reading = "まじ",
+            definitionTags = null,
+            rules = null,
+            score = 1,
+            glossary = emptyList(),
+            termTags = null,
+        )
+
+        coEvery { dictionaryRepository.getAllDictionaries() } returns listOf(
+            higherPriorityDictionary,
+            lowerPriorityDictionary,
+        )
+        coEvery { dictionarySearchGateway.lookup("まじ", listOf(1L, 2L), any()) } returns listOf(
+            DictionaryLookupMatch(
+                matched = "まじ",
+                deinflected = "まじ",
+                process = listOf("dictionary"),
+                term = readingMatch,
+                termMeta = emptyList(),
+            ),
+            DictionaryLookupMatch(
+                matched = "まじ",
+                deinflected = "まじ",
+                process = listOf("dictionary"),
+                term = exactExpression,
+                termMeta = emptyList(),
+            ),
+        )
+
+        val results = searchDictionaryTerms.search("まじ", listOf(1L, 2L))
+
+        results.map { it.dictionaryId } shouldBe listOf(2L, 1L)
+    }
+
+    @Test
     fun `japanese exact lookup match outranks higher priority partial match`() = runTest {
         val higherPriorityDictionary = Dictionary(
             id = 1L,

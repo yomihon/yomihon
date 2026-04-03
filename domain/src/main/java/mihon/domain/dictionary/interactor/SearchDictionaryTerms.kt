@@ -230,7 +230,7 @@ class SearchDictionaryTerms(
         val normalizedQuery = convertToKana(query.trim())
         val split = partitionDictionaryIdsByBackend(dictionaryIds, context.dictionariesById)
         val results = LinkedHashMap<String, DictionaryTerm>(MAX_RESULTS * 2)
-        val exactMatchKeys = mutableSetOf<String>()
+        val lookupRanksByKey = mutableMapOf<String, Int>()
 
         if (split.hoshiIds.isNotEmpty()) {
             dictionarySearchGateway.lookup(
@@ -239,11 +239,16 @@ class SearchDictionaryTerms(
                 maxResults = MAX_RESULTS,
             ).forEach { match ->
                 val key = termKey(match.term)
+                val rank = lookupMatchRank(
+                    term = match.term,
+                    matched = match.matched,
+                    query = normalizedQuery,
+                )
                 if (key !in results && results.size < MAX_RESULTS) {
                     results[key] = match.term
                 }
-                if (match.matched == normalizedQuery) {
-                    exactMatchKeys += key
+                if (key in results) {
+                    lookupRanksByKey[key] = minOf(lookupRanksByKey[key] ?: Int.MAX_VALUE, rank)
                 }
             }
         }
@@ -254,9 +259,7 @@ class SearchDictionaryTerms(
                     val key = termKey(term)
                     if (key !in results && results.size < MAX_RESULTS) {
                         results[key] = term
-                        if (term.expression == normalizedQuery || term.reading == normalizedQuery) {
-                            exactMatchKeys += key
-                        }
+                        lookupRanksByKey[key] = exactMatchRank(term, normalizedQuery)
                     }
                 }
         }
@@ -264,7 +267,7 @@ class SearchDictionaryTerms(
         return sortTermsByLookupExactness(
             terms = results.values.toList(),
             prioritiesById = context.prioritiesById,
-            exactMatchKeys = exactMatchKeys,
+            lookupRanksByKey = lookupRanksByKey,
         )
     }
 
@@ -563,12 +566,12 @@ class SearchDictionaryTerms(
     private fun sortTermsByLookupExactness(
         terms: List<DictionaryTerm>,
         prioritiesById: Map<Long, Int>,
-        exactMatchKeys: Set<String>,
+        lookupRanksByKey: Map<String, Int>,
     ): List<DictionaryTerm> {
         if (terms.isEmpty()) return emptyList()
 
         return terms.sortedWith(
-            compareByDescending<DictionaryTerm> { termKey(it) in exactMatchKeys }
+            compareBy<DictionaryTerm> { lookupRanksByKey[termKey(it)] ?: Int.MAX_VALUE }
                 .thenBy { prioritiesById[it.dictionaryId] ?: Int.MAX_VALUE }
                 .thenByDescending { it.score },
         )
@@ -579,6 +582,15 @@ class SearchDictionaryTerms(
             term.expression == query -> 0
             term.reading == query -> 1
             else -> 2
+        }
+    }
+
+    private fun lookupMatchRank(term: DictionaryTerm, matched: String, query: String): Int {
+        return when {
+            term.expression == query -> 0
+            term.reading == query -> 1
+            matched == query -> 2
+            else -> 3
         }
     }
 
