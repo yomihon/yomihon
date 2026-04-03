@@ -55,9 +55,11 @@ import com.hippo.unifile.UniFile
 import dev.chrisbanes.insetter.applyInsetter
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.dictionary.DictionaryPreferences
 import eu.kanade.presentation.reader.DisplayRefreshHost
 import eu.kanade.presentation.reader.OcrLoadingIndicator
 import eu.kanade.presentation.reader.OcrResultBottomSheet
+import eu.kanade.presentation.reader.OcrResultOverlay
 import eu.kanade.presentation.reader.OcrSelectionOverlay
 import eu.kanade.presentation.reader.OrientationSelectDialog
 import eu.kanade.presentation.reader.PageIndicatorText
@@ -134,6 +136,7 @@ class ReaderActivity : BaseActivity() {
 
     private val readerPreferences = Injekt.get<ReaderPreferences>()
     private val preferences = Injekt.get<BasePreferences>()
+    private val dictionaryPreferences = Injekt.get<DictionaryPreferences>()
 
     lateinit var binding: ReaderActivityBinding
 
@@ -162,6 +165,7 @@ class ReaderActivity : BaseActivity() {
 
     private var ocrDragStart by mutableStateOf<Offset?>(null)
     private var ocrDragEnd by mutableStateOf<Offset?>(null)
+    private var lastOcrSelectionRect by mutableStateOf<android.graphics.RectF?>(null)
     private var isTapExitEnabled = false
 
     private fun resetOcrDrag() {
@@ -268,15 +272,19 @@ class ReaderActivity : BaseActivity() {
                         onSetAsCoverResult(event.result)
                     }
                     ReaderViewModel.Event.OcrNoTextFound -> {
+                        lastOcrSelectionRect = null
                         toast(MR.strings.no_results_found)
                     }
                     ReaderViewModel.Event.OcrMemoryError -> {
+                        lastOcrSelectionRect = null
                         toast(MR.strings.ocr_memory_error)
                     }
                     ReaderViewModel.Event.OcrInitializationError -> {
+                        lastOcrSelectionRect = null
                         toast(MR.strings.ocr_initialization_error)
                     }
                     ReaderViewModel.Event.OcrError -> {
+                        lastOcrSelectionRect = null
                         toast(MR.strings.error_unknown)
                     }
                 }
@@ -443,6 +451,7 @@ class ReaderActivity : BaseActivity() {
 
         binding.dialogRoot.setComposeContent {
             val state by viewModel.state.collectAsState()
+            val dimOcrBackground by dictionaryPreferences.ocrResultDimBackground().collectAsState()
             val settingsScreenModel = remember {
                 ReaderSettingsScreenModel(
                     readerState = viewModel.state,
@@ -575,6 +584,10 @@ class ReaderActivity : BaseActivity() {
                 }
 
                 val onDismissRequest = viewModel::closeDialog
+                val onDismissOcrResult = {
+                    lastOcrSelectionRect = null
+                    viewModel.closeDialog()
+                }
                 when (val dialog = state.dialog) {
                     is ReaderViewModel.Dialog.Loading -> {
                         AlertDialog(
@@ -631,9 +644,11 @@ class ReaderActivity : BaseActivity() {
                     }
                     is ReaderViewModel.Dialog.OcrResult -> {
                         val searchState by dictionarySearchScreenModel.state.collectAsState()
-                        OcrResultBottomSheet(
-                            onDismissRequest = onDismissRequest,
+                        OcrResultOverlay(
+                            onDismissRequest = onDismissOcrResult,
+                            dimBackground = dimOcrBackground,
                             text = dialog.text,
+                            anchorRect = lastOcrSelectionRect,
                             onCopyText = {
                                 val clipboard = getSystemService<ClipboardManager>()
                                 clipboard?.setPrimaryClip(
@@ -867,6 +882,7 @@ class ReaderActivity : BaseActivity() {
      * Captures a bitmap from the specified region and processes it with OCR.
      */
     private fun captureRegionAndProcessOcr(rect: android.graphics.RectF) {
+        lastOcrSelectionRect = android.graphics.RectF(rect)
         lifecycleScope.launchIO {
             try {
                 val viewerContainer = binding.viewerContainer
@@ -956,6 +972,7 @@ class ReaderActivity : BaseActivity() {
      */
     fun enterOcrMode() {
         resetOcrDrag()
+        lastOcrSelectionRect = null
         if (!readerPreferences.fullscreen().get()) {
             WindowCompat.setDecorFitsSystemWindows(window, false)
             updateViewerInset(fullscreen = true)

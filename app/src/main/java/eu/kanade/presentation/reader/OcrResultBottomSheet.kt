@@ -15,8 +15,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import eu.kanade.presentation.dictionary.components.DictionaryResults
 import eu.kanade.presentation.dictionary.components.SearchBar
 import eu.kanade.tachiyomi.ui.dictionary.DictionarySearchScreenModel
@@ -46,63 +44,56 @@ fun OcrResultBottomSheet(
         }
     }
 
-    Dialog(
-        onDismissRequest = onDismissRequest,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false,
-        ),
+    // Use BoxWithConstraints to measure the actual available space for the sheet content
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.BottomCenter,
     ) {
-        // Use BoxWithConstraints to measure the actual available space for the sheet content
-        BoxWithConstraints(
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-            val useSideSheet = maxWidth >= 600.dp
+        val useSideSheet = maxWidth >= 600.dp
 
-            ResizableSheet(
-                onDismissRequest = onDismissRequest,
-                initialValue = SheetValue.PartiallyExpanded,
-                contentAlignment = if (useSideSheet) Alignment.BottomEnd else Alignment.BottomCenter,
-                sheetModifier = if (useSideSheet) Modifier.width(400.dp) else Modifier.fillMaxWidth(),
-            ) { expansionFraction ->
-                val isSheetExpanded = expansionFraction >= SHEET_EXPANSION_THRESHOLD
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 24.dp)
-                        .padding(bottom = 16.dp, top = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-                ) {
-                    if (isSheetExpanded) {
-                        SearchBar(
-                            query = searchState.query,
-                            onQueryChange = onQueryChange,
-                            onSearch = { onSearch(searchState.query) },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-
-                        HorizontalDivider()
-                    }
-
-                    DictionaryResults(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        query = searchState.results?.query ?: "",
-                        highlightRange = searchState.results?.highlightRange,
-                        isLoading = searchState.isLoading,
-                        isSearching = searchState.isSearching,
-                        hasSearched = searchState.hasSearched,
-                        searchResults = searchState.results?.items ?: emptyList(),
-                        dictionaries = searchState.dictionaries,
-                        enabledDictionaryIds = searchState.enabledDictionaryIds.toSet(),
-                        termMetaMap = searchState.results?.termMetaMap ?: emptyMap(),
-                        existingTermExpressions = searchState.existingTermExpressions,
-                        onTermGroupClick = onTermGroupClick,
+        ResizableSheet(
+            onDismissRequest = onDismissRequest,
+            initialValue = SheetValue.PartiallyExpanded,
+            contentAlignment = if (useSideSheet) Alignment.BottomEnd else Alignment.BottomCenter,
+            sheetModifier = if (useSideSheet) Modifier.width(400.dp) else Modifier.fillMaxWidth(),
+        ) { expansionFraction ->
+            val isSheetExpanded = expansionFraction >= SHEET_EXPANSION_THRESHOLD
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 16.dp, top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+            ) {
+                if (isSheetExpanded) {
+                    SearchBar(
+                        query = searchState.query,
                         onQueryChange = onQueryChange,
-                        onSearch = onSearch,
-                        onCopyText = onCopyText,
-                        contentPadding = PaddingValues(bottom = 8.dp),
+                        onSearch = { onSearch(searchState.query) },
+                        modifier = Modifier.fillMaxWidth(),
                     )
+
+                    HorizontalDivider()
                 }
+
+                DictionaryResults(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    query = searchState.results?.query ?: "",
+                    highlightRange = searchState.results?.highlightRange,
+                    isLoading = searchState.isLoading,
+                    isSearching = searchState.isSearching,
+                    hasSearched = searchState.hasSearched,
+                    searchResults = searchState.results?.items ?: emptyList(),
+                    dictionaries = searchState.dictionaries,
+                    enabledDictionaryIds = searchState.enabledDictionaryIds.toSet(),
+                    termMetaMap = searchState.results?.termMetaMap ?: emptyMap(),
+                    existingTermExpressions = searchState.existingTermExpressions,
+                    onTermGroupClick = onTermGroupClick,
+                    onQueryChange = onQueryChange,
+                    onSearch = onSearch,
+                    onCopyText = onCopyText,
+                    contentPadding = PaddingValues(bottom = 8.dp),
+                )
             }
         }
     }
