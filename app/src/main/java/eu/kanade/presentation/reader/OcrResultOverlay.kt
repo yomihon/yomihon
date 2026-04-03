@@ -8,12 +8,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import eu.kanade.domain.dictionary.OcrResultPresentation
 import eu.kanade.tachiyomi.ui.dictionary.DictionarySearchScreenModel
 import mihon.domain.dictionary.model.DictionaryTerm
+
+data class OcrResultPopupSettings(
+    val widthDp: Int,
+    val heightDp: Int,
+    val contentScale: Float,
+)
 
 @Composable
 fun OcrResultOverlay(
     onDismissRequest: () -> Unit,
+    presentation: OcrResultPresentation,
+    popupSettings: OcrResultPopupSettings,
     dimBackground: Boolean,
     text: String,
     anchorRect: RectF?,
@@ -34,14 +43,31 @@ fun OcrResultOverlay(
             )
         }
 
-        OcrResultBottomSheet(
-            onDismissRequest = onDismissRequest,
-            text = text,
-            onCopyText = onCopyText,
-            searchState = searchState,
-            onQueryChange = onQueryChange,
-            onSearch = onSearch,
-            onTermGroupClick = onTermGroupClick,
-        )
+        when {
+            presentation == OcrResultPresentation.POPUP && anchorRect != null -> {
+                OcrResultPopup(
+                    onDismissRequest = onDismissRequest,
+                    text = text,
+                    anchorRect = anchorRect,
+                    settings = popupSettings,
+                    onCopyText = onCopyText,
+                    searchState = searchState,
+                    onQueryChange = onQueryChange,
+                    onSearch = onSearch,
+                    onTermGroupClick = onTermGroupClick,
+                )
+            }
+            else -> {
+                OcrResultBottomSheet(
+                    onDismissRequest = onDismissRequest,
+                    text = text,
+                    onCopyText = onCopyText,
+                    searchState = searchState,
+                    onQueryChange = onQueryChange,
+                    onSearch = onSearch,
+                    onTermGroupClick = onTermGroupClick,
+                )
+            }
+        }
     }
 }

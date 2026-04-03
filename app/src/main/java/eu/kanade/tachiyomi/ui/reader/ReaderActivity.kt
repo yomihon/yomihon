@@ -56,10 +56,11 @@ import dev.chrisbanes.insetter.applyInsetter
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.dictionary.DictionaryPreferences
+import eu.kanade.domain.dictionary.OcrResultPresentation
 import eu.kanade.presentation.reader.DisplayRefreshHost
 import eu.kanade.presentation.reader.OcrLoadingIndicator
-import eu.kanade.presentation.reader.OcrResultBottomSheet
 import eu.kanade.presentation.reader.OcrResultOverlay
+import eu.kanade.presentation.reader.OcrResultPopupSettings
 import eu.kanade.presentation.reader.OcrSelectionOverlay
 import eu.kanade.presentation.reader.OrientationSelectDialog
 import eu.kanade.presentation.reader.PageIndicatorText
@@ -452,6 +453,10 @@ class ReaderActivity : BaseActivity() {
         binding.dialogRoot.setComposeContent {
             val state by viewModel.state.collectAsState()
             val dimOcrBackground by dictionaryPreferences.ocrResultDimBackground().collectAsState()
+            val ocrResultPresentation by dictionaryPreferences.ocrResultPresentation().collectAsState()
+            val ocrPopupWidthDp by dictionaryPreferences.ocrResultPopupWidthDp().collectAsState()
+            val ocrPopupHeightDp by dictionaryPreferences.ocrResultPopupHeightDp().collectAsState()
+            val ocrPopupScalePercent by dictionaryPreferences.ocrResultPopupScalePercent().collectAsState()
             val settingsScreenModel = remember {
                 ReaderSettingsScreenModel(
                     readerState = viewModel.state,
@@ -646,6 +651,12 @@ class ReaderActivity : BaseActivity() {
                         val searchState by dictionarySearchScreenModel.state.collectAsState()
                         OcrResultOverlay(
                             onDismissRequest = onDismissOcrResult,
+                            presentation = ocrResultPresentation,
+                            popupSettings = OcrResultPopupSettings(
+                                widthDp = ocrPopupWidthDp,
+                                heightDp = ocrPopupHeightDp,
+                                contentScale = ocrPopupScalePercent / 100f,
+                            ),
                             dimBackground = dimOcrBackground,
                             text = dialog.text,
                             anchorRect = lastOcrSelectionRect,
