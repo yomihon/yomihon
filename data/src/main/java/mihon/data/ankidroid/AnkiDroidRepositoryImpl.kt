@@ -324,7 +324,7 @@ class AnkiDroidRepositoryImpl(
 
             <hr>
 
-            <div class="word-meaning">{{Word Meaning}}</div>
+            <div class="glossary">{{Word Meaning}}</div>
 
             <hr>
 
@@ -375,10 +375,26 @@ img {
 
 b{color: #5586cd}
 
-.word-meaning {
+.glossary {
   font-size: 16px;
   padding-bottom: 20px;
   text-align: left;
+}
+
+.glossary table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.glossary th,
+.glossary td {
+  border: 1px solid #8a8a8a;
+  padding: 0.25em 0.5em;
+  vertical-align: top;
+}
+
+.glossary th {
+  font-weight: bold;
 }
 
 .word-reading rt {
