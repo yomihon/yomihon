@@ -38,11 +38,10 @@ Yomihon takes the features of Mihon and enhances them with advanced tools for la
 | Feature | Description |
 | :--- | :--- |
 | 🔍 **Built-in Text Recognition** | Fast, on-device OCR to extract text from images in real-time. Online models are also available for more languages. |
-| 📖 **Yomitan Support** | Seamless dictionary lookups for language learners across multiple languages. |
+| 📖 **Yomitan Dictionary Support** | Seamless dictionary lookups for language learners across multiple languages. |
 | **One-click Anki Cards** | Instantly create flashcards while reading and looking up new words. |
 
-<details>
-<summary>Plus much more...</summary>
+Core Reader Features:
 
 * Local reading of content.
 * A configurable reader with multiple viewers, reading directions and other settings.
@@ -52,8 +51,6 @@ Yomihon takes the features of Mihon and enhances them with advanced tools for la
 * Schedule updating your library for new chapters.
 * Create backups locally to read offline or to your desired cloud service.
 * Plus much more...
-
-</details>
 
 ## 🤝 Contributing
 
