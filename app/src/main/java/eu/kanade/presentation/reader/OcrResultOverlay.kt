@@ -25,6 +25,7 @@ fun OcrResultOverlay(
     popupSettings: OcrResultPopupSettings,
     dimBackground: Boolean,
     text: String,
+    initialSearchText: String = text,
     anchorRect: RectF?,
     onCopyText: () -> Unit,
     searchState: DictionarySearchScreenModel.State,
@@ -49,6 +50,7 @@ fun OcrResultOverlay(
                 OcrResultPopup(
                     onDismissRequest = onDismissRequest,
                     text = text,
+                    initialSearchText = initialSearchText,
                     anchorRect = anchorRect,
                     settings = popupSettings,
                     onCopyText = onCopyText,
@@ -63,6 +65,7 @@ fun OcrResultOverlay(
                 OcrResultBottomSheet(
                     onDismissRequest = onDismissRequest,
                     text = text,
+                    initialSearchText = initialSearchText,
                     onCopyText = onCopyText,
                     searchState = searchState,
                     onQueryChange = onQueryChange,

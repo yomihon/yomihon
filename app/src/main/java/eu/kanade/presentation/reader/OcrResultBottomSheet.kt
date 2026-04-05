@@ -30,6 +30,7 @@ private const val SHEET_EXPANSION_THRESHOLD = 0.80f
 fun OcrResultBottomSheet(
     onDismissRequest: () -> Unit,
     text: String,
+    initialSearchText: String = text,
     onCopyText: () -> Unit,
     searchState: DictionarySearchScreenModel.State,
     onQueryChange: (String) -> Unit,
@@ -38,10 +39,10 @@ fun OcrResultBottomSheet(
     onPlayAudioClick: (List<DictionaryTerm>) -> Unit,
 ) {
     // Automatically search dictionary for the OCR text
-    LaunchedEffect(text) {
+    LaunchedEffect(text, initialSearchText) {
         if (text.isNotBlank()) {
             onQueryChange(text)
-            onSearch(text)
+            onSearch(initialSearchText)
         }
     }
 

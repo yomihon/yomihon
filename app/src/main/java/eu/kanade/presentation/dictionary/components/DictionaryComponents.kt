@@ -97,6 +97,7 @@ fun DictionaryResults(
     modifier: Modifier = Modifier,
     query: String = "",
     highlightRange: Pair<Int, Int>? = null,
+    showQueryHeader: Boolean = true,
     isLoading: Boolean,
     isSearching: Boolean,
     hasSearched: Boolean,
@@ -147,7 +148,7 @@ fun DictionaryResults(
             Column(
                 modifier = modifier.fillMaxSize(),
             ) {
-                if (query.isNotBlank()) {
+                if (showQueryHeader && query.isNotBlank()) {
                     WordSelector(
                         text = query,
                         highlightRange = null,
@@ -176,6 +177,7 @@ fun DictionaryResults(
                 onCopyText = onCopyText,
                 query = query,
                 highlightRange = highlightRange,
+                showQueryHeader = showQueryHeader,
                 contentPadding = contentPadding,
                 modifier = modifier,
             )
@@ -224,6 +226,7 @@ private fun SearchResultsList(
     onCopyText: (() -> Unit)? = null,
     query: String,
     highlightRange: Pair<Int, Int>?,
+    showQueryHeader: Boolean,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(16.dp),
 ) {
@@ -245,7 +248,7 @@ private fun SearchResultsList(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier,
     ) {
-        if (query.isNotBlank()) {
+        if (showQueryHeader && query.isNotBlank()) {
             item {
                 WordSelector(
                     text = query,

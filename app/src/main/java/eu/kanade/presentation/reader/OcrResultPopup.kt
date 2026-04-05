@@ -5,20 +5,23 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalDensity
@@ -29,12 +32,15 @@ import eu.kanade.presentation.dictionary.components.DictResultContentScale
 import eu.kanade.presentation.dictionary.components.DictionaryResults
 import eu.kanade.tachiyomi.ui.dictionary.DictionarySearchScreenModel
 import mihon.domain.dictionary.model.DictionaryTerm
+import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.math.roundToInt
 
 @Composable
 fun OcrResultPopup(
     onDismissRequest: () -> Unit,
     text: String,
+    initialSearchText: String = text,
     anchorRect: RectF,
     settings: OcrResultPopupSettings,
     onCopyText: () -> Unit,
@@ -44,10 +50,10 @@ fun OcrResultPopup(
     onTermGroupClick: (List<DictionaryTerm>) -> Unit,
     onPlayAudioClick: (List<DictionaryTerm>) -> Unit,
 ) {
-    LaunchedEffect(text) {
+    LaunchedEffect(text, initialSearchText) {
         if (text.isNotBlank()) {
             onQueryChange(text)
-            onSearch(text)
+            onSearch(initialSearchText)
         }
     }
 
@@ -87,15 +93,19 @@ fun OcrResultPopup(
                 )
             }
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable(
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() },
-                    onClick = onDismissRequest,
-                ),
-        ) {
+        if (placement == null) {
+            OcrResultBottomSheet(
+                onDismissRequest = onDismissRequest,
+                text = text,
+                initialSearchText = initialSearchText,
+                onCopyText = onCopyText,
+                searchState = searchState,
+                onQueryChange = onQueryChange,
+                onSearch = onSearch,
+                onTermGroupClick = onTermGroupClick,
+                onPlayAudioClick = onPlayAudioClick,
+            )
+        } else {
             Surface(
                 modifier = Modifier
                     .width(popupWidthDp)
@@ -124,15 +134,16 @@ fun OcrResultPopup(
                         LocalDensity provides scaledDensity,
                         DictResultContentScale provides contentScale,
                     ) {
-                        Column(
+                        Box(
                             modifier = Modifier.fillMaxSize(),
                         ) {
                             DictionaryResults(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .weight(1f),
+                                    .fillMaxSize(),
                                 query = searchState.results?.query ?: "",
                                 highlightRange = searchState.results?.highlightRange,
+                                showQueryHeader = false,
                                 isLoading = searchState.isLoading,
                                 isSearching = searchState.isSearching,
                                 hasSearched = searchState.hasSearched,
@@ -146,9 +157,19 @@ fun OcrResultPopup(
                                 onPlayAudioClick = onPlayAudioClick,
                                 onQueryChange = onQueryChange,
                                 onSearch = onSearch,
-                                onCopyText = onCopyText,
-                                contentPadding = PaddingValues(8.dp),
+                                onCopyText = null,
+                                contentPadding = PaddingValues(start = 8.dp, top = 40.dp, end = 8.dp, bottom = 8.dp),
                             )
+
+                            IconButton(
+                                onClick = onCopyText,
+                                modifier = Modifier.align(Alignment.TopEnd),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.ContentCopy,
+                                    contentDescription = stringResource(MR.strings.action_copy),
+                                )
+                            }
                         }
                     }
                 }
@@ -157,12 +178,12 @@ fun OcrResultPopup(
     }
 }
 
-private data class PopupPlacement(
+internal data class PopupPlacement(
     val x: Float,
     val y: Float,
 )
 
-private fun calculatePopupPlacement(
+internal fun calculatePopupPlacement(
     anchorRect: RectF,
     popupWidthPx: Float,
     popupHeightPx: Float,
@@ -170,31 +191,70 @@ private fun calculatePopupPlacement(
     viewportHeightPx: Float,
     gapPx: Float,
     marginPx: Float,
-): PopupPlacement {
+): PopupPlacement? {
+    return calculatePopupPlacement(
+        anchorLeft = anchorRect.left,
+        anchorTop = anchorRect.top,
+        anchorRight = anchorRect.right,
+        anchorBottom = anchorRect.bottom,
+        popupWidthPx = popupWidthPx,
+        popupHeightPx = popupHeightPx,
+        viewportWidthPx = viewportWidthPx,
+        viewportHeightPx = viewportHeightPx,
+        gapPx = gapPx,
+        marginPx = marginPx,
+    )
+}
+
+internal fun calculatePopupPlacement(
+    anchorLeft: Float,
+    anchorTop: Float,
+    anchorRight: Float,
+    anchorBottom: Float,
+    popupWidthPx: Float,
+    popupHeightPx: Float,
+    viewportWidthPx: Float,
+    viewportHeightPx: Float,
+    gapPx: Float,
+    marginPx: Float,
+): PopupPlacement? {
     val placements = listOf(
-        PopupPlacement(anchorRect.right + gapPx, anchorRect.top),
-        PopupPlacement(anchorRect.left - gapPx - popupWidthPx, anchorRect.top),
-        PopupPlacement(anchorRect.left, anchorRect.bottom + gapPx),
-        PopupPlacement(anchorRect.left, anchorRect.top - gapPx - popupHeightPx),
+        PopupPlacement(anchorRight + gapPx, anchorTop),
+        PopupPlacement(anchorLeft - gapPx - popupWidthPx, anchorTop),
+        PopupPlacement(anchorLeft, anchorBottom + gapPx),
+        PopupPlacement(anchorLeft, anchorTop - gapPx - popupHeightPx),
     )
 
-    val fitsInViewport: (PopupPlacement) -> Boolean = { placement ->
+    return placements.firstOrNull { placement ->
         placement.x >= marginPx &&
             placement.y >= marginPx &&
             placement.x + popupWidthPx <= viewportWidthPx - marginPx &&
-            placement.y + popupHeightPx <= viewportHeightPx - marginPx
+            placement.y + popupHeightPx <= viewportHeightPx - marginPx &&
+            !rectsIntersect(
+                firstLeft = anchorLeft,
+                firstTop = anchorTop,
+                firstRight = anchorRight,
+                firstBottom = anchorBottom,
+                secondLeft = placement.x,
+                secondTop = placement.y,
+                secondRight = placement.x + popupWidthPx,
+                secondBottom = placement.y + popupHeightPx,
+            )
     }
+}
 
-    val preferredPlacement = placements.firstOrNull(fitsInViewport) ?: placements.first()
-
-    return PopupPlacement(
-        x = preferredPlacement.x.coerceIn(
-            minimumValue = marginPx,
-            maximumValue = (viewportWidthPx - popupWidthPx - marginPx).coerceAtLeast(marginPx),
-        ),
-        y = preferredPlacement.y.coerceIn(
-            minimumValue = marginPx,
-            maximumValue = (viewportHeightPx - popupHeightPx - marginPx).coerceAtLeast(marginPx),
-        ),
-    )
+internal fun rectsIntersect(
+    firstLeft: Float,
+    firstTop: Float,
+    firstRight: Float,
+    firstBottom: Float,
+    secondLeft: Float,
+    secondTop: Float,
+    secondRight: Float,
+    secondBottom: Float,
+): Boolean {
+    return firstLeft < secondRight &&
+        firstRight > secondLeft &&
+        firstTop < secondBottom &&
+        firstBottom > secondTop
 }
