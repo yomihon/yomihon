@@ -135,8 +135,13 @@ internal class ReaderOcrOverlayRenderer(
     private fun drawHorizontalText(canvas: Canvas, overlayLayout: ReaderOcrOverlayLayout.Horizontal) {
         applyTextPaint(overlayLayout)
         overlayLayout.lines.forEach { line ->
-            line.highlightSegments.forEach { segment ->
-                canvas.drawRect(segment, horizontalHighlightPaint)
+            // Draw one merged highlight rect spanning the full highlighted range on this line.
+            if (line.highlightSegments.isNotEmpty()) {
+                val left = line.highlightSegments.minOf { it.left }
+                val right = line.highlightSegments.maxOf { it.right }
+                val top = line.highlightSegments.first().top
+                val bottom = line.highlightSegments.first().bottom
+                canvas.drawRect(left, top, right, bottom, horizontalHighlightPaint)
             }
             // Always draw white text; highlighted segments get a contrasting color.
             // We draw non-highlighted text first in white, then re-draw highlighted chars
@@ -155,10 +160,25 @@ internal class ReaderOcrOverlayRenderer(
     private fun drawVerticalText(canvas: Canvas, overlayLayout: ReaderOcrOverlayLayout.Vertical) {
         textPaint.textSize = overlayLayout.textSizePx
         textPaint.letterSpacing = 0f
-        overlayLayout.glyphs.forEach { glyph ->
-            if (glyph.isHighlighted) {
-                canvas.drawRoundRect(glyph.rect, verticalHighlightRadiusPx, verticalHighlightRadiusPx, verticalHighlightPaint)
+
+        // Draw one merged rounded-rect highlight per column span.
+        overlayLayout.glyphs
+            .filter { it.isHighlighted }
+            .groupBy { it.rect.left }
+            .forEach { (_, columnGlyphs) ->
+                val left = columnGlyphs.first().rect.left
+                val right = columnGlyphs.first().rect.right
+                val top = columnGlyphs.minOf { it.rect.top }
+                val bottom = columnGlyphs.maxOf { it.rect.bottom }
+                canvas.drawRoundRect(
+                    RectF(left, top, right, bottom),
+                    verticalHighlightRadiusPx,
+                    verticalHighlightRadiusPx,
+                    verticalHighlightPaint,
+                )
             }
+
+        overlayLayout.glyphs.forEach { glyph ->
             textPaint.color = if (glyph.isHighlighted) highlightTextColor else Color.WHITE
             val textWidth = measureText(glyph.char)
             val textX = glyph.rect.left + ((glyph.rect.width() - textWidth) / 2f)
