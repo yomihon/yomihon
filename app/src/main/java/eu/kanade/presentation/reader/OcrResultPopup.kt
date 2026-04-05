@@ -15,7 +15,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -32,8 +31,6 @@ import kotlin.math.roundToInt
 @Composable
 fun OcrResultPopup(
     onDismissRequest: () -> Unit,
-    text: String,
-    initialSearchText: String = text,
     anchorRect: RectF,
     settings: OcrResultPopupSettings,
     onCopyText: () -> Unit,
@@ -43,13 +40,6 @@ fun OcrResultPopup(
     onTermGroupClick: (List<DictionaryTerm>) -> Unit,
     onPlayAudioClick: (List<DictionaryTerm>) -> Unit,
 ) {
-    LaunchedEffect(text, initialSearchText) {
-        if (text.isNotBlank()) {
-            onQueryChange(text)
-            onSearch(initialSearchText)
-        }
-    }
-
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val density = LocalDensity.current
         val marginPx = with(density) { 8.dp.toPx() }
@@ -89,8 +79,6 @@ fun OcrResultPopup(
         if (placement == null) {
             OcrResultBottomSheet(
                 onDismissRequest = onDismissRequest,
-                text = text,
-                initialSearchText = initialSearchText,
                 onCopyText = onCopyText,
                 searchState = searchState,
                 onQueryChange = onQueryChange,

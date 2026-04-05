@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -29,8 +28,6 @@ private const val SHEET_EXPANSION_THRESHOLD = 0.80f
 @Composable
 fun OcrResultBottomSheet(
     onDismissRequest: () -> Unit,
-    text: String,
-    initialSearchText: String = text,
     onCopyText: () -> Unit,
     searchState: DictionarySearchScreenModel.State,
     onQueryChange: (String) -> Unit,
@@ -38,14 +35,6 @@ fun OcrResultBottomSheet(
     onTermGroupClick: (List<DictionaryTerm>) -> Unit,
     onPlayAudioClick: (List<DictionaryTerm>) -> Unit,
 ) {
-    // Automatically search dictionary for the OCR text
-    LaunchedEffect(text, initialSearchText) {
-        if (text.isNotBlank()) {
-            onQueryChange(text)
-            onSearch(initialSearchText)
-        }
-    }
-
     // Use BoxWithConstraints to measure the actual available space for the sheet content
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize(),

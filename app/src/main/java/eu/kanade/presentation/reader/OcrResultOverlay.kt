@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import eu.kanade.domain.dictionary.OcrResultPresentation
 import eu.kanade.tachiyomi.ui.dictionary.DictionarySearchScreenModel
@@ -24,8 +25,8 @@ fun OcrResultOverlay(
     presentation: OcrResultPresentation,
     popupSettings: OcrResultPopupSettings,
     dimBackground: Boolean,
-    text: String,
-    initialSearchText: String = text,
+    queryText: String,
+    initialSearchText: String = queryText,
     anchorRect: RectF?,
     onCopyText: () -> Unit,
     searchState: DictionarySearchScreenModel.State,
@@ -35,6 +36,12 @@ fun OcrResultOverlay(
     onPlayAudioClick: (List<DictionaryTerm>) -> Unit,
 ) {
     BackHandler(onBack = onDismissRequest)
+    LaunchedEffect(queryText, initialSearchText) {
+        if (queryText.isNotBlank()) {
+            onQueryChange(queryText)
+            onSearch(initialSearchText)
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (dimBackground) {
@@ -49,8 +56,6 @@ fun OcrResultOverlay(
             presentation == OcrResultPresentation.POPUP && anchorRect != null -> {
                 OcrResultPopup(
                     onDismissRequest = onDismissRequest,
-                    text = text,
-                    initialSearchText = initialSearchText,
                     anchorRect = anchorRect,
                     settings = popupSettings,
                     onCopyText = onCopyText,
@@ -64,8 +69,6 @@ fun OcrResultOverlay(
             else -> {
                 OcrResultBottomSheet(
                     onDismissRequest = onDismissRequest,
-                    text = text,
-                    initialSearchText = initialSearchText,
                     onCopyText = onCopyText,
                     searchState = searchState,
                     onQueryChange = onQueryChange,

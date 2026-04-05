@@ -699,7 +699,7 @@ class ReaderActivity : BaseActivity() {
                                 contentScale = ocrPopupScalePercent / 100f,
                             ),
                             dimBackground = dimOcrBackground,
-                            text = dialog.text,
+                            queryText = dialog.queryText,
                             initialSearchText = dialog.initialSearchText,
                             anchorRect = activeOcrOverlaySession?.anchorRectInDialogRoot,
                             onCopyText = {
@@ -999,18 +999,8 @@ class ReaderActivity : BaseActivity() {
             return
         }
 
-        if (dictionaryPreferences.ocrResultPresentation().get() == OcrResultPresentation.POPUP) {
-            val anchorRect = selection.anchorRectOnScreen?.let(::screenRectToDialogRootRect) ?: return
-            if (activeOcrOverlaySession?.matches(selection) == true) {
-                dismissActiveOcrOverlaySession()
-                return
-            }
-
-            activeOcrOverlaySession = ActiveOcrOverlaySession(
-                selection = selection,
-                anchorRectInDialogRoot = anchorRect,
-            )
-            if (!syncActiveOcrOverlay()) {
+        if (shouldOpenCachedOcrResultInPopup()) {
+            if (!openCachedOcrOverlaySession(selection)) {
                 return
             }
         } else {
@@ -1018,10 +1008,28 @@ class ReaderActivity : BaseActivity() {
         }
 
         viewModel.showOcrResult(
-            text = selection.queryText,
+            queryText = selection.queryText,
             origin = ReaderViewModel.OcrResultOrigin.CachedPageTap,
             initialSearchText = searchTextForOffset(selection.queryText, selection.initialSelectionOffset),
         )
+    }
+
+    private fun shouldOpenCachedOcrResultInPopup(): Boolean {
+        return dictionaryPreferences.ocrResultPresentation().get() == OcrResultPresentation.POPUP
+    }
+
+    private fun openCachedOcrOverlaySession(selection: ReaderOcrRegionSelection): Boolean {
+        val anchorRect = selection.anchorRectOnScreen?.let(::screenRectToDialogRootRect) ?: return false
+        if (activeOcrOverlaySession?.matches(selection) == true) {
+            dismissActiveOcrOverlaySession()
+            return false
+        }
+
+        activeOcrOverlaySession = ActiveOcrOverlaySession(
+            selection = selection,
+            anchorRectInDialogRoot = anchorRect,
+        )
+        return syncActiveOcrOverlay()
     }
 
     fun shouldHandleCachedOcrRegionTaps(): Boolean {

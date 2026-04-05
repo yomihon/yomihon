@@ -854,7 +854,7 @@ class ReaderViewModel @JvmOverloads constructor(
                     val queryText = flattenOcrTextForQuery(text)
                     if (queryText.isNotBlank()) {
                         showOcrResult(
-                            text = queryText,
+                            queryText = queryText,
                             origin = OcrResultOrigin.ManualSelection,
                         )
                         mutableState.update { it.copy(isProcessingOcr = false) }
@@ -898,12 +898,12 @@ class ReaderViewModel @JvmOverloads constructor(
     }
 
     fun showOcrResult(
-        text: String,
+        queryText: String,
         origin: OcrResultOrigin,
-        initialSearchText: String = text,
+        initialSearchText: String = queryText,
     ) {
         mutableState.update {
-            it.copy(dialog = Dialog.OcrResult(text, origin, initialSearchText))
+            it.copy(dialog = Dialog.OcrResult(queryText, origin, initialSearchText))
         }
     }
 
@@ -1075,7 +1075,7 @@ class ReaderViewModel @JvmOverloads constructor(
         data object OrientationModeSelect : Dialog
         data class PageActions(val page: ReaderPage) : Dialog
         data class OcrResult(
-            val text: String,
+            val queryText: String,
             val origin: OcrResultOrigin,
             val initialSearchText: String,
         ) : Dialog
