@@ -15,6 +15,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
+import mihon.domain.panel.model.DebugPanelDetection
 import mihon.domain.panel.model.PanelDetectionResult
 import mihon.domain.panel.repository.PanelDetectionRepository
 import tachiyomi.core.common.util.system.Panel
@@ -203,6 +204,11 @@ private class YoloPanelDetectionEngine(
                 .filter { isLargeEnough(it.rect, originalWidth, originalHeight) },
         )
 
+        val debugPanels = detections
+            .sortedByDescending { it.confidence }
+            .take(DEBUG_OVERLAY_LIMIT)
+            .map { DebugPanelDetection(rect = Rect(it.rect), confidence = it.confidence) }
+
         val orderedPanels = sortByReadingOrder(
             rects = prunedPanels.map { it.rect },
             imageHeight = originalHeight,
@@ -211,6 +217,7 @@ private class YoloPanelDetectionEngine(
 
         val result = PanelDetectionResult(
             panels = orderedPanels,
+            debugPanels = debugPanels,
             preprocessMillis = preprocessNanos / 1_000_000,
             inferenceMillis = inferenceNanos / 1_000_000,
             totalMillis = totalNanos / 1_000_000,
@@ -298,11 +305,8 @@ private class YoloPanelDetectionEngine(
             coordinateEncoding = CoordinateEncoding.XYXY,
             normalized = true,
             mapping = mapping,
+            minConfidence = 0f,
         )
-            .filter { it.confidence >= CONFIDENCE_THRESHOLD }
-            .filter { it.rect.width() > 0 && it.rect.height() > 0 }
-            .filter { isLargeEnough(it.rect, originalWidth, originalHeight) }
-            .let(::removeHeavyOverlaps)
     }
 
     private fun parseCombinedTensor(
@@ -312,6 +316,7 @@ private class YoloPanelDetectionEngine(
         coordinateEncoding: CoordinateEncoding,
         normalized: Boolean,
         mapping: LetterboxMapping,
+        minConfidence: Float,
     ): List<ScoredPanel> {
         if (detectionCount <= 0) return emptyList()
 
@@ -334,6 +339,7 @@ private class YoloPanelDetectionEngine(
                 coordinateEncoding = coordinateEncoding,
                 normalized = normalized,
                 mapping = mapping,
+                minConfidence = minConfidence,
             )
         }
     }
@@ -348,11 +354,12 @@ private class YoloPanelDetectionEngine(
         coordinateEncoding: CoordinateEncoding,
         normalized: Boolean,
         mapping: LetterboxMapping,
+        minConfidence: Float,
     ): ScoredPanel? {
         if (!confidenceRaw.isFinite() || !classRaw.isFinite()) return null
 
         val classId = classRaw.roundToInt()
-        if (classId != PANEL_CLASS_ID || confidenceRaw < CONFIDENCE_THRESHOLD) return null
+        if (classId != PANEL_CLASS_ID || confidenceRaw < minConfidence) return null
 
         val coordinateScale = if (normalized) INPUT_SIZE.toFloat() else 1f
         val scaledX0 = x0 * coordinateScale
@@ -598,5 +605,6 @@ private class YoloPanelDetectionEngine(
         private const val CONTENT_THRESHOLD = 16
         private const val MIN_CONTENT_SPAN_RATIO = 0.25f
         private const val CACHE_CAPACITY = 128
+        private const val DEBUG_OVERLAY_LIMIT = 10
     }
 }

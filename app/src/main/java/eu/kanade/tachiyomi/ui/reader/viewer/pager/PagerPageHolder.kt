@@ -191,6 +191,7 @@ class PagerPageHolder(
     private suspend fun setImage() {
         progressIndicator?.setProgress(0)
         panels = emptyList()
+        setPanelDebugDetections(emptyList())
         currentPanelIndex = -1
         lastPageReadyDirection = null
         panelDetectionJob?.cancel()
@@ -238,6 +239,10 @@ class PagerPageHolder(
 
     private fun maybeStartPanelDetection(loadResult: LoadResult) {
         if (!viewer.config.panelNavigation || loadResult.isAnimated) {
+            setPanelDebugDetections(emptyList())
+            logcat {
+                "Panel nav detection skipped index=${page.index} enabled=${viewer.config.panelNavigation} animated=${loadResult.isAnimated}"
+            }
             return
         }
 
@@ -263,10 +268,19 @@ class PagerPageHolder(
                 if (generation != panelDetectionGeneration) return@withUIContext
 
                 panels = result.panels
+                setPanelDebugDetections(result.debugPanels)
                 currentPanelIndex = -1
+                logcat {
+                    "Panel nav detection assigned index=${page.index} panels=${panels.size} " +
+                        "ordered=${panels.joinToString { it.rect.flattenToString() }} " +
+                        "debug=${result.debugPanels.joinToString { "${"%.2f".format(it.confidence)}@${it.rect.flattenToString()}" }}"
+                }
                 if (viewer.config.panelNavigation && panels.isNotEmpty() && lastPageReadyDirection != null &&
                     isVisibleOnScreen()
                 ) {
+                    logcat {
+                        "Panel nav triggering late first zoom index=${page.index} forward=${lastPageReadyDirection!!} visible=${isVisibleOnScreen()}"
+                    }
                     zoomToFirstPanel(lastPageReadyDirection!!)
                 }
             }
@@ -317,35 +331,69 @@ class PagerPageHolder(
     fun hasPreviousPanel(): Boolean = hasPanels() && currentPanelIndex > 0
 
     fun zoomToNextPanel(): Boolean {
-        if (!hasNextPanel()) return false
+        if (!hasNextPanel()) {
+            logcat {
+                "Panel nav next unavailable index=${page.index} currentPanelIndex=$currentPanelIndex panelCount=${panels.size}"
+            }
+            return false
+        }
         val nextIndex = currentPanelIndex + 1
+        logcat {
+            "Panel nav next attempt index=${page.index} currentPanelIndex=$currentPanelIndex nextIndex=$nextIndex rect=${panels[nextIndex].rect.flattenToString()}"
+        }
         val zoomed = zoomToPanel(panels[nextIndex])
         if (zoomed) {
             currentPanelIndex = nextIndex
+        }
+        logcat {
+            "Panel nav next result index=${page.index} zoomed=$zoomed currentPanelIndex=$currentPanelIndex"
         }
         return zoomed
     }
 
     fun zoomToPreviousPanel(): Boolean {
-        if (!hasPreviousPanel()) return false
+        if (!hasPreviousPanel()) {
+            logcat {
+                "Panel nav previous unavailable index=${page.index} currentPanelIndex=$currentPanelIndex panelCount=${panels.size}"
+            }
+            return false
+        }
         val previousIndex = currentPanelIndex - 1
+        logcat {
+            "Panel nav previous attempt index=${page.index} currentPanelIndex=$currentPanelIndex previousIndex=$previousIndex rect=${panels[previousIndex].rect.flattenToString()}"
+        }
         val zoomed = zoomToPanel(panels[previousIndex])
         if (zoomed) {
             currentPanelIndex = previousIndex
+        }
+        logcat {
+            "Panel nav previous result index=${page.index} zoomed=$zoomed currentPanelIndex=$currentPanelIndex"
         }
         return zoomed
     }
 
     fun zoomToFirstPanel(forward: Boolean) {
-        if (!hasPanels()) return
+        if (!hasPanels()) {
+            logcat { "Panel nav first unavailable index=${page.index} forward=$forward" }
+            return
+        }
         val firstIndex = if (forward) 0 else panels.lastIndex
+        logcat {
+            "Panel nav first attempt index=${page.index} forward=$forward firstIndex=$firstIndex rect=${panels[firstIndex].rect.flattenToString()}"
+        }
         if (zoomToPanel(panels[firstIndex])) {
             currentPanelIndex = firstIndex
+        }
+        logcat {
+            "Panel nav first result index=${page.index} forward=$forward currentPanelIndex=$currentPanelIndex"
         }
     }
 
     protected override fun onPageReady(forward: Boolean) {
         lastPageReadyDirection = forward
+        logcat {
+            "Panel nav onPageReady index=${page.index} forward=$forward panelCount=${panels.size} visible=${isVisibleOnScreen()}"
+        }
         if (viewer.config.panelNavigation && hasPanels()) {
             zoomToFirstPanel(forward)
             return
@@ -356,6 +404,9 @@ class PagerPageHolder(
     override fun onPageSelected(forward: Boolean) {
         super.onPageSelected(forward)
         lastPageReadyDirection = forward
+        logcat {
+            "Panel nav onPageSelected index=${page.index} forward=$forward panelCount=${panels.size}"
+        }
     }
 
     private fun panelDetectionCacheKey(): String {

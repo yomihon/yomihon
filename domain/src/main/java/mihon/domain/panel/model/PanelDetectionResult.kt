@@ -1,9 +1,11 @@
 package mihon.domain.panel.model
 
+import android.graphics.Rect
 import tachiyomi.core.common.util.system.Panel
 
 data class PanelDetectionResult(
     val panels: List<Panel>,
+    val debugPanels: List<DebugPanelDetection> = emptyList(),
     val preprocessMillis: Long = 0,
     val inferenceMillis: Long = 0,
     val totalMillis: Long = 0,
@@ -13,3 +15,8 @@ data class PanelDetectionResult(
         val EMPTY = PanelDetectionResult(emptyList())
     }
 }
+
+data class DebugPanelDetection(
+    val rect: Rect,
+    val confidence: Float,
+)

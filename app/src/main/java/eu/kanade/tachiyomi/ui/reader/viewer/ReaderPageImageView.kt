@@ -50,13 +50,16 @@ import eu.kanade.tachiyomi.util.view.isVisibleOnScreen
 import mihon.domain.ocr.model.OcrBoundingBox
 import mihon.domain.ocr.model.OcrPageResult
 import mihon.domain.ocr.model.flattenOcrTextForQuery
+import mihon.domain.panel.model.DebugPanelDetection
 import okio.BufferedSource
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.Panel
+import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * A wrapper view for showing page image.
@@ -79,6 +82,7 @@ open class ReaderPageImageView @JvmOverloads constructor(
     }
 
     private var pageView: View? = null
+    private val panelDebugOverlay = PanelDebugOverlayView(context)
 
     private var config: Config? = null
     private var cachedOcrResult: OcrPageResult? = null
@@ -125,6 +129,11 @@ open class ReaderPageImageView @JvmOverloads constructor(
      */
     var pageBackground: Drawable? = null
 
+    init {
+        addView(panelDebugOverlay, MATCH_PARENT, MATCH_PARENT)
+        panelDebugOverlay.isVisible = false
+    }
+
     @CallSuper
     open fun onImageLoaded() {
         onImageLoaded?.invoke()
@@ -165,12 +174,21 @@ open class ReaderPageImageView @JvmOverloads constructor(
 
     fun zoomToPanel(panel: Panel): Boolean {
         val view = pageView as? SubsamplingScaleImageView ?: return false
-        if (!view.isReady) return false
+        if (!view.isReady) {
+            logcat { "Panel nav zoomToPanel skipped: view not ready rect=${panel.rect.flattenToString()}" }
+            return false
+        }
 
         val scaleX = view.width.toFloat() / panel.rect.width().coerceAtLeast(1)
         val scaleY = view.height.toFloat() / panel.rect.height().coerceAtLeast(1)
         val targetScale = minOf(scaleX, scaleY) * 0.95f
         val clampedScale = targetScale.coerceIn(view.minScale, view.maxScale)
+
+        logcat {
+            "Panel nav zoomToPanel rect=${panel.rect.flattenToString()} " +
+                "view=${view.width}x${view.height} scaleX=$scaleX scaleY=$scaleY " +
+                "targetScale=$targetScale clampedScale=$clampedScale minScale=${view.minScale} maxScale=${view.maxScale}"
+        }
 
         view.animateScaleAndCenter(
             clampedScale,
@@ -182,6 +200,10 @@ open class ReaderPageImageView @JvmOverloads constructor(
             .start()
 
         return true
+    }
+
+    fun setPanelDebugDetections(detections: List<DebugPanelDetection>) {
+        panelDebugOverlay.setDetections(detections, pageView as? SubsamplingScaleImageView)
     }
 
     private fun SubsamplingScaleImageView.landscapeZoom(forward: Boolean) {
@@ -239,6 +261,7 @@ open class ReaderPageImageView @JvmOverloads constructor(
             is AppCompatImageView -> it.dispose()
         }
         it.isVisible = false
+        panelDebugOverlay.setDetections(emptyList(), null)
     }
 
     fun setOcrPageIdentity(
@@ -334,9 +357,11 @@ open class ReaderPageImageView @JvmOverloads constructor(
                 object : SubsamplingScaleImageView.OnStateChangedListener {
                     override fun onScaleChanged(newScale: Float, origin: Int) {
                         this@ReaderPageImageView.onScaleChanged(newScale)
+                        panelDebugOverlay.invalidate()
                     }
 
                     override fun onCenterChanged(newCenter: PointF?, origin: Int) {
+                        panelDebugOverlay.invalidate()
                         invalidate()
                     }
                 },
@@ -344,6 +369,7 @@ open class ReaderPageImageView @JvmOverloads constructor(
             setOnClickListener { this@ReaderPageImageView.onViewClicked() }
         }
         addView(pageView, MATCH_PARENT, MATCH_PARENT)
+        bringChildToFront(panelDebugOverlay)
     }
 
     private fun SubsamplingScaleImageView.setupZoom(config: Config?) {
@@ -469,6 +495,7 @@ open class ReaderPageImageView @JvmOverloads constructor(
             }
         }
         addView(pageView, MATCH_PARENT, MATCH_PARENT)
+        bringChildToFront(panelDebugOverlay)
     }
 
     private fun setAnimatedImage(
@@ -780,4 +807,80 @@ private fun OcrBoundingBox.toSourceRect(
         right * imageWidth,
         bottom * imageHeight,
     )
+}
+
+private class PanelDebugOverlayView(
+    context: Context,
+) : View(context) {
+
+    private var detections: List<DebugPanelDetection> = emptyList()
+    private var pageView: SubsamplingScaleImageView? = null
+
+    private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(220, 0, 255, 120)
+        style = Paint.Style.STROKE
+        strokeWidth = context.resources.displayMetrics.density * 2f
+    }
+    private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = context.resources.displayMetrics.density * 12f
+    }
+    private val labelBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(190, 0, 0, 0)
+        style = Paint.Style.FILL
+    }
+    private val textBounds = RectF()
+
+    fun setDetections(
+        detections: List<DebugPanelDetection>,
+        pageView: SubsamplingScaleImageView?,
+    ) {
+        this.detections = detections
+        this.pageView = pageView
+        isVisible = detections.isNotEmpty() && pageView != null
+        invalidate()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+
+        val pageView = pageView ?: return
+        if (!isVisible || !pageView.isReady || detections.isEmpty()) return
+
+        detections.forEachIndexed { index, detection ->
+            val topLeft = pageView.sourceToViewCoord(
+                detection.rect.left.toFloat(),
+                detection.rect.top.toFloat(),
+            ) ?: return@forEachIndexed
+            val bottomRight = pageView.sourceToViewCoord(
+                detection.rect.right.toFloat(),
+                detection.rect.bottom.toFloat(),
+            ) ?: return@forEachIndexed
+
+            val left = minOf(topLeft.x, bottomRight.x)
+            val top = minOf(topLeft.y, bottomRight.y)
+            val right = maxOf(topLeft.x, bottomRight.x)
+            val bottom = maxOf(topLeft.y, bottomRight.y)
+
+            canvas.drawRect(left, top, right, bottom, boxPaint)
+
+            val label = "${index + 1} ${(detection.confidence * 100).roundToInt()}%"
+            val textWidth = labelPaint.measureText(label)
+            val textHeight = labelPaint.fontMetrics.let { it.descent - it.ascent }
+            val padding = context.resources.displayMetrics.density * 4f
+            textBounds.set(
+                left,
+                (top - textHeight - padding * 2).coerceAtLeast(0f),
+                left + textWidth + padding * 2,
+                top,
+            )
+            canvas.drawRect(textBounds, labelBackgroundPaint)
+            canvas.drawText(
+                label,
+                textBounds.left + padding,
+                textBounds.bottom - padding - labelPaint.fontMetrics.descent,
+                labelPaint,
+            )
+        }
+    }
 }

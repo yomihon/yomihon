@@ -370,6 +370,7 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
      */
     open fun moveToNext() {
         if (tryAdvancePanelForward()) return
+        logcat { "Panel nav viewer fallback moveToNext -> page" }
         moveRight()
     }
 
@@ -378,17 +379,26 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
      */
     open fun moveToPrevious() {
         if (tryAdvancePanelBackward()) return
+        logcat { "Panel nav viewer fallback moveToPrevious -> page" }
         moveLeft()
     }
 
     protected fun tryAdvancePanelForward(): Boolean {
         val holder = (currentPage as? ReaderPage)?.let(::getPageHolder) ?: return false
-        return config.panelNavigation && holder.hasPanels() && holder.zoomToNextPanel()
+        val advanced = config.panelNavigation && holder.hasPanels() && holder.zoomToNextPanel()
+        logcat {
+            "Panel nav viewer tryForward enabled=${config.panelNavigation} hasPanels=${holder.hasPanels()} advanced=$advanced"
+        }
+        return advanced
     }
 
     protected fun tryAdvancePanelBackward(): Boolean {
         val holder = (currentPage as? ReaderPage)?.let(::getPageHolder) ?: return false
-        return config.panelNavigation && holder.hasPanels() && holder.zoomToPreviousPanel()
+        val advanced = config.panelNavigation && holder.hasPanels() && holder.zoomToPreviousPanel()
+        logcat {
+            "Panel nav viewer tryBackward enabled=${config.panelNavigation} hasPanels=${holder.hasPanels()} advanced=$advanced"
+        }
+        return advanced
     }
 
     /**
