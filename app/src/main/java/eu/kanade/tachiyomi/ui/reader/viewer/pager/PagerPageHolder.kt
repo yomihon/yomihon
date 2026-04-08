@@ -248,10 +248,14 @@ class PagerPageHolder(
 
         val generation = panelDetectionGeneration
         val cacheKey = panelDetectionCacheKey()
-        val detectionSource = loadResult.source.peek()
+        val streamFn = page.stream
+        if (streamFn == null) {
+            logcat { "Panel nav detection skipped index=${page.index}: no stream" }
+            return
+        }
 
         panelDetectionJob = scope.launchIO {
-            val decoded = decodePanelBitmap(detectionSource) ?: return@launchIO
+            val decoded = decodePanelBitmap(streamFn) ?: return@launchIO
             val result = try {
                 detectPanels.await(
                     cacheKey = cacheKey,
@@ -287,27 +291,42 @@ class PagerPageHolder(
         }
     }
 
-    private fun decodePanelBitmap(source: BufferedSource): DecodedPanelBitmap? {
+    private fun decodePanelBitmap(streamFn: () -> java.io.InputStream): DecodedPanelBitmap? {
         val options = BitmapFactory.Options().apply {
             inJustDecodeBounds = true
         }
-        source.peek().inputStream().use {
+        streamFn().use {
             BitmapFactory.decodeStream(it, null, options)
         }
 
         val largestDimension = maxOf(options.outWidth, options.outHeight)
-        if (largestDimension <= 0) return null
+        if (largestDimension <= 0) {
+            logcat { "Panel nav decodeBitmap failed: dimensions <= 0" }
+            return null
+        }
 
         val sampleSize = generateSequence(1) { it * 2 }
             .first { largestDimension / it <= 800 }
 
-        val bitmap = source.peek().inputStream().use {
+        val bitmap = streamFn().use {
             BitmapFactory.decodeStream(
                 it,
                 null,
                 BitmapFactory.Options().apply { inSampleSize = sampleSize },
             )
-        } ?: return null
+        }
+
+        if (bitmap == null) {
+            logcat { "Panel nav decodeBitmap failed: bitmap null after decode with sampleSize=$sampleSize" }
+            return null
+        }
+
+        logcat {
+            "Panel nav decodeBitmap success sampleSize=$sampleSize " +
+                "bitmapSize=${bitmap.width}x${bitmap.height} " +
+                "originalSize=${options.outWidth}x${options.outHeight} " +
+                "config=${bitmap.config}"
+        }
 
         return DecodedPanelBitmap(
             bitmap = bitmap,

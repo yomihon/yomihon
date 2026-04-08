@@ -204,9 +204,8 @@ private class YoloPanelDetectionEngine(
                 .filter { isLargeEnough(it.rect, originalWidth, originalHeight) },
         )
 
-        val debugPanels = detections
+        val debugPanels = prunedPanels
             .sortedByDescending { it.confidence }
-            .take(DEBUG_OVERLAY_LIMIT)
             .map { DebugPanelDetection(rect = Rect(it.rect), confidence = it.confidence) }
 
         val orderedPanels = sortByReadingOrder(
@@ -279,6 +278,14 @@ private class YoloPanelDetectionEngine(
                 padX = padX,
                 padY = padY,
             )
+
+            logcat(LogPriority.DEBUG) {
+                "Panel detector preprocess image=${image.width}x${image.height} " +
+                    "original=${originalWidth}x${originalHeight} " +
+                    "contentBounds=${pageBounds.flattenToString()} " +
+                    "crop=${cropWidth}x${cropHeight} scale=$scale " +
+                    "pad=$padX,$padY dest=${destinationRect.flattenToString()}"
+            }
         }
 
         return PreprocessResult(
@@ -295,8 +302,27 @@ private class YoloPanelDetectionEngine(
     ): List<ScoredPanel> {
         if (rawOutputs.isEmpty()) return emptyList()
 
+        logcat(LogPriority.DEBUG) {
+            "Panel detector rawOutputs count=${rawOutputs.size} sizes=${rawOutputs.map { it.size }} " +
+                "expected=${PREFERRED_OUTPUT_COUNT * DETECTION_STRIDE}"
+        }
+
         val preferredValues = rawOutputs.firstOrNull { it.size == PREFERRED_OUTPUT_COUNT * DETECTION_STRIDE }
-        if (preferredValues == null) return emptyList()
+        if (preferredValues == null) {
+            logcat(LogPriority.WARN) { "Panel detector no matching output buffer found" }
+            return emptyList()
+        }
+
+        // Log top 5 raw detections before any mapping
+        val topRaw = (0 until minOf(5, PREFERRED_OUTPUT_COUNT)).map { i ->
+            val off = i * DETECTION_STRIDE
+            "x0=%.3f y0=%.3f x1=%.3f y1=%.3f conf=%.3f cls=%.0f".format(
+                preferredValues[off], preferredValues[off + 1],
+                preferredValues[off + 2], preferredValues[off + 3],
+                preferredValues[off + 4], preferredValues[off + 5],
+            )
+        }
+        logcat(LogPriority.DEBUG) { "Panel detector top5 raw: ${topRaw.joinToString(" | ")}" }
 
         return parseCombinedTensor(
             values = preferredValues,

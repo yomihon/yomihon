@@ -384,27 +384,38 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
     }
 
     protected fun tryAdvancePanelForward(): Boolean {
-        val holder = (currentPage as? ReaderPage)?.let(::getPageHolder) ?: return false
+        val page = currentPage as? ReaderPage
+        val holder = page?.let(::getPageHolder)
+        if (holder == null) {
+            logcat { "Panel nav viewer tryForward: no holder (currentPage=${currentPage?.javaClass?.simpleName})" }
+            return false
+        }
         val advanced = config.panelNavigation && holder.hasPanels() && holder.zoomToNextPanel()
         logcat {
-            "Panel nav viewer tryForward enabled=${config.panelNavigation} hasPanels=${holder.hasPanels()} advanced=$advanced"
+            "Panel nav viewer tryForward page=${page.index} enabled=${config.panelNavigation} hasPanels=${holder.hasPanels()} hasNext=${holder.hasNextPanel()} advanced=$advanced"
         }
         return advanced
     }
 
     protected fun tryAdvancePanelBackward(): Boolean {
-        val holder = (currentPage as? ReaderPage)?.let(::getPageHolder) ?: return false
+        val page = currentPage as? ReaderPage
+        val holder = page?.let(::getPageHolder)
+        if (holder == null) {
+            logcat { "Panel nav viewer tryBackward: no holder (currentPage=${currentPage?.javaClass?.simpleName})" }
+            return false
+        }
         val advanced = config.panelNavigation && holder.hasPanels() && holder.zoomToPreviousPanel()
         logcat {
-            "Panel nav viewer tryBackward enabled=${config.panelNavigation} hasPanels=${holder.hasPanels()} advanced=$advanced"
+            "Panel nav viewer tryBackward page=${page.index} enabled=${config.panelNavigation} hasPanels=${holder.hasPanels()} hasPrev=${holder.hasPreviousPanel()} advanced=$advanced"
         }
         return advanced
     }
 
     /**
-     * Moves to the page at the right.
+     * Moves to the page at the right. In L2R this is "next", in R2L this is "previous".
      */
     protected open fun moveRight() {
+        if (tryAdvancePanelRight()) return
         if (pager.currentItem != adapter.count - 1) {
             val holder = (currentPage as? ReaderPage)?.let(::getPageHolder)
             if (holder != null && config.navigateToPan && holder.canPanRight()) {
@@ -416,9 +427,10 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
     }
 
     /**
-     * Moves to the page at the left.
+     * Moves to the page at the left. In L2R this is "previous", in R2L this is "next".
      */
     protected open fun moveLeft() {
+        if (tryAdvancePanelLeft()) return
         if (pager.currentItem != 0) {
             val holder = (currentPage as? ReaderPage)?.let(::getPageHolder)
             if (holder != null && config.navigateToPan && holder.canPanLeft()) {
@@ -426,6 +438,20 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
             } else {
                 pager.setCurrentItem(pager.currentItem - 1, config.usePageTransitions)
             }
+        }
+    }
+
+    private fun tryAdvancePanelRight(): Boolean {
+        return when (this) {
+            is R2LPagerViewer -> tryAdvancePanelBackward()
+            else -> tryAdvancePanelForward()
+        }
+    }
+
+    private fun tryAdvancePanelLeft(): Boolean {
+        return when (this) {
+            is R2LPagerViewer -> tryAdvancePanelForward()
+            else -> tryAdvancePanelBackward()
         }
     }
 
