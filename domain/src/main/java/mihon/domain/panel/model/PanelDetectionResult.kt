@@ -6,6 +6,7 @@ import tachiyomi.core.common.util.system.Panel
 data class PanelDetectionResult(
     val panels: List<Panel>,
     val debugPanels: List<DebugPanelDetection> = emptyList(),
+    val debugBubbles: List<DebugPanelDetection> = emptyList(),
     val preprocessMillis: Long = 0,
     val inferenceMillis: Long = 0,
     val totalMillis: Long = 0,

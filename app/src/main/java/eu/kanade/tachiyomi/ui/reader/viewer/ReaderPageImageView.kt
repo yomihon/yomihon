@@ -184,15 +184,38 @@ open class ReaderPageImageView @JvmOverloads constructor(
         val targetScale = minOf(scaleX, scaleY) * 0.95f
         val clampedScale = targetScale.coerceIn(view.minScale, view.maxScale)
 
+        val currentCenter = view.center
+        val targetCenter = PointF(panel.rect.centerX().toFloat(), panel.rect.centerY().toFloat())
+        val scaleChange = if (view.scale > 0f) kotlin.math.abs(clampedScale - view.scale) / view.scale else 1f
+
+        // Measure center shift in screen pixels relative to view size
+        val screenShift = if (currentCenter != null) {
+            val effectiveScale = minOf(clampedScale, view.scale)
+            val pixelShift = kotlin.math.hypot(
+                (targetCenter.x - currentCenter.x) * effectiveScale,
+                (targetCenter.y - currentCenter.y) * effectiveScale,
+            )
+            val viewDiagonal = kotlin.math.hypot(view.width.toFloat(), view.height.toFloat())
+            pixelShift / viewDiagonal
+        } else {
+            1f
+        }
+
         logcat {
             "Panel nav zoomToPanel rect=${panel.rect.flattenToString()} " +
-                "view=${view.width}x${view.height} scaleX=$scaleX scaleY=$scaleY " +
-                "targetScale=$targetScale clampedScale=$clampedScale minScale=${view.minScale} maxScale=${view.maxScale}"
+                "view=${view.width}x${view.height} " +
+                "targetScale=$targetScale clampedScale=$clampedScale currentScale=${view.scale} " +
+                "scaleChange=$scaleChange screenShift=$screenShift"
+        }
+
+        if (scaleChange < SKIP_ZOOM_SCALE_THRESHOLD) {
+            logcat { "Panel nav zoomToPanel skipped: zoom too small (scaleChange=$scaleChange screenShift=$screenShift)" }
+            return false
         }
 
         view.animateScaleAndCenter(
             clampedScale,
-            PointF(panel.rect.centerX().toFloat(), panel.rect.centerY().toFloat()),
+            targetCenter,
         )!!
             .withDuration(400)
             .withEasing(EASE_IN_OUT_QUAD)
@@ -202,8 +225,11 @@ open class ReaderPageImageView @JvmOverloads constructor(
         return true
     }
 
-    fun setPanelDebugDetections(detections: List<DebugPanelDetection>) {
-        panelDebugOverlay.setDetections(detections, pageView as? SubsamplingScaleImageView)
+    fun setPanelDebugDetections(
+        detections: List<DebugPanelDetection>,
+        bubbles: List<DebugPanelDetection> = emptyList(),
+    ) {
+        panelDebugOverlay.setDetections(detections, bubbles, pageView as? SubsamplingScaleImageView)
     }
 
     private fun SubsamplingScaleImageView.landscapeZoom(forward: Boolean) {
@@ -261,7 +287,7 @@ open class ReaderPageImageView @JvmOverloads constructor(
             is AppCompatImageView -> it.dispose()
         }
         it.isVisible = false
-        panelDebugOverlay.setDetections(emptyList(), null)
+        panelDebugOverlay.setDetections(emptyList(), emptyList(), null)
     }
 
     fun setOcrPageIdentity(
@@ -789,6 +815,7 @@ open class ReaderPageImageView @JvmOverloads constructor(
 }
 
 private const val MAX_ZOOM_SCALE = 5F
+private const val SKIP_ZOOM_SCALE_THRESHOLD = 0.1F
 
 private fun OcrBoundingBox.toSourceRect(pageResult: OcrPageResult): RectF {
     return toSourceRect(
@@ -814,10 +841,16 @@ private class PanelDebugOverlayView(
 ) : View(context) {
 
     private var detections: List<DebugPanelDetection> = emptyList()
+    private var bubbles: List<DebugPanelDetection> = emptyList()
     private var pageView: SubsamplingScaleImageView? = null
 
-    private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val panelBoxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.argb(220, 0, 255, 120)
+        style = Paint.Style.STROKE
+        strokeWidth = context.resources.displayMetrics.density * 2f
+    }
+    private val bubbleBoxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(220, 255, 60, 60)
         style = Paint.Style.STROKE
         strokeWidth = context.resources.displayMetrics.density * 2f
     }
@@ -833,11 +866,13 @@ private class PanelDebugOverlayView(
 
     fun setDetections(
         detections: List<DebugPanelDetection>,
+        bubbles: List<DebugPanelDetection>,
         pageView: SubsamplingScaleImageView?,
     ) {
         this.detections = detections
+        this.bubbles = bubbles
         this.pageView = pageView
-        isVisible = detections.isNotEmpty() && pageView != null
+        isVisible = (detections.isNotEmpty() || bubbles.isNotEmpty()) && pageView != null
         invalidate()
     }
 
@@ -845,9 +880,20 @@ private class PanelDebugOverlayView(
         super.onDraw(canvas)
 
         val pageView = pageView ?: return
-        if (!isVisible || !pageView.isReady || detections.isEmpty()) return
+        if (!isVisible || !pageView.isReady) return
 
-        detections.forEachIndexed { index, detection ->
+        drawDetections(canvas, pageView, detections, panelBoxPaint, "P")
+        drawDetections(canvas, pageView, bubbles, bubbleBoxPaint, "B")
+    }
+
+    private fun drawDetections(
+        canvas: Canvas,
+        pageView: SubsamplingScaleImageView,
+        items: List<DebugPanelDetection>,
+        boxPaint: Paint,
+        prefix: String,
+    ) {
+        items.forEachIndexed { index, detection ->
             val topLeft = pageView.sourceToViewCoord(
                 detection.rect.left.toFloat(),
                 detection.rect.top.toFloat(),
@@ -864,7 +910,7 @@ private class PanelDebugOverlayView(
 
             canvas.drawRect(left, top, right, bottom, boxPaint)
 
-            val label = "${index + 1} ${(detection.confidence * 100).roundToInt()}%"
+            val label = "$prefix${index + 1} ${(detection.confidence * 100).roundToInt()}%"
             val textWidth = labelPaint.measureText(label)
             val textHeight = labelPaint.fontMetrics.let { it.descent - it.ascent }
             val padding = context.resources.displayMetrics.density * 4f

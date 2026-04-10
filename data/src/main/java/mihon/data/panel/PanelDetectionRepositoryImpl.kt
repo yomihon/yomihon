@@ -142,7 +142,7 @@ private class YoloPanelDetectionEngine(
 
         var preprocessNanos = 0L
         var inferenceNanos = 0L
-        val detections = mutableListOf<ScoredPanel>()
+        val detections = mutableListOf<ScoredDetection>()
 
         val totalStart = System.nanoTime()
         inferenceMutex.withLock {
@@ -195,35 +195,56 @@ private class YoloPanelDetectionEngine(
         preprocessNanos: Long,
         inferenceNanos: Long,
         totalNanos: Long,
-        detections: List<ScoredPanel>,
+        detections: List<ScoredDetection>,
     ): PanelDetectionResult {
+        val panelDetections = detections.filter { it.classId == PANEL_CLASS_ID }
+        val bubbleDetections = detections.filter {
+            it.classId == BUBBLE_CLASS_ID && it.confidence >= BUBBLE_CONFIDENCE_THRESHOLD
+        }
+
         val prunedPanels = removeHeavyOverlaps(
-            detections
+            panelDetections
                 .filter { it.confidence >= CONFIDENCE_THRESHOLD }
                 .filter { it.rect.width() > 0 && it.rect.height() > 0 }
                 .filter { isLargeEnough(it.rect, originalWidth, originalHeight) },
+        )
+        val prunedBubbles = removeHeavyOverlaps(
+            bubbleDetections
+                .filter { it.rect.width() > 0 && it.rect.height() > 0 },
         )
 
         val debugPanels = prunedPanels
             .sortedByDescending { it.confidence }
             .map { DebugPanelDetection(rect = Rect(it.rect), confidence = it.confidence) }
+        val debugBubbles = prunedBubbles
+            .sortedByDescending { it.confidence }
+            .map { DebugPanelDetection(rect = Rect(it.rect), confidence = it.confidence) }
 
-        val orderedPanels = sortByReadingOrder(
+        val orderedRects = sortByReadingOrder(
             rects = prunedPanels.map { it.rect },
             imageHeight = originalHeight,
             direction = direction,
-        ).map(::Panel)
+        )
+        val expandedRects = expandLargePanels(
+            panels = orderedRects,
+            bubbles = prunedBubbles.map { it.rect },
+            imageWidth = originalWidth,
+            imageHeight = originalHeight,
+            direction = direction,
+        )
+        val orderedPanels = expandedRects.map(::Panel)
 
         val result = PanelDetectionResult(
             panels = orderedPanels,
             debugPanels = debugPanels,
+            debugBubbles = debugBubbles,
             preprocessMillis = preprocessNanos / 1_000_000,
             inferenceMillis = inferenceNanos / 1_000_000,
             totalMillis = totalNanos / 1_000_000,
         )
 
         logcat(LogPriority.INFO) {
-            "Panel detector result key=$cacheKey panels=${result.panels.size} " +
+            "Panel detector result key=$cacheKey panels=${result.panels.size} bubbles=${prunedBubbles.size} " +
                 "preprocessMs=${result.preprocessMillis} inferenceMs=${result.inferenceMillis} totalMs=${result.totalMillis}"
         }
 
@@ -299,7 +320,7 @@ private class YoloPanelDetectionEngine(
         mapping: LetterboxMapping,
         originalWidth: Int,
         originalHeight: Int,
-    ): List<ScoredPanel> {
+    ): List<ScoredDetection> {
         if (rawOutputs.isEmpty()) return emptyList()
 
         logcat(LogPriority.DEBUG) {
@@ -343,7 +364,7 @@ private class YoloPanelDetectionEngine(
         normalized: Boolean,
         mapping: LetterboxMapping,
         minConfidence: Float,
-    ): List<ScoredPanel> {
+    ): List<ScoredDetection> {
         if (detectionCount <= 0) return emptyList()
 
         return (0 until detectionCount).mapNotNull { index ->
@@ -381,11 +402,11 @@ private class YoloPanelDetectionEngine(
         normalized: Boolean,
         mapping: LetterboxMapping,
         minConfidence: Float,
-    ): ScoredPanel? {
+    ): ScoredDetection? {
         if (!confidenceRaw.isFinite() || !classRaw.isFinite()) return null
 
         val classId = classRaw.roundToInt()
-        if (classId != PANEL_CLASS_ID || confidenceRaw < minConfidence) return null
+        if ((classId != PANEL_CLASS_ID && classId != BUBBLE_CLASS_ID) || confidenceRaw < minConfidence) return null
 
         val coordinateScale = if (normalized) INPUT_SIZE.toFloat() else 1f
         val scaledX0 = x0 * coordinateScale
@@ -418,6 +439,7 @@ private class YoloPanelDetectionEngine(
             right = right,
             bottom = bottom,
             confidence = confidenceRaw,
+            classId = classId,
             mapping = mapping,
         )
     }
@@ -428,8 +450,9 @@ private class YoloPanelDetectionEngine(
         right: Float,
         bottom: Float,
         confidence: Float,
+        classId: Int,
         mapping: LetterboxMapping,
-    ): ScoredPanel? {
+    ): ScoredDetection? {
         val sampledLeft = ((left - mapping.padX) / mapping.scale) + mapping.cropLeft
         val sampledTop = ((top - mapping.padY) / mapping.scale) + mapping.cropTop
         val sampledRight = ((right - mapping.padX) / mapping.scale) + mapping.cropLeft
@@ -456,14 +479,14 @@ private class YoloPanelDetectionEngine(
         )
         if (rect.width() <= 0 || rect.height() <= 0) return null
 
-        return ScoredPanel(rect = rect, confidence = confidence)
+        return ScoredDetection(rect = rect, confidence = confidence, classId = classId)
     }
 
-    private fun removeHeavyOverlaps(panels: List<ScoredPanel>): List<ScoredPanel> {
+    private fun removeHeavyOverlaps(panels: List<ScoredDetection>): List<ScoredDetection> {
         if (panels.isEmpty()) return emptyList()
 
         val sorted = panels.sortedByDescending { it.confidence }
-        val kept = mutableListOf<ScoredPanel>()
+        val kept = mutableListOf<ScoredDetection>()
 
         sorted.forEach { candidate ->
             if (kept.none { intersectionOverUnion(it.rect, candidate.rect) > MAX_DUPLICATE_IOU }) {
@@ -472,6 +495,130 @@ private class YoloPanelDetectionEngine(
         }
 
         return kept
+    }
+
+    private fun expandLargePanels(
+        panels: List<Rect>,
+        bubbles: List<Rect>,
+        imageWidth: Int,
+        imageHeight: Int,
+        direction: ReadingDirection,
+    ): List<Rect> {
+        val largeThreshold = (imageWidth * LARGE_PANEL_WIDTH_RATIO).roundToInt()
+        return panels.flatMap { panel ->
+            if (panel.width() < largeThreshold) {
+                listOf(panel)
+            } else {
+                val contained = bubbles.filter { bubble ->
+                    panel.contains(bubble.centerX(), bubble.centerY())
+                }
+                if (contained.isEmpty()) {
+                    listOf(panel)
+                } else {
+                    val virtual = clusterBubblesIntoVirtualPanels(
+                        bubbles = contained,
+                        parentPanel = panel,
+                        imageWidth = imageWidth,
+                        imageHeight = imageHeight,
+                        direction = direction,
+                    )
+                    logcat(LogPriority.DEBUG) {
+                        "Panel detector expanded large panel ${panel.flattenToString()} " +
+                            "into ${virtual.size} virtual panels from ${contained.size} bubbles"
+                    }
+                    listOf(panel) + virtual
+                }
+            }
+        }
+    }
+
+    private fun clusterBubblesIntoVirtualPanels(
+        bubbles: List<Rect>,
+        parentPanel: Rect,
+        imageWidth: Int,
+        imageHeight: Int,
+        direction: ReadingDirection,
+    ): List<Rect> {
+        val rowThreshold = (parentPanel.height() * BUBBLE_ROW_GROUPING_RATIO).roundToInt()
+        val mergeGap = (parentPanel.width() * BUBBLE_MERGE_GAP_RATIO).roundToInt()
+
+        // Group bubbles into rows by Y-center proximity
+        val rows = mutableListOf<MutableList<Rect>>()
+        bubbles.sortedBy { it.centerY() }.forEach { bubble ->
+            val row = rows.find { existing ->
+                abs(existing.first().centerY() - bubble.centerY()) <= rowThreshold
+            }
+            if (row == null) {
+                rows += mutableListOf(bubble)
+            } else {
+                row += bubble
+            }
+        }
+
+        // Within each row, merge horizontally close bubbles into clusters
+        val clusters = mutableListOf<Rect>()
+        rows.forEach { row ->
+            val sorted = when (direction) {
+                ReadingDirection.RTL -> row.sortedByDescending { it.centerX() }
+                else -> row.sortedBy { it.centerX() }
+            }
+            var cluster = Rect(sorted.first())
+            for (i in 1..sorted.lastIndex) {
+                val gap = if (direction == ReadingDirection.RTL) {
+                    cluster.left - sorted[i].right
+                } else {
+                    sorted[i].left - cluster.right
+                }
+                if (gap <= mergeGap) {
+                    cluster.union(sorted[i])
+                } else {
+                    clusters += cluster
+                    cluster = Rect(sorted[i])
+                }
+            }
+            clusters += cluster
+        }
+
+        // Pad clusters and enforce minimum size, clamped to parent panel
+        val minWidth = (imageWidth * MIN_VIRTUAL_WIDTH_RATIO).roundToInt()
+        val minHeight = (imageHeight * MIN_VIRTUAL_HEIGHT_RATIO).roundToInt()
+
+        val virtualPanels = clusters.map { cluster ->
+            val padX = (cluster.width() * VIRTUAL_PANEL_PADDING).roundToInt()
+            val padY = (cluster.height() * VIRTUAL_PANEL_PADDING).roundToInt()
+            val padded = Rect(
+                cluster.left - padX,
+                cluster.top - padY,
+                cluster.right + padX,
+                cluster.bottom + padY,
+            )
+
+            // Enforce minimum size by expanding from center
+            if (padded.width() < minWidth) {
+                val deficit = (minWidth - padded.width()) / 2
+                padded.left -= deficit
+                padded.right += deficit
+            }
+            if (padded.height() < minHeight) {
+                val deficit = (minHeight - padded.height()) / 2
+                padded.top -= deficit
+                padded.bottom += deficit
+            }
+
+            // Clamp to parent panel bounds
+            Rect(
+                padded.left.coerceAtLeast(parentPanel.left),
+                padded.top.coerceAtLeast(parentPanel.top),
+                padded.right.coerceAtMost(parentPanel.right),
+                padded.bottom.coerceAtMost(parentPanel.bottom),
+            )
+        }
+
+        return sortByReadingOrder(
+            rects = virtualPanels,
+            imageHeight = parentPanel.height(),
+            direction = direction,
+        )
     }
 
     private fun sortByReadingOrder(
@@ -601,9 +748,10 @@ private class YoloPanelDetectionEngine(
         val padY: Float,
     )
 
-    private data class ScoredPanel(
+    private data class ScoredDetection(
         val rect: Rect,
         val confidence: Float,
+        val classId: Int,
     )
 
     private data class BoxCorners(
@@ -624,7 +772,15 @@ private class YoloPanelDetectionEngine(
         private const val DETECTION_STRIDE = 6
         private const val PREFERRED_OUTPUT_COUNT = 300
         private const val PANEL_CLASS_ID = 0
+        private const val BUBBLE_CLASS_ID = 1
         private const val CONFIDENCE_THRESHOLD = 0.25f
+        private const val BUBBLE_CONFIDENCE_THRESHOLD = 0.4f
+        private const val LARGE_PANEL_WIDTH_RATIO = 0.85f
+        private const val BUBBLE_ROW_GROUPING_RATIO = 0.08f
+        private const val BUBBLE_MERGE_GAP_RATIO = 0.15f
+        private const val VIRTUAL_PANEL_PADDING = 0.30f
+        private const val MIN_VIRTUAL_WIDTH_RATIO = 0.35f
+        private const val MIN_VIRTUAL_HEIGHT_RATIO = 0.25f
         private const val MIN_PANEL_AREA_RATIO = 0.02f
         private const val MAX_DUPLICATE_IOU = 0.8f
         private const val ROW_GROUPING_RATIO = 0.15f
