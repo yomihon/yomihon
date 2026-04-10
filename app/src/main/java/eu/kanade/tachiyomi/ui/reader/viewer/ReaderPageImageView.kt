@@ -183,33 +183,35 @@ open class ReaderPageImageView @JvmOverloads constructor(
         val scaleY = view.height.toFloat() / panel.rect.height().coerceAtLeast(1)
         val targetScale = minOf(scaleX, scaleY) * 0.95f
         val clampedScale = targetScale.coerceIn(view.minScale, view.maxScale)
-
-        val currentCenter = view.center
         val targetCenter = PointF(panel.rect.centerX().toFloat(), panel.rect.centerY().toFloat())
-        val scaleChange = if (view.scale > 0f) kotlin.math.abs(clampedScale - view.scale) / view.scale else 1f
 
-        // Measure center shift in screen pixels relative to view size
-        val screenShift = if (currentCenter != null) {
-            val effectiveScale = minOf(clampedScale, view.scale)
-            val pixelShift = kotlin.math.hypot(
-                (targetCenter.x - currentCenter.x) * effectiveScale,
-                (targetCenter.y - currentCenter.y) * effectiveScale,
+        // Compute where the view will actually end up after pan-limit clamping
+        val clampedCenter = clampCenter(
+            targetCenter, clampedScale,
+            view.width, view.height, view.sWidth, view.sHeight,
+        )
+
+        // Compare current visible rect vs target visible rect
+        val currentCenter = view.center
+        val overlap = if (currentCenter != null) {
+            visibleRectOverlap(
+                currentCenter, view.scale,
+                clampedCenter, clampedScale,
+                view.width, view.height, view.sWidth, view.sHeight,
             )
-            val viewDiagonal = kotlin.math.hypot(view.width.toFloat(), view.height.toFloat())
-            pixelShift / viewDiagonal
         } else {
-            1f
+            0f
         }
 
         logcat {
             "Panel nav zoomToPanel rect=${panel.rect.flattenToString()} " +
                 "view=${view.width}x${view.height} " +
                 "targetScale=$targetScale clampedScale=$clampedScale currentScale=${view.scale} " +
-                "scaleChange=$scaleChange screenShift=$screenShift"
+                "clampedCenter=${clampedCenter.x},${clampedCenter.y} overlap=$overlap"
         }
 
-        if (scaleChange < SKIP_ZOOM_SCALE_THRESHOLD) {
-            logcat { "Panel nav zoomToPanel skipped: zoom too small (scaleChange=$scaleChange screenShift=$screenShift)" }
+        if (overlap > SKIP_ZOOM_OVERLAP_THRESHOLD) {
+            logcat { "Panel nav zoomToPanel skipped: view barely changes (overlap=$overlap)" }
             return false
         }
 
@@ -223,6 +225,86 @@ open class ReaderPageImageView @JvmOverloads constructor(
             .start()
 
         return true
+    }
+
+    /**
+     * Replicates SubsamplingScaleImageView's PAN_LIMIT_INSIDE clamping to predict
+     * where the view will actually end up for a given center and scale.
+     */
+    private fun clampCenter(
+        requested: PointF,
+        scale: Float,
+        viewWidth: Int,
+        viewHeight: Int,
+        sWidth: Int,
+        sHeight: Int,
+    ): PointF {
+        val scaledWidth = sWidth * scale
+        val scaledHeight = sHeight * scale
+        val vCenterX = viewWidth / 2f
+        val vCenterY = viewHeight / 2f
+
+        var vTranslateX = vCenterX - requested.x * scale
+        var vTranslateY = vCenterY - requested.y * scale
+
+        if (scaledWidth <= viewWidth) {
+            vTranslateX = (viewWidth - scaledWidth) / 2f
+        } else {
+            vTranslateX = vTranslateX.coerceIn(viewWidth - scaledWidth, 0f)
+        }
+        if (scaledHeight <= viewHeight) {
+            vTranslateY = (viewHeight - scaledHeight) / 2f
+        } else {
+            vTranslateY = vTranslateY.coerceIn(viewHeight - scaledHeight, 0f)
+        }
+
+        return PointF(
+            (vCenterX - vTranslateX) / scale,
+            (vCenterY - vTranslateY) / scale,
+        )
+    }
+
+    /**
+     * Computes how much the visible source rects overlap between two view states.
+     * Returns 0..1 where 1 means identical views.
+     */
+    private fun visibleRectOverlap(
+        centerA: PointF,
+        scaleA: Float,
+        centerB: PointF,
+        scaleB: Float,
+        viewWidth: Int,
+        viewHeight: Int,
+        sWidth: Int,
+        sHeight: Int,
+    ): Float {
+        fun visibleRect(center: PointF, scale: Float): RectF {
+            val halfW = viewWidth / (2f * scale)
+            val halfH = viewHeight / (2f * scale)
+            return RectF(
+                (center.x - halfW).coerceAtLeast(0f),
+                (center.y - halfH).coerceAtLeast(0f),
+                (center.x + halfW).coerceAtMost(sWidth.toFloat()),
+                (center.y + halfH).coerceAtMost(sHeight.toFloat()),
+            )
+        }
+
+        val rectA = visibleRect(centerA, scaleA)
+        val rectB = visibleRect(centerB, scaleB)
+
+        val interLeft = maxOf(rectA.left, rectB.left)
+        val interTop = maxOf(rectA.top, rectB.top)
+        val interRight = minOf(rectA.right, rectB.right)
+        val interBottom = minOf(rectA.bottom, rectB.bottom)
+
+        if (interLeft >= interRight || interTop >= interBottom) return 0f
+
+        val interArea = (interRight - interLeft) * (interBottom - interTop)
+        val areaA = rectA.width() * rectA.height()
+        val areaB = rectB.width() * rectB.height()
+        val unionArea = areaA + areaB - interArea
+
+        return if (unionArea > 0f) interArea / unionArea else 0f
     }
 
     fun setPanelDebugDetections(
@@ -815,7 +897,7 @@ open class ReaderPageImageView @JvmOverloads constructor(
 }
 
 private const val MAX_ZOOM_SCALE = 5F
-private const val SKIP_ZOOM_SCALE_THRESHOLD = 0.1F
+private const val SKIP_ZOOM_OVERLAP_THRESHOLD = 0.85F
 
 private fun OcrBoundingBox.toSourceRect(pageResult: OcrPageResult): RectF {
     return toSourceRect(
