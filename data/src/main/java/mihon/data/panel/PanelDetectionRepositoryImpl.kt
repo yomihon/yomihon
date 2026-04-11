@@ -20,6 +20,7 @@ import mihon.domain.panel.model.PanelDetectionResult
 import mihon.domain.panel.repository.PanelDetectionRepository
 import tachiyomi.core.common.util.system.Panel
 import tachiyomi.core.common.util.system.ReadingDirection
+import tachiyomi.core.common.util.system.ReadingOrderSorter
 import tachiyomi.core.common.util.system.logcat
 import java.io.Closeable
 import kotlin.math.abs
@@ -222,7 +223,6 @@ private class YoloPanelDetectionEngine(
 
         val orderedRects = sortByReadingOrder(
             rects = prunedPanels.map { it.rect },
-            imageHeight = originalHeight,
             direction = direction,
         )
         val expandedRects = expandLargePanels(
@@ -616,43 +616,16 @@ private class YoloPanelDetectionEngine(
 
         return sortByReadingOrder(
             rects = virtualPanels,
-            imageHeight = parentPanel.height(),
             direction = direction,
         )
     }
 
     private fun sortByReadingOrder(
         rects: List<Rect>,
-        imageHeight: Int,
         direction: ReadingDirection,
     ): List<Rect> {
-        if (direction == ReadingDirection.VERTICAL) {
-            return rects.sortedWith(compareBy<Rect> { it.centerY() }.thenBy { it.centerX() })
-        }
-
-        val rowThreshold = imageHeight * ROW_GROUPING_RATIO
-        val rows = mutableListOf<MutableList<Rect>>()
-
-        rects.sortedBy { it.centerY() }.forEach { rect ->
-            val row = rows.find { existing ->
-                abs(existing.first().centerY() - rect.centerY()) <= rowThreshold
-            }
-            if (row == null) {
-                rows += mutableListOf(rect)
-            } else {
-                row += rect
-            }
-        }
-
-        return rows
-            .sortedBy { row -> row.minOf { it.centerY() } }
-            .flatMap { row ->
-                when (direction) {
-                    ReadingDirection.RTL -> row.sortedByDescending { it.centerX() }
-                    ReadingDirection.LTR -> row.sortedBy { it.centerX() }
-                    ReadingDirection.VERTICAL -> row.sortedBy { it.centerY() }
-                }
-            }
+        val sortedIndices = ReadingOrderSorter.sort(rects, direction)
+        return sortedIndices.map { rects[it] }
     }
 
     private fun isLargeEnough(rect: Rect, width: Int, height: Int): Boolean {
@@ -783,7 +756,6 @@ private class YoloPanelDetectionEngine(
         private const val MIN_VIRTUAL_HEIGHT_RATIO = 0.25f
         private const val MIN_PANEL_AREA_RATIO = 0.02f
         private const val MAX_DUPLICATE_IOU = 0.8f
-        private const val ROW_GROUPING_RATIO = 0.15f
         private const val CONTENT_THRESHOLD = 16
         private const val MIN_CONTENT_SPAN_RATIO = 0.25f
         private const val CACHE_CAPACITY = 128
