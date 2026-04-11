@@ -3,9 +3,6 @@ package mihon.data.ocr
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Rect
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
-import android.os.Build
 import com.google.ai.edge.litert.Environment
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -26,7 +23,6 @@ import mihon.domain.ocr.repository.OcrRepository
 import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.getEnum
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.download.service.DownloadPreferences
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -36,13 +32,9 @@ import java.net.UnknownHostException
  */
 class OcrRepositoryImpl(
     private val context: Context,
-    downloadPreferences: DownloadPreferences,
 ) : OcrRepository {
     private val preferenceStore = AndroidPreferenceStore(context)
     private val ocrModelPref = preferenceStore.getEnum("pref_ocr_model", OcrModel.LEGACY)
-
-    // Used to check setting for page scans, since those are similar in bandwidth to downloading
-    private val wifiOnlyPref = downloadPreferences.downloadOnlyOverWifi()
 
     private val environment by lazy { Environment.create() }
     private val textPostprocessor by lazy { TextPostprocessor() }
@@ -80,28 +72,6 @@ class OcrRepositoryImpl(
             OcrModel.LEGACY -> EngineType.LEGACY
             OcrModel.FAST -> EngineType.FAST
             OcrModel.GLENS -> EngineType.GLENS
-        }
-    }
-
-    private fun requiresWifiForScan(): Boolean {
-        return wifiOnlyPref.get()
-    }
-
-    private fun checkWifiForScan() {
-        if (requiresWifiForScan() && !isConnectedToWifi()) {
-            throw OcrException.ConnectionError()
-        }
-    }
-
-    @Suppress("DEPRECATION")
-    private fun isConnectedToWifi(): Boolean {
-        val connectivityManager = context.getSystemService(ConnectivityManager::class.java) ?: return false
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val activeNetwork = connectivityManager.activeNetwork ?: return false
-            val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
-        } else {
-            connectivityManager.activeNetworkInfo?.type == ConnectivityManager.TYPE_WIFI
         }
     }
 
@@ -301,7 +271,6 @@ class OcrRepositoryImpl(
         image: Bitmap,
         modelKey: OcrModel,
     ): OcrPageResult {
-        checkWifiForScan()
         val result = try {
             submitTask(PrioritizedTaskQueue.Priority.NORMAL) {
                 engineLocks.withTextEngineLock(EngineType.GLENS) {

@@ -52,6 +52,7 @@ import mihon.domain.ocr.model.OcrBoundingBox
 import mihon.domain.ocr.model.OcrPageResult
 import mihon.domain.ocr.model.flattenOcrTextForQuery
 import mihon.domain.panel.model.DebugPanelDetection
+import mihon.domain.ocr.model.normalizeOcrTextForDisplay
 import okio.BufferedSource
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.Panel
@@ -676,15 +677,17 @@ open class ReaderPageImageView @JvmOverloads constructor(
         val sourcePoint = localPointToSourcePoint(localX, localY) ?: return false
         val region = result.findRegionAt(sourcePoint.x, sourcePoint.y) ?: return false
 
+        val displayText = normalizeOcrTextForDisplay(region.text)
+
         onOcrRegionClicked?.invoke(
             ReaderPageOcrRegionTap(
                 regionOrder = region.order,
-                displayText = region.text,
+                displayText = displayText,
                 queryText = flattenOcrTextForQuery(region.text),
                 boundingBox = region.boundingBox,
                 textOrientation = region.textOrientation,
                 anchorRectOnScreen = boundingBoxToScreenRect(region.boundingBox, result),
-                initialSelectionOffset = resolveInitialSelectionOffset(region, result, localX, localY),
+                initialSelectionOffset = resolveInitialSelectionOffset(region, displayText, result, localX, localY),
             ),
         )
         return true
@@ -719,13 +722,14 @@ open class ReaderPageImageView @JvmOverloads constructor(
 
     private fun resolveInitialSelectionOffset(
         region: mihon.domain.ocr.model.OcrRegion,
+        normalizedDisplayText: String,
         pageResult: OcrPageResult,
         localX: Float,
         localY: Float,
     ): Int {
         val overlayLayout = ocrOverlayRenderer.buildLayout(
             bubbleRect = boundingBoxToLocalRect(region.boundingBox, pageResult) ?: return 0,
-            displayText = region.text,
+            displayText = normalizedDisplayText,
             textOrientation = region.textOrientation,
             highlightRange = null,
         ) ?: return 0

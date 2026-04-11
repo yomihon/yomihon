@@ -118,7 +118,7 @@ private fun GlossaryNode.Element.appendAttributesTo(sb: StringBuilder) {
         var first = true
         attributes.style.forEach { (key, value) ->
             if (!first) sb.append("; ")
-            sb.append(key.toKebabCase()).append(": ").append(value)
+            sb.append(key.toKebabCase()).append(": ").append(value.escapeHtml())
             first = false
         }
         sb.append("\"")

@@ -1,6 +1,9 @@
 package eu.kanade.tachiyomi.data.ocr
 
+import android.content.Context
+import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.util.ocr.toOcrImage
+import eu.kanade.tachiyomi.util.system.activeNetworkState
 import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
 import mihon.domain.ocr.interactor.ClearCachedChapterOcr
@@ -8,15 +11,18 @@ import mihon.domain.ocr.interactor.ScanPageOcr
 import mihon.domain.ocr.interactor.WithOcrScanSession
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChapter
+import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.manga.interactor.GetManga
 
 internal class OcrChapterScanner(
+    private val context: Context,
     private val getChapter: GetChapter,
     private val getManga: GetManga,
     private val clearCachedChapterOcr: ClearCachedChapterOcr,
     private val withOcrScanSession: WithOcrScanSession,
     private val scanPageOcr: ScanPageOcr,
     private val pageSourceResolver: OcrPageSourceResolver,
+    private val downloadPreferences: DownloadPreferences,
 ) {
     suspend fun scanChapter(
         chapterId: Long,
@@ -59,7 +65,7 @@ internal class OcrChapterScanner(
                 onCacheStateChanged(chapterId, false)
 
                 val resolvedPages = pageSourceResolver.resolve(manga, chapter)
-                resolvedPages.use { pages ->
+                resolvedPages.use pageScope@{ pages ->
                     if (pages.pages.isEmpty()) {
                         onError(
                             OcrChapterScanError(
@@ -86,7 +92,23 @@ internal class OcrChapterScanner(
 
                         try {
                             var chapterHasCachedResults = false
-                            pages.pages.forEachIndexed { index, page ->
+                            for ((index, page) in pages.pages.withIndex()) {
+                                val networkError = checkNetworkState()
+                                if (networkError != null) {
+                                    clearCachedChapterOcr.await(chapterId)
+                                    onCacheStateChanged(chapterId, false)
+                                    onError(
+                                        OcrChapterScanError(
+                                            mangaId = manga.id,
+                                            mangaTitle = manga.title,
+                                            chapterId = chapterId,
+                                            chapterName = chapter.name,
+                                            failure = OcrScanFailure.Unexpected(networkError),
+                                        ),
+                                    )
+                                    return@pageScope false
+                                }
+
                                 val bitmap = page.openBitmap() ?: error("Unable to decode page ${page.pageIndex + 1}")
                                 try {
                                     scanPageOcr.await(chapterId, page.pageIndex, bitmap.toOcrImage())
@@ -163,6 +185,20 @@ internal class OcrChapterScanner(
             ),
         )
         return false
+    }
+
+    private fun checkNetworkState(): String? {
+        val state = context.activeNetworkState()
+        return if (state.isOnline) {
+            val requireWifi = downloadPreferences.downloadOnlyOverWifi().get()
+            if (requireWifi && !state.isWifi) {
+                context.getString(R.string.download_notifier_text_only_wifi)
+            } else {
+                null
+            }
+        } else {
+            context.getString(R.string.download_notifier_no_network)
+        }
     }
 }
 
