@@ -23,6 +23,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.injectLazy
 import kotlin.math.min
@@ -370,7 +371,7 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
      */
     open fun moveToNext() {
         if (tryAdvancePanelForward()) return
-        logcat { "Panel nav viewer fallback moveToNext -> page" }
+        logcat(LogPriority.VERBOSE) { "Panel nav viewer fallback moveToNext -> page" }
         moveRight()
     }
 
@@ -379,7 +380,7 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
      */
     open fun moveToPrevious() {
         if (tryAdvancePanelBackward()) return
-        logcat { "Panel nav viewer fallback moveToPrevious -> page" }
+        logcat(LogPriority.VERBOSE) { "Panel nav viewer fallback moveToPrevious -> page" }
         moveLeft()
     }
 
@@ -387,11 +388,11 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
         val page = currentPage as? ReaderPage
         val holder = page?.let(::getPageHolder)
         if (holder == null) {
-            logcat { "Panel nav viewer tryForward: no holder (currentPage=${currentPage?.javaClass?.simpleName})" }
+            logcat(LogPriority.VERBOSE) { "Panel nav viewer tryForward: no holder (currentPage=${currentPage?.javaClass?.simpleName})" }
             return false
         }
         val advanced = config.panelNavigation && holder.hasPanels() && holder.zoomToNextPanel()
-        logcat {
+        logcat(LogPriority.VERBOSE) {
             "Panel nav viewer tryForward page=${page.index} enabled=${config.panelNavigation} hasPanels=${holder.hasPanels()} hasNext=${holder.hasNextPanel()} advanced=$advanced"
         }
         return advanced
@@ -401,11 +402,11 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
         val page = currentPage as? ReaderPage
         val holder = page?.let(::getPageHolder)
         if (holder == null) {
-            logcat { "Panel nav viewer tryBackward: no holder (currentPage=${currentPage?.javaClass?.simpleName})" }
+            logcat(LogPriority.VERBOSE) { "Panel nav viewer tryBackward: no holder (currentPage=${currentPage?.javaClass?.simpleName})" }
             return false
         }
         val advanced = config.panelNavigation && holder.hasPanels() && holder.zoomToPreviousPanel()
-        logcat {
+        logcat(LogPriority.VERBOSE) {
             "Panel nav viewer tryBackward page=${page.index} enabled=${config.panelNavigation} hasPanels=${holder.hasPanels()} hasPrev=${holder.hasPreviousPanel()} advanced=$advanced"
         }
         return advanced

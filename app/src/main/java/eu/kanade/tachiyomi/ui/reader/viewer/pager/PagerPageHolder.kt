@@ -59,6 +59,7 @@ class PagerPageHolder(
     private var currentPanelIndex = -1
     private var panelDetectionJob: Job? = null
     private var panelDetectionGeneration = 0
+    private var pendingBackwardNavigation = false
 
     /**
      * Item that identifies this view. Needed by the adapter to not recreate views.
@@ -192,6 +193,7 @@ class PagerPageHolder(
         panels = emptyList()
         setPanelDebugDetections(emptyList())
         currentPanelIndex = -1
+        pendingBackwardNavigation = false
 
         panelDetectionJob?.cancel()
         panelDetectionGeneration++
@@ -239,7 +241,7 @@ class PagerPageHolder(
     private fun maybeStartPanelDetection(loadResult: LoadResult) {
         if (!viewer.config.panelNavigation || loadResult.isAnimated) {
             setPanelDebugDetections(emptyList())
-            logcat {
+            logcat(LogPriority.VERBOSE) {
                 "Panel nav detection skipped index=${page.index} enabled=${viewer.config.panelNavigation} animated=${loadResult.isAnimated}"
             }
             return
@@ -249,7 +251,7 @@ class PagerPageHolder(
         val cacheKey = panelDetectionCacheKey()
         val streamFn = page.stream
         if (streamFn == null) {
-            logcat { "Panel nav detection skipped index=${page.index}: no stream" }
+            logcat(LogPriority.VERBOSE) { "Panel nav detection skipped index=${page.index}: no stream" }
             return
         }
 
@@ -274,8 +276,13 @@ class PagerPageHolder(
                 if (eu.kanade.tachiyomi.BuildConfig.DEBUG) {
                     setPanelDebugDetections(result.debugPanels, result.debugBubbles)
                 }
-                currentPanelIndex = -1
-                logcat {
+                currentPanelIndex = if (pendingBackwardNavigation && panels.isNotEmpty()) {
+                    panels.size
+                } else {
+                    -1
+                }
+                pendingBackwardNavigation = false
+                logcat(LogPriority.VERBOSE) {
                     "Panel nav detection assigned index=${page.index} panels=${panels.size} " +
                         "ordered=${panels.joinToString { it.rect.flattenToString() }} " +
                         "debug=${result.debugPanels.joinToString {
@@ -296,7 +303,7 @@ class PagerPageHolder(
 
         val largestDimension = maxOf(options.outWidth, options.outHeight)
         if (largestDimension <= 0) {
-            logcat { "Panel nav decodeBitmap failed: dimensions <= 0" }
+            logcat(LogPriority.VERBOSE) { "Panel nav decodeBitmap failed: dimensions <= 0" }
             return null
         }
 
@@ -312,11 +319,11 @@ class PagerPageHolder(
         }
 
         if (bitmap == null) {
-            logcat { "Panel nav decodeBitmap failed: bitmap null after decode with sampleSize=$sampleSize" }
+            logcat(LogPriority.VERBOSE) { "Panel nav decodeBitmap failed: bitmap null after decode with sampleSize=$sampleSize" }
             return null
         }
 
-        logcat {
+        logcat(LogPriority.VERBOSE) {
             "Panel nav decodeBitmap success sampleSize=$sampleSize " +
                 "bitmapSize=${bitmap.width}x${bitmap.height} " +
                 "originalSize=${options.outWidth}x${options.outHeight} " +
@@ -347,18 +354,18 @@ class PagerPageHolder(
     fun zoomToNextPanel(): Boolean {
         var nextIndex = currentPanelIndex + 1
         while (nextIndex <= panels.lastIndex) {
-            logcat {
+            logcat(LogPriority.VERBOSE) {
                 "Panel nav next attempt index=${page.index} currentPanelIndex=$currentPanelIndex nextIndex=$nextIndex rect=${panels[nextIndex].rect.flattenToString()}"
             }
             if (zoomToPanel(panels[nextIndex])) {
                 currentPanelIndex = nextIndex
-                logcat { "Panel nav next result index=${page.index} zoomed=true currentPanelIndex=$currentPanelIndex" }
+                logcat(LogPriority.VERBOSE) { "Panel nav next result index=${page.index} zoomed=true currentPanelIndex=$currentPanelIndex" }
                 return true
             }
             // Zoom was too small, skip to next
             nextIndex++
         }
-        logcat {
+        logcat(LogPriority.VERBOSE) {
             "Panel nav next unavailable index=${page.index} currentPanelIndex=$currentPanelIndex panelCount=${panels.size}"
         }
         return false
@@ -367,12 +374,12 @@ class PagerPageHolder(
     fun zoomToPreviousPanel(): Boolean {
         var previousIndex = currentPanelIndex - 1
         while (previousIndex >= 0) {
-            logcat {
+            logcat(LogPriority.VERBOSE) {
                 "Panel nav previous attempt index=${page.index} currentPanelIndex=$currentPanelIndex previousIndex=$previousIndex rect=${panels[previousIndex].rect.flattenToString()}"
             }
             if (zoomToPanel(panels[previousIndex])) {
                 currentPanelIndex = previousIndex
-                logcat {
+                logcat(LogPriority.VERBOSE) {
                     "Panel nav previous result index=${page.index} zoomed=true currentPanelIndex=$currentPanelIndex"
                 }
                 return true
@@ -380,14 +387,14 @@ class PagerPageHolder(
             // Zoom was too small, skip to previous
             previousIndex--
         }
-        logcat {
+        logcat(LogPriority.VERBOSE) {
             "Panel nav previous unavailable index=${page.index} currentPanelIndex=$currentPanelIndex panelCount=${panels.size}"
         }
         return false
     }
 
     protected override fun onPageReady(forward: Boolean) {
-        logcat {
+        logcat(LogPriority.VERBOSE) {
             "Panel nav onPageReady index=${page.index} forward=$forward panelCount=${panels.size} visible=${isVisibleOnScreen()}"
         }
         super.onPageReady(forward)
@@ -397,10 +404,14 @@ class PagerPageHolder(
         super.onPageSelected(forward)
         // When navigating backward into a page, position after the last panel
         // so the first backward tap zooms to the last panel
-        if (!forward && hasPanels()) {
-            currentPanelIndex = panels.size
+        if (!forward) {
+            if (hasPanels()) {
+                currentPanelIndex = panels.size
+            } else {
+                pendingBackwardNavigation = true
+            }
         }
-        logcat {
+        logcat(LogPriority.VERBOSE) {
             "Panel nav onPageSelected index=${page.index} forward=$forward panelCount=${panels.size} currentPanelIndex=$currentPanelIndex"
         }
     }

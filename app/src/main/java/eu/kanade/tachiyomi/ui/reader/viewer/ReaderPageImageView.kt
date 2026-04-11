@@ -50,6 +50,7 @@ import eu.kanade.tachiyomi.util.view.isVisibleOnScreen
 import mihon.domain.ocr.model.OcrBoundingBox
 import mihon.domain.ocr.model.OcrPageResult
 import mihon.domain.ocr.model.flattenOcrTextForQuery
+import logcat.LogPriority
 import mihon.domain.panel.model.DebugPanelDetection
 import okio.BufferedSource
 import tachiyomi.core.common.util.system.ImageUtil
@@ -175,7 +176,7 @@ open class ReaderPageImageView @JvmOverloads constructor(
     fun zoomToPanel(panel: Panel): Boolean {
         val view = pageView as? SubsamplingScaleImageView ?: return false
         if (!view.isReady) {
-            logcat { "Panel nav zoomToPanel skipped: view not ready rect=${panel.rect.flattenToString()}" }
+            logcat(LogPriority.VERBOSE) { "Panel nav zoomToPanel skipped: view not ready rect=${panel.rect.flattenToString()}" }
             return false
         }
 
@@ -212,7 +213,7 @@ open class ReaderPageImageView @JvmOverloads constructor(
             0f
         }
 
-        logcat {
+        logcat(LogPriority.VERBOSE) {
             "Panel nav zoomToPanel rect=${panel.rect.flattenToString()} " +
                 "view=${view.width}x${view.height} " +
                 "targetScale=$targetScale clampedScale=$clampedScale currentScale=${view.scale} " +
@@ -220,7 +221,7 @@ open class ReaderPageImageView @JvmOverloads constructor(
         }
 
         if (overlap > SKIP_ZOOM_OVERLAP_THRESHOLD) {
-            logcat { "Panel nav zoomToPanel skipped: view barely changes (overlap=$overlap)" }
+            logcat(LogPriority.VERBOSE) { "Panel nav zoomToPanel skipped: view barely changes (overlap=$overlap)" }
             return false
         }
 

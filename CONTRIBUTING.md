@@ -24,7 +24,7 @@ Before you start, please note that the ability to use following technologies is 
 - To test the experimental panel detector locally, download [`manga_panel_detector_int8.tflite`](https://huggingface.co/leoxs22/manga-panel-detector-yolo26n/tree/main)
   - Move it to `data/src/main/assets/panel_detector/`
   - Rename it to `model.tflite`
-  - See [`MODEL_ATTRIBUTION.md`](/Users/personal/workspace/yomihon/MODEL_ATTRIBUTION.md) for the required model and dataset citations
+  - See [`MODEL_ATTRIBUTION.md`](./MODEL_ATTRIBUTION.md) for the required model and dataset citations
 
 ### Tools
 

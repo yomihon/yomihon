@@ -51,4 +51,4 @@ This model was trained on Manga109-s. Please cite:
 ## Notes
 
 - The panel detector model binary is not committed to git.
-- Contributors should follow the setup instructions in [CONTRIBUTING.md](/Users/personal/workspace/yomihon/CONTRIBUTING.md) when placing the local asset.
+- Contributors should follow the setup instructions in [CONTRIBUTING.md](./CONTRIBUTING.md) when placing the local asset.
