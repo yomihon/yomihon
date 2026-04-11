@@ -47,10 +47,10 @@ import eu.kanade.tachiyomi.data.coil.customDecoder
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonSubsamplingImageView
 import eu.kanade.tachiyomi.util.system.animatorDurationScale
 import eu.kanade.tachiyomi.util.view.isVisibleOnScreen
+import logcat.LogPriority
 import mihon.domain.ocr.model.OcrBoundingBox
 import mihon.domain.ocr.model.OcrPageResult
 import mihon.domain.ocr.model.flattenOcrTextForQuery
-import logcat.LogPriority
 import mihon.domain.panel.model.DebugPanelDetection
 import okio.BufferedSource
 import tachiyomi.core.common.util.system.ImageUtil
@@ -176,7 +176,9 @@ open class ReaderPageImageView @JvmOverloads constructor(
     fun zoomToPanel(panel: Panel): Boolean {
         val view = pageView as? SubsamplingScaleImageView ?: return false
         if (!view.isReady) {
-            logcat(LogPriority.VERBOSE) { "Panel nav zoomToPanel skipped: view not ready rect=${panel.rect.flattenToString()}" }
+            logcat(LogPriority.VERBOSE) {
+                "Panel nav zoomToPanel skipped: view not ready rect=${panel.rect.flattenToString()}"
+            }
             return false
         }
 

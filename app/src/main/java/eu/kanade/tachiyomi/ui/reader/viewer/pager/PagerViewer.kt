@@ -388,7 +388,9 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
         val page = currentPage as? ReaderPage
         val holder = page?.let(::getPageHolder)
         if (holder == null) {
-            logcat(LogPriority.VERBOSE) { "Panel nav viewer tryForward: no holder (currentPage=${currentPage?.javaClass?.simpleName})" }
+            logcat(LogPriority.VERBOSE) {
+                "Panel nav viewer tryForward: no holder (currentPage=${currentPage?.javaClass?.simpleName})"
+            }
             return false
         }
         val advanced = config.panelNavigation && holder.hasPanels() && holder.zoomToNextPanel()
@@ -402,7 +404,9 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
         val page = currentPage as? ReaderPage
         val holder = page?.let(::getPageHolder)
         if (holder == null) {
-            logcat(LogPriority.VERBOSE) { "Panel nav viewer tryBackward: no holder (currentPage=${currentPage?.javaClass?.simpleName})" }
+            logcat(LogPriority.VERBOSE) {
+                "Panel nav viewer tryBackward: no holder (currentPage=${currentPage?.javaClass?.simpleName})"
+            }
             return false
         }
         val advanced = config.panelNavigation && holder.hasPanels() && holder.zoomToPreviousPanel()

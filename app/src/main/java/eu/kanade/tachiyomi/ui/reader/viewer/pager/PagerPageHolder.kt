@@ -319,7 +319,9 @@ class PagerPageHolder(
         }
 
         if (bitmap == null) {
-            logcat(LogPriority.VERBOSE) { "Panel nav decodeBitmap failed: bitmap null after decode with sampleSize=$sampleSize" }
+            logcat(LogPriority.VERBOSE) {
+                "Panel nav decodeBitmap failed: bitmap null after decode with sampleSize=$sampleSize"
+            }
             return null
         }
 
@@ -359,7 +361,9 @@ class PagerPageHolder(
             }
             if (zoomToPanel(panels[nextIndex])) {
                 currentPanelIndex = nextIndex
-                logcat(LogPriority.VERBOSE) { "Panel nav next result index=${page.index} zoomed=true currentPanelIndex=$currentPanelIndex" }
+                logcat(LogPriority.VERBOSE) {
+                    "Panel nav next result index=${page.index} zoomed=true currentPanelIndex=$currentPanelIndex"
+                }
                 return true
             }
             // Zoom was too small, skip to next
