@@ -215,11 +215,23 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
         return matched
     }
 
-    override fun resolveSelectionCapture(region: ReaderSelectionRegion): ReaderSelectionCapture? =
-        (currentPage as? ReaderPage)?.let { page ->
-            val sourceRect = getPageHolder(page)?.sourceRectForScreenRect(region.screenRect) ?: return null
-            ReaderSelectionCapture(page, sourceRect)
-        }
+    override fun resolveSelectionCaptures(region: ReaderSelectionRegion): List<ReaderSelectionCapture> {
+        return pager.children
+            .filterIsInstance(PagerPageHolder::class.java)
+            .mapNotNull { holder ->
+                val childRect = android.graphics.Rect()
+                if (!holder.getGlobalVisibleRect(childRect)) return@mapNotNull null
+
+                val intersection = android.graphics.RectF(region.screenRect)
+                if (!intersection.intersect(android.graphics.RectF(childRect))) return@mapNotNull null
+
+                val page = holder.item as? ReaderPage ?: return@mapNotNull null
+                val sourceRect = holder.sourceRectForScreenRect(intersection) ?: return@mapNotNull null
+                ReaderSelectionCapture(page, sourceRect, intersection)
+            }
+            .toList()
+            .sortedWith(compareBy<ReaderSelectionCapture> { it.screenRect.top }.thenBy { it.screenRect.left })
+    }
 
     /**
      * Returns the PagerPageHolder for the provided page

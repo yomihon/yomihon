@@ -257,23 +257,28 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
         return matched
     }
 
-    override fun resolveSelectionCapture(region: ReaderSelectionRegion): ReaderSelectionCapture? {
-        val targetPageView = recycler.children
+    override fun resolveSelectionCaptures(region: ReaderSelectionRegion): List<ReaderSelectionCapture> {
+        return recycler.children
             .filterIsInstance(ReaderPageImageView::class.java)
-            .firstOrNull { child ->
+            .mapNotNull { child ->
                 val childRect = android.graphics.Rect()
-                child.getGlobalVisibleRect(childRect) &&
-                    childRect.contains(region.anchorScreenPoint.x.toInt(), region.anchorScreenPoint.y.toInt())
+                if (!child.getGlobalVisibleRect(childRect)) return@mapNotNull null
+
+                val intersection = android.graphics.RectF(region.screenRect)
+                if (!intersection.intersect(android.graphics.RectF(childRect))) return@mapNotNull null
+
+                val page = adapter.items
+                    .getOrNull(recycler.getChildAdapterPosition(child)) as? ReaderPage
+                    ?: return@mapNotNull null
+                val chapterId = page.chapter.chapter.id ?: return@mapNotNull null
+                val pageIdentity = ReaderOcrPageIdentity(chapterId, page.index)
+                if (!child.matchesOcrPage(pageIdentity)) return@mapNotNull null
+
+                val sourceRect = child.sourceRectForScreenRect(intersection) ?: return@mapNotNull null
+                ReaderSelectionCapture(page, sourceRect, intersection)
             }
-            ?: return null
-        val page = adapter.items
-            .getOrNull(recycler.getChildAdapterPosition(targetPageView)) as? ReaderPage
-            ?: return null
-        val chapterId = page.chapter.chapter.id ?: return null
-        val pageIdentity = ReaderOcrPageIdentity(chapterId, page.index)
-        if (!targetPageView.matchesOcrPage(pageIdentity)) return null
-        val sourceRect = targetPageView.sourceRectForScreenRect(region.screenRect) ?: return null
-        return ReaderSelectionCapture(page, sourceRect)
+            .toList()
+            .sortedWith(compareBy<ReaderSelectionCapture> { it.screenRect.top }.thenBy { it.screenRect.left })
     }
 
     /**

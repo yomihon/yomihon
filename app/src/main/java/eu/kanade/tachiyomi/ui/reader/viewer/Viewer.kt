@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 data class ReaderSelectionCapture(
     val page: ReaderPage,
     val sourceRect: Rect,
+    val screenRect: RectF,
 )
 
 data class ReaderSelectionRegion(
@@ -63,5 +64,5 @@ interface Viewer {
      */
     fun setActiveOcrOverlay(overlay: ReaderActiveOcrOverlay?): Boolean = overlay == null
 
-    fun resolveSelectionCapture(region: ReaderSelectionRegion): ReaderSelectionCapture? = null
+    fun resolveSelectionCaptures(region: ReaderSelectionRegion): List<ReaderSelectionCapture> = emptyList()
 }

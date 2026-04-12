@@ -94,6 +94,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderActiveOcrOverlay
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderOcrRegionSelection
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderSelectionCapture
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderSelectionRegion
 import eu.kanade.tachiyomi.ui.reader.viewer.queryRangeToDisplayRange
 import eu.kanade.tachiyomi.ui.reader.viewer.searchTextForOffset
@@ -1003,15 +1004,17 @@ class ReaderActivity : BaseActivity() {
     ) {
         lifecycleScope.launchIO {
             try {
-                val capture = withUIContext {
-                    viewModel.state.value.viewer?.resolveSelectionCapture(
+                val captures = withUIContext {
+                    viewModel.state.value.viewer?.resolveSelectionCaptures(
                         ReaderSelectionRegion(
                             screenRect = dialogRootRectToScreenRect(rect),
                             anchorScreenPoint = dialogRootOffsetToScreenPoint(start),
                         ),
                     )
-                } ?: throw IllegalStateException("Failed to resolve current page region")
-                val croppedBitmap = cropPageBitmap(capture.page, capture.sourceRect)
+                }.orEmpty()
+                    .takeIf { it.isNotEmpty() }
+                    ?: throw IllegalStateException("Failed to resolve current page region")
+                val croppedBitmap = cropSelectionBitmap(captures)
 
                 try {
                     val uri = imageSaver.save(
@@ -1047,15 +1050,17 @@ class ReaderActivity : BaseActivity() {
     ) {
         lifecycleScope.launchIO {
             try {
-                val capture = withUIContext {
-                    viewModel.state.value.viewer?.resolveSelectionCapture(
+                val captures = withUIContext {
+                    viewModel.state.value.viewer?.resolveSelectionCaptures(
                         ReaderSelectionRegion(
                             screenRect = dialogRootRectToScreenRect(rect),
                             anchorScreenPoint = dialogRootOffsetToScreenPoint(start),
                         ),
                     )
-                } ?: throw IllegalStateException("Failed to resolve current page region")
-                val croppedBitmap = cropPageBitmap(capture.page, capture.sourceRect)
+                }.orEmpty()
+                    .takeIf { it.isNotEmpty() }
+                    ?: throw IllegalStateException("Failed to resolve current page region")
+                val croppedBitmap = cropSelectionBitmap(captures)
 
                 // The ViewModel takes ownership of the bitmap for OCR processing.
                 viewModel.processOcrRegion(croppedBitmap)
@@ -1116,6 +1121,53 @@ class ReaderActivity : BaseActivity() {
         } finally {
             if (!fullBitmap.isRecycled) {
                 fullBitmap.recycle()
+            }
+        }
+    }
+
+    private suspend fun cropSelectionBitmap(
+        captures: List<ReaderSelectionCapture>,
+    ): Bitmap {
+        if (captures.size == 1) {
+            val capture = captures.first()
+            return cropPageBitmap(capture.page, capture.sourceRect)
+        }
+
+        data class CroppedSelectionPart(
+            val bitmap: Bitmap,
+            val screenRect: android.graphics.RectF,
+        )
+
+        val parts = captures.map { capture ->
+            CroppedSelectionPart(
+                bitmap = cropPageBitmap(capture.page, capture.sourceRect),
+                screenRect = capture.screenRect,
+            )
+        }
+
+        try {
+            val bounds = parts.fold(android.graphics.RectF(parts.first().screenRect)) { acc, part ->
+                acc.apply { union(part.screenRect) }
+            }
+            val mergedBitmap = Bitmap.createBitmap(
+                bounds.width().toInt().coerceAtLeast(1),
+                bounds.height().toInt().coerceAtLeast(1),
+                Bitmap.Config.ARGB_8888,
+            )
+            val canvas = android.graphics.Canvas(mergedBitmap)
+
+            parts.forEach { part ->
+                val left = part.screenRect.left - bounds.left
+                val top = part.screenRect.top - bounds.top
+                canvas.drawBitmap(part.bitmap, left, top, null)
+            }
+
+            return mergedBitmap
+        } finally {
+            parts.forEach { part ->
+                if (!part.bitmap.isRecycled) {
+                    part.bitmap.recycle()
+                }
             }
         }
     }
