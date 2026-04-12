@@ -65,17 +65,23 @@ fun normalizeOcrTextForDisplay(text: String): String {
     if (text.isEmpty()) return text
 
     return text
-        .replace(Regex("[ ]*\\.{2,}")) { match ->
-            periodsToEllipses(match.value.trimStart(' '))
+        .replace(Regex("[ ]*[.．・･…]{2,}")) { match ->
+            dotRunToEllipses(match.value.trimStart(' '))
         }
-        .replace(Regex("!!+"), "‼")
-        .replace(Regex("\\?\\?+"), "⁇")
-        .replace(Regex("!\\?+"), "⁉")
-        .replace(Regex("\\?!+"), "⁈")
+        .replace(Regex("[!！]{2,}"), "‼")
+        .replace(Regex("[?？]{2,}"), "⁇")
+        .replace(Regex("[!！][?？]+"), "⁉")
+        .replace(Regex("[?？][!！]+"), "⁈")
 }
 
-private fun periodsToEllipses(periodRun: String): String {
-    val dotCount = periodRun.count { it == '.' }
+private fun dotRunToEllipses(dotRun: String): String {
+    val dotCount = dotRun.sumOf {
+        when (it) {
+            '…' -> 3
+            '.', '．', '・', '･' -> 1
+            else -> 0
+        }
+    }
     val ellipsisCount = dotCount / 3
     val remainder = dotCount % 3
 

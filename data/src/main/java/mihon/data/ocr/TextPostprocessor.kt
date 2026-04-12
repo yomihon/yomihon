@@ -159,10 +159,10 @@ class TextPostprocessor {
                 continue
             }
 
-            if (char == '.' || char == '・') {
+            if (char.isOcrDotLike()) {
                 var dotCount = 1
                 var laterCharIndex = i + 1
-                while (laterCharIndex < len && (text[laterCharIndex] == '.' || text[laterCharIndex] == '・')) {
+                while (laterCharIndex < len && text[laterCharIndex].isOcrDotLike()) {
                     dotCount++
                     laterCharIndex++
                 }
@@ -170,6 +170,32 @@ class TextPostprocessor {
                 if (dotCount >= 2) {
                     // Replace with periods
                     repeat(dotCount) { stringBuilder.append('.') }
+                    previousNonWhitespace = text[laterCharIndex - 1]
+                    i = laterCharIndex
+                    continue
+                }
+            }
+
+            if (char.isOcrExclamationLike() || char.isOcrQuestionLike()) {
+                var punctuationCount = 1
+                var laterCharIndex = i + 1
+                while (
+                    laterCharIndex < len &&
+                    (text[laterCharIndex].isOcrExclamationLike() || text[laterCharIndex].isOcrQuestionLike())
+                ) {
+                    punctuationCount++
+                    laterCharIndex++
+                }
+
+                if (punctuationCount >= 2) {
+                    for (index in i until laterCharIndex) {
+                        stringBuilder.append(
+                            when {
+                                text[index].isOcrExclamationLike() -> '!'
+                                else -> '?'
+                            },
+                        )
+                    }
                     previousNonWhitespace = text[laterCharIndex - 1]
                     i = laterCharIndex
                     continue
@@ -201,5 +227,17 @@ class TextPostprocessor {
             codePoint in 0x4E00..0x9FFF || // CJK Unified Ideographs (common kanji)
             codePoint in 0x3400..0x4DBF || // CJK Extension A
             codePoint in 0xF900..0xFAFF // CJK Compatibility Ideographs
+    }
+
+    private fun Char.isOcrDotLike(): Boolean {
+        return this == '.' || this == '．' || this == '・' || this == '･'
+    }
+
+    private fun Char.isOcrExclamationLike(): Boolean {
+        return this == '!' || this == '！'
+    }
+
+    private fun Char.isOcrQuestionLike(): Boolean {
+        return this == '?' || this == '？'
     }
 }
