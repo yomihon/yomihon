@@ -158,7 +158,7 @@ object ImageUtil {
     }
 
     /*
-     * Approximates reader crop bounds for aligning OCR coords on cropped images 
+     * Approximates reader crop bounds for aligning OCR coords on cropped images
      */
     fun detectBorderCrop(imageSource: BufferedSource): Rect? {
         val decoder = ImageDecoder.newInstance(imageSource.peek().inputStream()) ?: return null
