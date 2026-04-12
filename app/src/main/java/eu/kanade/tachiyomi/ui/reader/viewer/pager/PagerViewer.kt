@@ -19,6 +19,8 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderActiveOcrOverlay
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderActiveOcrTapResult
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderSelectionCapture
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderSelectionRegion
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
 import kotlinx.coroutines.MainScope
@@ -212,6 +214,12 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
             }
         return matched
     }
+
+    override fun resolveSelectionCapture(region: ReaderSelectionRegion): ReaderSelectionCapture? =
+        (currentPage as? ReaderPage)?.let { page ->
+            val sourceRect = getPageHolder(page)?.sourceRectForScreenRect(region.screenRect) ?: return null
+            ReaderSelectionCapture(page, sourceRect)
+        }
 
     /**
      * Returns the PagerPageHolder for the provided page

@@ -13,7 +13,6 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.text.TextPaint
 import android.util.AttributeSet
-import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
@@ -41,6 +40,7 @@ import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView.EASE_IN_OUT
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView.EASE_OUT_QUAD
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView.SCALE_TYPE_CENTER_INSIDE
 import com.github.chrisbanes.photoview.PhotoView
+import com.google.android.material.color.MaterialColors
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.tachiyomi.data.coil.cropBorders
 import eu.kanade.tachiyomi.data.coil.customDecoder
@@ -62,6 +62,7 @@ import uy.kohesive.injekt.api.get
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import com.google.android.material.R as MaterialR
 
 /**
  * A wrapper view for showing page image.
@@ -112,10 +113,11 @@ open class ReaderPageImageView @JvmOverloads constructor(
         ReaderOcrOverlayRenderer(
             textPaint = ocrOverlayTextPaint,
             density = resources.displayMetrics.density,
-            scaledDensity = resources.displayMetrics.scaledDensity,
-            highlightColor = resolveThemeColor(
-                com.google.android.material.R.attr.colorPrimaryContainer,
-                fallback = Color.argb(255, 255, 214, 10),
+            scaledDensity = resources.displayMetrics.density * resources.configuration.fontScale,
+            highlightColor = MaterialColors.getColor(
+                context,
+                MaterialR.attr.colorPrimaryContainer,
+                Color.argb(255, 255, 214, 10),
             ),
         )
     }
@@ -399,6 +401,25 @@ open class ReaderPageImageView @JvmOverloads constructor(
 
     fun matchesOcrPage(pageIdentity: ReaderOcrPageIdentity): Boolean {
         return ocrPageIdentity == pageIdentity
+    }
+
+    fun sourceRectForScreenRect(screenRect: RectF): Rect? {
+        val selectionLocalRect = screenRectToLocalRect(screenRect) ?: return null
+        val imageLocalRect = displayedImageLocalRect() ?: return null
+        val clampedLocalRect = RectF(selectionLocalRect).apply {
+            if (!intersect(imageLocalRect)) {
+                return null
+            }
+        }
+        val topLeftSource = localPointToSourcePoint(clampedLocalRect.left, clampedLocalRect.top) ?: return null
+        val bottomRightSource = localPointToSourcePoint(clampedLocalRect.right, clampedLocalRect.bottom) ?: return null
+
+        val left = min(topLeftSource.x, bottomRightSource.x).toInt()
+        val top = min(topLeftSource.y, bottomRightSource.y).toInt()
+        val right = max(topLeftSource.x, bottomRightSource.x).toInt()
+        val bottom = max(topLeftSource.y, bottomRightSource.y).toInt()
+
+        return Rect(left, top, right, bottom).takeIf { it.width() > 0 && it.height() > 0 }
     }
 
     fun setActiveOcrOverlay(overlay: ReaderActiveOcrOverlay?) {
@@ -808,6 +829,43 @@ open class ReaderPageImageView @JvmOverloads constructor(
         )
     }
 
+    private fun screenRectToLocalRect(screenRect: RectF): RectF? {
+        val topLeftLocal = rawPointToLocalPoint(screenRect.left, screenRect.top) ?: return null
+        val bottomRightLocal = rawPointToLocalPoint(screenRect.right, screenRect.bottom) ?: return null
+        return RectF(
+            min(topLeftLocal.x, bottomRightLocal.x),
+            min(topLeftLocal.y, bottomRightLocal.y),
+            max(topLeftLocal.x, bottomRightLocal.x),
+            max(topLeftLocal.y, bottomRightLocal.y),
+        )
+    }
+
+    private fun displayedImageLocalRect(): RectF? {
+        return when (val currentPageView = pageView) {
+            is SubsamplingScaleImageView -> {
+                if (!currentPageView.isReady) return null
+                val topLeft = currentPageView.sourceToViewCoord(0f, 0f) ?: return null
+                val bottomRight = currentPageView.sourceToViewCoord(
+                    currentPageView.sWidth.toFloat(),
+                    currentPageView.sHeight.toFloat(),
+                ) ?: return null
+                RectF(
+                    min(topLeft.x, bottomRight.x),
+                    min(topLeft.y, bottomRight.y),
+                    max(topLeft.x, bottomRight.x),
+                    max(topLeft.y, bottomRight.y),
+                )
+            }
+            is ImageView -> {
+                val drawable = currentPageView.drawable ?: return null
+                RectF(0f, 0f, drawable.intrinsicWidth.toFloat(), drawable.intrinsicHeight.toFloat()).also(
+                    currentPageView.imageMatrix::mapRect,
+                )
+            }
+            else -> null
+        }
+    }
+
     private fun localPointToSourcePoint(localX: Float, localY: Float): PointF? {
         return when (val currentPageView = pageView) {
             is SubsamplingScaleImageView -> {
@@ -879,19 +937,6 @@ open class ReaderPageImageView @JvmOverloads constructor(
 
     private fun Int.getSystemScaledDuration(): Int {
         return (this * context.animatorDurationScale).toInt().coerceAtLeast(1)
-    }
-
-    private fun resolveThemeColor(attrRes: Int, fallback: Int): Int {
-        val tv = TypedValue()
-        return if (context.theme.resolveAttribute(attrRes, tv, true)) {
-            if (tv.resourceId != 0) {
-                androidx.core.content.ContextCompat.getColor(context, tv.resourceId)
-            } else {
-                tv.data
-            }
-        } else {
-            fallback
-        }
     }
 
     /**

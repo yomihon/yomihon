@@ -20,7 +20,10 @@ import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderActiveOcrOverlay
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderActiveOcrTapResult
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderOcrPageIdentity
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderSelectionCapture
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderSelectionRegion
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
 import kotlinx.coroutines.MainScope
@@ -252,6 +255,25 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
                 }
             }
         return matched
+    }
+
+    override fun resolveSelectionCapture(region: ReaderSelectionRegion): ReaderSelectionCapture? {
+        val targetPageView = recycler.children
+            .filterIsInstance(ReaderPageImageView::class.java)
+            .firstOrNull { child ->
+                val childRect = android.graphics.Rect()
+                child.getGlobalVisibleRect(childRect) &&
+                    childRect.contains(region.anchorScreenPoint.x.toInt(), region.anchorScreenPoint.y.toInt())
+            }
+            ?: return null
+        val page = adapter.items
+            .getOrNull(recycler.getChildAdapterPosition(targetPageView)) as? ReaderPage
+            ?: return null
+        val chapterId = page.chapter.chapter.id ?: return null
+        val pageIdentity = ReaderOcrPageIdentity(chapterId, page.index)
+        if (!targetPageView.matchesOcrPage(pageIdentity)) return null
+        val sourceRect = targetPageView.sourceRectForScreenRect(region.screenRect) ?: return null
+        return ReaderSelectionCapture(page, sourceRect)
     }
 
     /**
