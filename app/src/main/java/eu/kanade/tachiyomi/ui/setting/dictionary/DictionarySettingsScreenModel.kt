@@ -118,9 +118,7 @@ internal class DictionarySettingsScreenModel(
         shouldShowImportCompletionToast = true
         hasObservedPendingImportRunning = state.value.isImporting
         mutableState.update { it.copy(batchTotal = uris.size, batchCompleted = 0) }
-        uris.forEach { uri ->
-            DictionaryImportJob.start(context, uri)
-        }
+        DictionaryImportJob.startBatch(context, uris)
     }
 
     fun importDictionariesFromFolder(treeUri: Uri) {

@@ -35,7 +35,7 @@ import java.io.File
 
 /**
  * Worker for importing dictionary files in the background.
- * Supports importing from local file URIs or remote URLs.
+ * Supports importing from local file URIs, remote URLs, or a batch of URIs.
  */
 class DictionaryImportJob(
     private val context: Context,
@@ -48,13 +48,22 @@ class DictionaryImportJob(
     private val dictionaryStorageGateway: DictionaryStorageGateway = Injekt.get()
 
     override suspend fun doWork(): Result {
+        val uriStrings = inputData.getStringArray(KEY_URIS)
         val uriString = inputData.getString(KEY_URI)
         val urlString = inputData.getString(KEY_URL)
 
-        if (uriString == null && urlString == null) {
-            return Result.failure()
+        return when {
+            uriStrings != null -> importBatch(uriStrings.map { it.toUri() })
+            uriString != null || urlString != null -> importSingle(uriString, urlString)
+            else -> Result.failure()
         }
+    }
 
+    /**
+     * Imports a single dictionary from a URI or URL.
+     * If the archive has no index.json but contains nested .zip files, imports them all inline.
+     */
+    private suspend fun importSingle(uriString: String?, urlString: String?): Result {
         var tempFile: File? = null
         var importedDictionaryId: Long? = null
 
@@ -66,21 +75,8 @@ class DictionaryImportJob(
                 }.also { tempFile = it }
             }
 
-            try {
-                val outcome = ParcelFileDescriptor.open(
-                    archiveFile,
-                    ParcelFileDescriptor.MODE_READ_ONLY,
-                ).use { pfd ->
-                    ArchiveReader(pfd).use { reader ->
-                        extractAndImportDictionary(reader, archiveFile)
-                    }
-                }
-                importedDictionaryId = outcome.dictionaryId
-            } catch (e: DictionaryImportException.InvalidArchive) {
-                // No index.json — check if this is a ZIP containing nested dictionary ZIPs
-                val enqueued = extractAndEnqueueNestedZips(archiveFile)
-                if (enqueued == 0) throw e
-                logcat(LogPriority.INFO) { "Enqueued $enqueued nested dictionary ZIPs for import" }
+            importSingleArchive(archiveFile).also { outcome ->
+                importedDictionaryId = outcome?.dictionaryId
             }
 
             Result.success()
@@ -95,6 +91,138 @@ class DictionaryImportJob(
         } finally {
             runCatching { tempFile?.delete() }
         }
+    }
+
+    /**
+     * Imports multiple dictionaries from a list of URIs.
+     * Each URI is processed independently — failures don't stop the batch.
+     */
+    private suspend fun importBatch(uris: List<Uri>): Result {
+        var imported = 0
+        var skipped = 0
+        var failed = 0
+
+        for (uri in uris) {
+            var tempFile: File? = null
+            var importedDictionaryId: Long? = null
+            try {
+                val archiveFile = withContext(Dispatchers.IO) {
+                    copyLocalArchive(uri).also { tempFile = it }
+                }
+                importSingleArchive(archiveFile).also { outcome ->
+                    importedDictionaryId = outcome?.dictionaryId
+                }
+                imported++
+            } catch (e: CancellationException) {
+                cleanupPartialImport(importedDictionaryId)
+                throw e
+            } catch (e: DictionaryImportException.AlreadyImported) {
+                skipped++
+                logcat(LogPriority.INFO) { "Batch: skipped already-imported dictionary" }
+            } catch (e: Exception) {
+                failed++
+                logImportFailure(e)
+                cleanupPartialImport(importedDictionaryId)
+            } finally {
+                runCatching { tempFile?.delete() }
+            }
+        }
+
+        logcat(LogPriority.INFO) {
+            "Batch import complete: $imported imported, $skipped skipped, $failed failed"
+        }
+        return Result.success()
+    }
+
+    /**
+     * Tries to import a single archive file as a dictionary.
+     * If it has no index.json, falls back to importing nested .zip entries.
+     * Returns the ImportOutcome if a single dict was imported, or null for nested imports.
+     */
+    private suspend fun importSingleArchive(archiveFile: File): ImportOutcome? {
+        return try {
+            ParcelFileDescriptor.open(archiveFile, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
+                ArchiveReader(pfd).use { reader ->
+                    extractAndImportDictionary(reader, archiveFile)
+                }
+            }
+        } catch (e: DictionaryImportException.InvalidArchive) {
+            // No index.json — check if this is a ZIP containing nested dictionary ZIPs
+            val count = importNestedZips(archiveFile)
+            if (count == 0) throw e
+            null
+        }
+    }
+
+    /**
+     * Extracts nested .zip files from an archive and imports each one inline.
+     * Returns the total number of dicts found (imported + skipped).
+     */
+    private suspend fun importNestedZips(archiveFile: File): Int = withContext(Dispatchers.IO) {
+        // First pass: extract all nested .zip entries to temp files
+        val nestedDir = File(context.cacheDir, "dictionary_nested").apply { mkdirs() }
+        val nestedFiles = mutableListOf<File>()
+
+        ParcelFileDescriptor.open(archiveFile, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
+            ArchiveReader(pfd).use { reader ->
+                reader.useEntriesAndStreams { entry, stream ->
+                    if (entry.isFile && entry.name.endsWith(".zip", ignoreCase = true)) {
+                        val nestedFile = File(
+                            nestedDir,
+                            "nested_${System.currentTimeMillis()}_${nestedFiles.size}.zip",
+                        )
+                        nestedFile.outputStream().buffered().use { output ->
+                            stream.copyTo(output)
+                        }
+                        nestedFiles.add(nestedFile)
+                    }
+                }
+            }
+        }
+
+        if (nestedFiles.isEmpty()) return@withContext 0
+
+        // Second pass: import each extracted dict
+        var imported = 0
+        var skipped = 0
+        var failed = 0
+
+        for (nestedFile in nestedFiles) {
+            var importedDictionaryId: Long? = null
+            try {
+                val outcome = ParcelFileDescriptor.open(
+                    nestedFile,
+                    ParcelFileDescriptor.MODE_READ_ONLY,
+                ).use { pfd ->
+                    ArchiveReader(pfd).use { reader ->
+                        extractAndImportDictionary(reader, nestedFile)
+                    }
+                }
+                importedDictionaryId = outcome.dictionaryId
+                imported++
+            } catch (e: CancellationException) {
+                cleanupPartialImport(importedDictionaryId)
+                throw e
+            } catch (e: DictionaryImportException.AlreadyImported) {
+                skipped++
+            } catch (e: Exception) {
+                failed++
+                logImportFailure(e)
+                cleanupPartialImport(importedDictionaryId)
+            } finally {
+                runCatching { nestedFile.delete() }
+            }
+        }
+
+        // Clean up the temp directory
+        runCatching { nestedDir.delete() }
+
+        logcat(LogPriority.INFO) {
+            "Nested import complete: $imported imported, $skipped skipped, $failed failed " +
+                "(${nestedFiles.size} total ZIPs found)"
+        }
+
+        imported + skipped + failed
     }
 
     private suspend fun downloadRemoteArchive(url: String): File = withContext(Dispatchers.IO) {
@@ -113,24 +241,6 @@ class DictionaryImportJob(
     }
 
     private suspend fun copyLocalArchive(uri: Uri): File = withContext(Dispatchers.IO) {
-        // For file:// URIs (e.g. from nested ZIP extraction), read directly from the file
-        if (uri.scheme == "file") {
-            val sourceFile = uri.path?.let { File(it) }
-            if (sourceFile == null || !sourceFile.exists()) {
-                throw DictionaryImportException.InvalidArchive("Failed to open dictionary file")
-            }
-            val cacheDir = File(context.cacheDir, "dictionary_imports").apply { mkdirs() }
-            val destination = File(cacheDir, "dictionary_${System.currentTimeMillis()}.zip")
-            sourceFile.inputStream().buffered().use { input ->
-                destination.outputStream().buffered().use { output ->
-                    input.copyTo(output)
-                }
-            }
-            // Clean up the source file from the nested cache
-            runCatching { sourceFile.delete() }
-            return@withContext destination
-        }
-
         val file = UniFile.fromUri(context, uri)
             ?: throw DictionaryImportException.InvalidArchive("Failed to open dictionary file")
 
@@ -236,38 +346,12 @@ class DictionaryImportJob(
         }
     }
 
-    /**
-     * Opens the archive and looks for nested .zip entries. Extracts each to a temp file
-     * and enqueues a normal import job for it. Returns the number of ZIPs enqueued.
-     */
-    private suspend fun extractAndEnqueueNestedZips(archiveFile: File): Int = withContext(Dispatchers.IO) {
-        val nestedDir = File(context.cacheDir, NESTED_CACHE_DIR).apply { mkdirs() }
-        var count = 0
-
-        ParcelFileDescriptor.open(archiveFile, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
-            ArchiveReader(pfd).use { reader ->
-                reader.useEntriesAndStreams { entry, stream ->
-                    if (entry.isFile && entry.name.endsWith(".zip", ignoreCase = true)) {
-                        val nestedFile = File(nestedDir, "nested_${System.currentTimeMillis()}_$count.zip")
-                        nestedFile.outputStream().buffered().use { output ->
-                            stream.copyTo(output)
-                        }
-                        start(context, Uri.fromFile(nestedFile))
-                        count++
-                    }
-                }
-            }
-        }
-
-        count
-    }
-
     companion object {
         const val TAG = "DictionaryImport"
 
-        const val KEY_URI = "uri"
-        const val KEY_URL = "url"
-        private const val NESTED_CACHE_DIR = "dictionary_nested"
+        private const val KEY_URI = "uri"
+        private const val KEY_URL = "url"
+        private const val KEY_URIS = "uris"
 
         val TRUSTED_DICTIONARY_HOSTS = setOf(
             "github.com",
@@ -296,6 +380,21 @@ class DictionaryImportJob(
         fun start(context: Context, url: String) {
             val inputData = workDataOf(
                 KEY_URL to url,
+            )
+            val request = OneTimeWorkRequestBuilder<DictionaryImportJob>()
+                .addTag(TAG)
+                .setInputData(inputData)
+                .build()
+            context.workManager.enqueueUniqueWork(
+                DictionaryWorkNames.IMPORT_AND_MIGRATION,
+                ExistingWorkPolicy.APPEND_OR_REPLACE,
+                request,
+            )
+        }
+
+        fun startBatch(context: Context, uris: List<Uri>) {
+            val inputData = workDataOf(
+                KEY_URIS to uris.map { it.toString() }.toTypedArray(),
             )
             val request = OneTimeWorkRequestBuilder<DictionaryImportJob>()
                 .addTag(TAG)
