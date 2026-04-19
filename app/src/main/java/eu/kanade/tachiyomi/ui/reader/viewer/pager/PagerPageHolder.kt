@@ -3,11 +3,12 @@ package eu.kanade.tachiyomi.ui.reader.viewer.pager
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.drawable.Drawable
 import android.view.LayoutInflater
 import androidx.core.view.isVisible
 import eu.kanade.presentation.util.formattedMessage
+import eu.kanade.tachiyomi.data.ocr.decodeImageDecoderBitmap
+import eu.kanade.tachiyomi.data.ocr.decodeImageDecoderBounds
 import eu.kanade.tachiyomi.databinding.ReaderErrorBinding
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.InsertPage
@@ -308,14 +309,13 @@ class PagerPageHolder(
     }
 
     private fun decodePanelBitmap(source: BufferedSource): DecodedPanelBitmap? {
-        val options = BitmapFactory.Options().apply {
-            inJustDecodeBounds = true
-        }
-        source.peek().inputStream().use {
-            BitmapFactory.decodeStream(it, null, options)
+        val bounds = source.peek().inputStream().use(::decodeImageDecoderBounds)
+        if (bounds == null) {
+            logcat(LogPriority.VERBOSE) { "Panel nav decodeBitmap failed: bounds unavailable" }
+            return null
         }
 
-        val largestDimension = maxOf(options.outWidth, options.outHeight)
+        val largestDimension = maxOf(bounds.width, bounds.height)
         if (largestDimension <= 0) {
             logcat(LogPriority.VERBOSE) { "Panel nav decodeBitmap failed: dimensions <= 0" }
             return null
@@ -325,11 +325,7 @@ class PagerPageHolder(
             .first { largestDimension / it <= 800 }
 
         val bitmap = source.peek().inputStream().use {
-            BitmapFactory.decodeStream(
-                it,
-                null,
-                BitmapFactory.Options().apply { inSampleSize = sampleSize },
-            )
+            decodeImageDecoderBitmap(it, sampleSize)
         }
 
         if (bitmap == null) {
@@ -342,14 +338,14 @@ class PagerPageHolder(
         logcat(LogPriority.VERBOSE) {
             "Panel nav decodeBitmap success sampleSize=$sampleSize " +
                 "bitmapSize=${bitmap.width}x${bitmap.height} " +
-                "originalSize=${options.outWidth}x${options.outHeight} " +
+                "originalSize=${bounds.width}x${bounds.height} " +
                 "config=${bitmap.config}"
         }
 
         return DecodedPanelBitmap(
             bitmap = bitmap,
-            originalWidth = options.outWidth,
-            originalHeight = options.outHeight,
+            originalWidth = bounds.width,
+            originalHeight = bounds.height,
         )
     }
 
