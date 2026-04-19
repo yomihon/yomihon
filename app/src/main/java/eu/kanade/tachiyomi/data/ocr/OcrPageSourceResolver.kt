@@ -106,14 +106,13 @@ internal class OcrPageSourceResolver(
                 OcrPageInput(
                     pageIndex = page.index,
                     openBitmap = {
-                        openRemotePageBitmap(page, source, ::decodeImageDecoderBitmap)
-                            ?: openRemotePageBitmap(page, source, ::decodeArchiveBitmap)
+                        decodeOcrBitmapWithFallback { decode ->
+                            openRemotePageBitmap(page, source, decode)
+                        }
                     },
                     openBitmapRegion = { sourceRect ->
-                        openRemotePageBitmap(page, source) { stream ->
-                            decodeImageDecoderBitmapRegion(stream, sourceRect)
-                        } ?: openRemotePageBitmap(page, source) { stream ->
-                            decodeArchiveBitmapRegion(stream, sourceRect)
+                        decodeOcrRegionWithFallback(sourceRect) { decode ->
+                            openRemotePageBitmap(page, source, decode)
                         }
                     },
                 )

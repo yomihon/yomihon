@@ -61,41 +61,65 @@ internal fun decodeImageDecoderBitmapRegion(
     }
 }
 
-internal fun buildImageDecoderStreamOcrPageInput(
+internal suspend fun decodeOcrBitmapWithFallback(
+    decodeAttempt: suspend ((InputStream) -> Bitmap?) -> Bitmap?,
+): Bitmap? {
+    return decodeAttempt(::decodeImageDecoderBitmap)
+        ?: decodeAttempt(::decodeArchiveBitmap)
+}
+
+internal suspend fun decodeOcrRegionWithFallback(
+    sourceRect: Rect,
+    decodeAttempt: suspend ((InputStream) -> Bitmap?) -> Bitmap?,
+): Bitmap? {
+    return decodeAttempt { stream -> decodeImageDecoderBitmapRegion(stream, sourceRect) }
+        ?: decodeAttempt { stream -> decodeArchiveBitmapRegion(stream, sourceRect) }
+}
+
+internal fun buildStreamDecoderOcrInput(
     pageIndex: Int,
     openStream: () -> InputStream?,
+): OcrPageInput {
+    return buildSuspendStreamDecoderOcrInput(
+        pageIndex = pageIndex,
+        openStream = { openStream() },
+    )
+}
+
+internal fun buildSuspendStreamDecoderOcrInput(
+    pageIndex: Int,
+    openStream: suspend () -> InputStream?,
 ): OcrPageInput {
     return OcrPageInput(
         pageIndex = pageIndex,
         openBitmap = {
             withIOContext {
-                openStream()?.use(::decodeImageDecoderBitmap)
-                    ?: openStream()?.use(::decodeArchiveBitmap)
+                decodeOcrBitmapWithFallback { decode ->
+                    openStream()?.use(decode)
+                }
             }
         },
         openBitmapRegion = { sourceRect ->
             withIOContext {
-                openStream()?.use { stream ->
-                    decodeImageDecoderBitmapRegion(stream, sourceRect)
-                } ?: openStream()?.use { stream ->
-                    decodeArchiveBitmapRegion(stream, sourceRect)
+                decodeOcrRegionWithFallback(sourceRect) { decode ->
+                    openStream()?.use(decode)
                 }
             }
         },
     )
 }
 
-internal fun buildImageDecoderArchiveStreamOcrPageInput(
+internal fun buildArchiveDecoderOcrInput(
     pageIndex: Int,
     openStream: () -> InputStream?,
 ): OcrPageInput {
-    return buildImageDecoderStreamOcrPageInput(
+    return buildStreamDecoderOcrInput(
         pageIndex = pageIndex,
         openStream = openStream,
     )
 }
 
-internal fun buildImageDecoderBufferedOcrPageInput(
+internal fun buildBufferedDecoderOcrInput(
     pageIndex: Int,
     source: BufferedSource,
 ): OcrPageInput {
@@ -103,16 +127,15 @@ internal fun buildImageDecoderBufferedOcrPageInput(
         pageIndex = pageIndex,
         openBitmap = {
             withIOContext {
-                source.peek().inputStream().use(::decodeImageDecoderBitmap)
-                    ?: source.peek().inputStream().use(::decodeArchiveBitmap)
+                decodeOcrBitmapWithFallback { decode ->
+                    source.peek().inputStream().use(decode)
+                }
             }
         },
         openBitmapRegion = { sourceRect ->
             withIOContext {
-                source.peek().inputStream().use { stream ->
-                    decodeImageDecoderBitmapRegion(stream, sourceRect)
-                } ?: source.peek().inputStream().use { stream ->
-                    decodeArchiveBitmapRegion(stream, sourceRect)
+                decodeOcrRegionWithFallback(sourceRect) { decode ->
+                    source.peek().inputStream().use(decode)
                 }
             }
         },

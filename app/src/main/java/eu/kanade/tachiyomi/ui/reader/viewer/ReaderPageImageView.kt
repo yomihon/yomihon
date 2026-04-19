@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader.viewer
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
@@ -46,7 +45,7 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.tachiyomi.data.coil.cropBorders
 import eu.kanade.tachiyomi.data.coil.customDecoder
 import eu.kanade.tachiyomi.data.ocr.OcrPageInput
-import eu.kanade.tachiyomi.data.ocr.buildBufferedOcrPageInput
+import eu.kanade.tachiyomi.data.ocr.buildBufferedDecoderOcrInput
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonSubsamplingImageView
 import eu.kanade.tachiyomi.util.system.animatorDurationScale
 import eu.kanade.tachiyomi.util.view.isVisibleOnScreen
@@ -378,7 +377,7 @@ open class ReaderPageImageView @JvmOverloads constructor(
         this.config = config
         loadedPageInput = source
             .takeIf { !isAnimated }
-            ?.let { buildBufferedOcrPageInput(LOADED_READER_PAGE_INDEX, it) }
+            ?.let { buildBufferedDecoderOcrInput(LOADED_READER_PAGE_INDEX, it) }
         if (isAnimated) {
             prepareAnimatedImageView()
             setAnimatedImage(source, config)

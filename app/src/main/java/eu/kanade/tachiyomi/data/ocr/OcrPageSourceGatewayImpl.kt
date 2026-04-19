@@ -33,7 +33,7 @@ internal class OcrPageSourceGatewayImpl(
         }
 
         val pages = downloadManager.buildPageList(source, manga, chapter).map { page ->
-            buildImageDecoderStreamOcrPageInput(
+            buildStreamDecoderOcrInput(
                 pageIndex = page.index,
                 openStream = {
                     page.uri?.let(context.contentResolver::openInputStream)
@@ -62,7 +62,7 @@ internal class OcrPageSourceGatewayImpl(
                 file1.name.orEmpty().compareToCaseInsensitiveNaturalOrder(file2.name.orEmpty())
             }
             ?.mapIndexed { index, imageFile ->
-                buildImageDecoderStreamOcrPageInput(
+                buildStreamDecoderOcrInput(
                     pageIndex = index,
                     openStream = imageFile::openInputStream,
                 )
@@ -88,7 +88,7 @@ internal class OcrPageSourceGatewayImpl(
             }
 
         val pages = entryNames.mapIndexed { index, entryName ->
-            buildImageDecoderArchiveStreamOcrPageInput(
+            buildArchiveDecoderOcrInput(
                 pageIndex = index,
                 openStream = { reader.getInputStream(entryName) },
             )
@@ -105,7 +105,7 @@ internal class OcrPageSourceGatewayImpl(
         val imagePaths = withIOContext { reader.getImagesFromPages() }
 
         val pages = imagePaths.mapIndexed { index, path ->
-            buildImageDecoderArchiveStreamOcrPageInput(
+            buildArchiveDecoderOcrInput(
                 pageIndex = index,
                 openStream = { reader.getInputStream(path) },
             )

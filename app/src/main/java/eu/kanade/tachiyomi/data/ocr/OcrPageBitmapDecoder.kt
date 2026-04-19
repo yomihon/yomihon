@@ -4,19 +4,9 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BitmapRegionDecoder
 import android.graphics.Rect
-import okio.BufferedSource
-import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.ImageUtil
 import java.io.ByteArrayInputStream
 import java.io.InputStream
-
-internal fun decodeBitmap(stream: InputStream): Bitmap? {
-    return BitmapFactory.decodeStream(
-        stream,
-        null,
-        bitmapFactoryOptions(),
-    )
-}
 
 internal fun decodeArchiveBitmap(stream: InputStream): Bitmap? {
     val bytes = stream.readBytes()
@@ -30,23 +20,6 @@ internal fun decodeArchiveBitmap(stream: InputStream): Bitmap? {
         bytes.size,
         bitmapFactoryOptions(),
     )
-}
-
-internal fun decodeBitmapRegion(
-    stream: InputStream,
-    sourceRect: Rect,
-): Bitmap? {
-    return try {
-        val decoder = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            BitmapRegionDecoder.newInstance(stream) ?: return null
-        } else {
-            @Suppress("DEPRECATION")
-            BitmapRegionDecoder.newInstance(stream, false) ?: return null
-        }
-        decoder.decodeBitmapRegion(sourceRect)
-    } catch (_: Exception) {
-        null
-    }
 }
 
 internal fun decodeArchiveBitmapRegion(
@@ -71,65 +44,6 @@ internal fun decodeArchiveBitmapRegion(
     }
 }
 
-internal fun buildBufferedOcrPageInput(
-    pageIndex: Int,
-    source: BufferedSource,
-): OcrPageInput {
-    return OcrPageInput(
-        pageIndex = pageIndex,
-        openBitmap = {
-            withIOContext {
-                decodeBufferedSourceBitmap(source)
-            }
-        },
-        openBitmapRegion = { sourceRect ->
-            withIOContext {
-                decodeBufferedSourceBitmapRegion(source, sourceRect)
-            }
-        },
-    )
-}
-
-internal fun buildStreamOcrPageInput(
-    pageIndex: Int,
-    openStream: suspend () -> InputStream?,
-): OcrPageInput {
-    return OcrPageInput(
-        pageIndex = pageIndex,
-        openBitmap = {
-            withIOContext {
-                openStream()?.use(::decodeBitmap)
-                    ?: openStream()?.use(::decodeArchiveBitmap)
-            }
-        },
-        openBitmapRegion = { sourceRect ->
-            withIOContext {
-                openStream()?.use { stream -> decodeBitmapRegion(stream, sourceRect) }
-                    ?: openStream()?.use { stream -> decodeArchiveBitmapRegion(stream, sourceRect) }
-            }
-        },
-    )
-}
-
-internal fun buildArchiveStreamOcrPageInput(
-    pageIndex: Int,
-    openStream: suspend () -> InputStream?,
-): OcrPageInput {
-    return OcrPageInput(
-        pageIndex = pageIndex,
-        openBitmap = {
-            withIOContext {
-                openStream()?.use(::decodeArchiveBitmap)
-            }
-        },
-        openBitmapRegion = { sourceRect ->
-            withIOContext {
-                openStream()?.use { stream -> decodeArchiveBitmapRegion(stream, sourceRect) }
-            }
-        },
-    )
-}
-
 internal suspend fun OcrPageInput.openCroppedBitmap(sourceRect: Rect): Bitmap? {
     openBitmapRegion(sourceRect)?.let { return it }
 
@@ -142,19 +56,6 @@ internal suspend fun OcrPageInput.openCroppedBitmap(sourceRect: Rect): Bitmap? {
         }
         null
     }
-}
-
-internal fun decodeBufferedSourceBitmap(source: BufferedSource): Bitmap? {
-    return source.peek().inputStream().use(::decodeBitmap)
-        ?: source.peek().inputStream().use(::decodeArchiveBitmap)
-}
-
-internal fun decodeBufferedSourceBitmapRegion(
-    source: BufferedSource,
-    sourceRect: Rect,
-): Bitmap? {
-    return source.peek().inputStream().use { stream -> decodeBitmapRegion(stream, sourceRect) }
-        ?: source.peek().inputStream().use { stream -> decodeArchiveBitmapRegion(stream, sourceRect) }
 }
 
 internal fun isArchiveImageEntry(
