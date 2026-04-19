@@ -3,14 +3,17 @@ package eu.kanade.tachiyomi.ui.setting.dictionary
 import android.app.Application
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.compose.runtime.Immutable
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.tachiyomi.data.dictionary.DictionaryImportJob
 import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import mihon.domain.dictionary.interactor.DictionaryInteractor
 import mihon.domain.dictionary.model.Dictionary
@@ -51,9 +54,12 @@ internal class DictionarySettingsScreenModel(
                     }
 
                     mutableState.update {
-                        it.copy(
-                            isImporting = isRunning,
-                        )
+                        val newState = it.copy(isImporting = isRunning)
+                        if (!isRunning && it.batchTotal > 0) {
+                            newState.copy(batchTotal = 0, batchCompleted = 0)
+                        } else {
+                            newState
+                        }
                     }
                 }
         }
@@ -63,9 +69,16 @@ internal class DictionarySettingsScreenModel(
         screenModelScope.launch {
             dictionaryRepository.subscribeToDictionaries().collectLatest { dictionaries ->
                 mutableState.update {
+                    val newCompleted = if (it.batchTotal > 0 && dictionaries.size > it.dictionaries.size) {
+                        (it.batchCompleted + (dictionaries.size - it.dictionaries.size))
+                            .coerceAtMost(it.batchTotal)
+                    } else {
+                        it.batchCompleted
+                    }
                     it.copy(
                         dictionaries = dictionaries,
                         isLoading = false,
+                        batchCompleted = newCompleted,
                     )
                 }
             }
@@ -98,6 +111,60 @@ internal class DictionarySettingsScreenModel(
         shouldShowImportCompletionToast = true
         hasObservedPendingImportRunning = state.value.isImporting
         DictionaryImportJob.start(context, url)
+    }
+
+    fun importDictionariesFromUris(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        shouldShowImportCompletionToast = true
+        hasObservedPendingImportRunning = state.value.isImporting
+        mutableState.update { it.copy(batchTotal = uris.size, batchCompleted = 0) }
+        DictionaryImportJob.startBatch(context, uris)
+    }
+
+    fun importDictionariesFromFolder(treeUri: Uri) {
+        screenModelScope.launch {
+            try {
+                val zipUris = enumerateZipFilesInTree(treeUri)
+                if (zipUris.isEmpty()) {
+                    context.toast(MR.strings.no_zip_files_found.getString(context))
+                    return@launch
+                }
+                importDictionariesFromUris(zipUris)
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Failed to read folder" }
+                context.toast(MR.strings.no_zip_files_found.getString(context))
+            }
+        }
+    }
+
+    private suspend fun enumerateZipFilesInTree(treeUri: Uri): List<Uri> = withContext(Dispatchers.IO) {
+        val docId = DocumentsContract.getTreeDocumentId(treeUri)
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, docId)
+        val zipUris = mutableListOf<Uri>()
+
+        context.contentResolver.query(
+            childrenUri,
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+            ),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            val idCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+            val mimeCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+            while (cursor.moveToNext()) {
+                val mime = cursor.getString(mimeCol)
+                if (mime == "application/zip" || mime == "application/x-zip-compressed") {
+                    val childDocId = cursor.getString(idCol)
+                    val childUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, childDocId)
+                    zipUris.add(childUri)
+                }
+            }
+        }
+
+        zipUris
     }
 
     fun updateDictionary(context: Context, dictionary: Dictionary) {
@@ -148,6 +215,18 @@ internal class DictionarySettingsScreenModel(
         }
     }
 
+    fun autoSortDictionaries(context: Context) {
+        screenModelScope.launch {
+            try {
+                dictionaryInteractor.autoSortDictionaries()
+                context.toast(MR.strings.dictionary_auto_sort_success.getString(context))
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Failed to auto-sort dictionaries" }
+                context.toast(MR.strings.dictionary_auto_sort_fail.getString(context))
+            }
+        }
+    }
+
     fun deleteDictionary(context: Context, dictionaryId: Long) {
         screenModelScope.launch {
             mutableState.update { it.copy(isDeleting = true, error = null) }
@@ -182,5 +261,7 @@ internal class DictionarySettingsScreenModel(
         val isDeleting: Boolean = false,
         val error: String? = null,
         val highlightedDictionaryId: Long? = null,
+        val batchTotal: Int = 0,
+        val batchCompleted: Int = 0,
     )
 }
