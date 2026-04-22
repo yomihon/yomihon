@@ -33,6 +33,7 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 object ImageUtil {
 
@@ -199,11 +200,10 @@ object ImageUtil {
             return Rect(0, 0, bitmap.width, bitmap.height)
         }
 
-        val background = averageCornerColor(bitmap)
-        val left = findInset(bitmap, horizontal = true, fromStart = true, background = background)
-        val right = findInset(bitmap, horizontal = true, fromStart = false, background = background)
-        val top = findInset(bitmap, horizontal = false, fromStart = true, background = background)
-        val bottom = findInset(bitmap, horizontal = false, fromStart = false, background = background)
+        val top = findBorderTop(bitmap)
+        val bottom = findBorderBottom(bitmap)
+        val left = findBorderLeft(bitmap, top, bottom)
+        val right = findBorderRight(bitmap, top, bottom)
 
         val rect = Rect(left, top, right, bottom)
         return if (rect.width() <= 0 || rect.height() <= 0) {
@@ -218,38 +218,170 @@ object ImageUtil {
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
 
-    private fun averageCornerColor(bitmap: Bitmap): Int {
-        val topLeft = bitmap[0, 0]
-        val topRight = bitmap[bitmap.width - 1, 0]
-        val bottomLeft = bitmap[0, bitmap.height - 1]
-        val bottomRight = bitmap[bitmap.width - 1, bitmap.height - 1]
-        val red = (topLeft.red + topRight.red + bottomLeft.red + bottomRight.red) / 4
-        val green = (topLeft.green + topRight.green + bottomLeft.green + bottomRight.green) / 4
-        val blue = (topLeft.blue + topRight.blue + bottomLeft.blue + bottomRight.blue) / 4
-        return Color.rgb(red, green, blue)
-    }
+    private fun findBorderTop(bitmap: Bitmap): Int {
+        val width = bitmap.width
+        val height = bitmap.height
+        val filledLimit = (width * BORDER_FILLED_RATIO_LIMIT / 2f).roundToInt()
 
-    private fun findInset(
-        bitmap: Bitmap,
-        horizontal: Boolean,
-        fromStart: Boolean,
-        @ColorInt background: Int,
-    ): Int {
-        val outerLimit = if (horizontal) bitmap.width else bitmap.height
-        val innerLimit = if (horizontal) bitmap.height else bitmap.width
-        val range = if (fromStart) 0 until outerLimit else (outerLimit - 1) downTo 0
-        val requiredDifferingPixels = (innerLimit * 0.01f).toInt() + 1
-
-        for (outer in range) {
-            var differingPixels = 0
-            for (inner in 0 until innerLimit) {
-                val pixel = if (horizontal) bitmap[outer, inner] else bitmap[inner, outer]
-                if (!pixel.isCloseTo(background) && ++differingPixels >= requiredDifferingPixels) {
-                    return if (fromStart) outer else outer + 1
-                }
+        var whitePixels = 0
+        var blackPixels = 0
+        for (x in 0 until width step 2) {
+            if (bitmap.isBlack(x, 0)) {
+                blackPixels++
+            } else if (bitmap.isWhite(x, 0)) {
+                whitePixels++
             }
         }
-        return if (fromStart) 0 else outerLimit
+
+        val detectWhite = blackPixels > filledLimit
+        if (whitePixels > filledLimit && blackPixels > filledLimit) {
+            return 0
+        }
+
+        for (y in 1 until height) {
+            var filledCount = 0
+            for (x in 0 until width step 2) {
+                val filled = if (detectWhite) bitmap.isWhite(x, y) else bitmap.isBlack(x, y)
+                if (filled) {
+                    filledCount++
+                }
+            }
+            if (filledCount > filledLimit) {
+                return y
+            }
+        }
+
+        return 0
+    }
+
+    private fun findBorderBottom(bitmap: Bitmap): Int {
+        val width = bitmap.width
+        val height = bitmap.height
+        val filledLimit = (width * BORDER_FILLED_RATIO_LIMIT / 2f).roundToInt()
+
+        val lastY = height - 1
+        var whitePixels = 0
+        var blackPixels = 0
+        for (x in 0 until width step 2) {
+            if (bitmap.isBlack(x, lastY)) {
+                blackPixels++
+            } else if (bitmap.isWhite(x, lastY)) {
+                whitePixels++
+            }
+        }
+
+        val detectWhite = blackPixels > filledLimit
+        if (whitePixels > filledLimit && blackPixels > filledLimit) {
+            return height
+        }
+
+        for (y in (height - 2) downTo 1) {
+            var filledCount = 0
+            for (x in 0 until width step 2) {
+                val filled = if (detectWhite) bitmap.isWhite(x, y) else bitmap.isBlack(x, y)
+                if (filled) {
+                    filledCount++
+                }
+            }
+            if (filledCount > filledLimit) {
+                return y + 1
+            }
+        }
+
+        return height
+    }
+
+    private fun findBorderLeft(
+        bitmap: Bitmap,
+        top: Int,
+        bottom: Int,
+    ): Int {
+        val width = bitmap.width
+        val height = bitmap.height
+        val filledLimit = (height * BORDER_FILLED_RATIO_LIMIT / 2f).roundToInt()
+
+        var whitePixels = 0
+        var blackPixels = 0
+        for (y in top until bottom step 2) {
+            if (bitmap.isBlack(0, y)) {
+                blackPixels++
+            } else if (bitmap.isWhite(0, y)) {
+                whitePixels++
+            }
+        }
+
+        val detectWhite = blackPixels > filledLimit
+        if (whitePixels > filledLimit && blackPixels > filledLimit) {
+            return 0
+        }
+
+        for (x in 1 until width) {
+            var filledCount = 0
+            for (y in top until bottom step 2) {
+                val filled = if (detectWhite) bitmap.isWhite(x, y) else bitmap.isBlack(x, y)
+                if (filled) {
+                    filledCount++
+                }
+            }
+            if (filledCount > filledLimit) {
+                return x
+            }
+        }
+
+        return 0
+    }
+
+    private fun findBorderRight(
+        bitmap: Bitmap,
+        top: Int,
+        bottom: Int,
+    ): Int {
+        val width = bitmap.width
+        val height = bitmap.height
+        val filledLimit = (height * BORDER_FILLED_RATIO_LIMIT / 2f).roundToInt()
+
+        val lastX = width - 1
+        var whitePixels = 0
+        var blackPixels = 0
+        for (y in top until bottom step 2) {
+            if (bitmap.isBlack(lastX, y)) {
+                blackPixels++
+            } else if (bitmap.isWhite(lastX, y)) {
+                whitePixels++
+            }
+        }
+
+        val detectWhite = blackPixels > filledLimit
+        if (whitePixels > filledLimit && blackPixels > filledLimit) {
+            return width
+        }
+
+        for (x in (width - 2) downTo 1) {
+            var filledCount = 0
+            for (y in top until bottom step 2) {
+                val filled = if (detectWhite) bitmap.isWhite(x, y) else bitmap.isBlack(x, y)
+                if (filled) {
+                    filledCount++
+                }
+            }
+            if (filledCount > filledLimit) {
+                return x + 1
+            }
+        }
+
+        return width
+    }
+
+    private fun Bitmap.isBlack(x: Int, y: Int): Boolean {
+        val pixel = this[x, y]
+        val luma = ((pixel.red * 299) + (pixel.green * 587) + (pixel.blue * 114)) / 1000
+        return luma < BORDER_THRESHOLD_FOR_BLACK
+    }
+
+    private fun Bitmap.isWhite(x: Int, y: Int): Boolean {
+        val pixel = this[x, y]
+        val luma = ((pixel.red * 299) + (pixel.green * 587) + (pixel.blue * 114)) / 1000
+        return luma > BORDER_THRESHOLD_FOR_WHITE
     }
 
     /**
@@ -779,6 +911,10 @@ object ImageUtil {
         else -> false
     }
 }
+
+private const val BORDER_FILLED_RATIO_LIMIT = 0.0025f
+private const val BORDER_THRESHOLD_FOR_BLACK = (255f * 0.75f).toInt()
+private const val BORDER_THRESHOLD_FOR_WHITE = (255f - (255f * 0.75f)).toInt()
 
 val getDisplayMaxHeightInPx: Int
     get() = Resources.getSystem().displayMetrics.let { max(it.heightPixels, it.widthPixels) }
