@@ -51,7 +51,7 @@ Core Reader Features:
 * Light and dark themes.
 * Schedule updating your library for new chapters.
 * Create backups locally to read offline or to your desired cloud service.
-* Plus much more... 😈
+* Plus much more... 
 
 ## 🤝 Contributing
 
