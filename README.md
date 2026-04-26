@@ -4,7 +4,7 @@
 
 # Yomihon
 ### Full-Featured Reader for Android
-Discover and read manga, webtoons, comics, and more – easier than ever on your Android device.
+Discover and read manga, webtoons, comics, and more — easier than ever on your Android device.
 
 
 [![Discord server](https://img.shields.io/discord/1464063546257182876.svg?label=&labelColor=6A7EC2&color=7389D8&logo=discord&logoColor=FFFFFF)](https://discord.com/invite/TXvTZdBuQa)
@@ -77,7 +77,7 @@ The developer(s) of this application have no affiliation with the content provid
 ### License
 Copyright © 2015 Javier Tomás  
 Copyright © 2024 Mihon Open Source Project  
-Copyright © 2025 Yomihon  
+Copyright © 2026 Yomihon  
 
 Licensed under the Apache License, Version 2.0. See the [LICENSE](/LICENSE) file for more details.
 
