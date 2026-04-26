@@ -1,12 +1,9 @@
 <div align="center">
 
-<a href="#">
-    <img src="./.github/assets/logo.png" alt="Yomihon logo" title="Yomihon logo" width="128"/>
-</a>
+<img src="./.github/assets/logo.png" alt="Yomihon logo" width="128" height="128" />
 
 # Yomihon
-
-### Full-featured reader
+### Full-Featured Reader for Android
 Discover and read manga, webtoons, comics, and more – easier than ever on your Android device.
 
 
@@ -29,12 +26,24 @@ Discover and read manga, webtoons, comics, and more – easier than ever on your
 
 *Requires Android 8.0 or higher.*
 
+New to Yomihon? Check out our [**Getting Started Guide**](https://yomihon.github.io/docs/guides/getting-started) to set up your library.
+
+---
+</div>
+
 ## Features
 
-<div align="left">
+Yomihon takes the features of Mihon and enhances them with advanced tools for language learners.
 
-* [OCR support](https://huggingface.co/bluolightning/manga-ocr-tflite) 
-* Partial Yomitan dictionary support.
+| Feature | Description |
+| :--- | :--- |
+| 🔍 **Built-in Text Recognition** | Fast, on-device OCR to extract text from images in real-time. Online models are also available for more languages. |
+| 📖 **Yomitan Dictionary Support** | Seamless dictionary lookups for language learners across multiple languages. |
+| **One-click Anki Cards** | Instantly create flashcards while reading and looking up new words. |
+
+Core Reader Features:
+
+* Experimental offline panel-by-panel reading.
 * Local reading of content.
 * A configurable reader with multiple viewers, reading directions and other settings.
 * Tracker support: [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://mangaupdates.com), [Shikimori](https://shikimori.one), and [Bangumi](https://bgm.tv/) support.
@@ -44,53 +53,31 @@ Discover and read manga, webtoons, comics, and more – easier than ever on your
 * Create backups locally to read offline or to your desired cloud service.
 * Plus much more... 😈
 
-</div>
+## 🤝 Contributing
 
-## Contributing
+Feature requests, bug reports, and pull requests are welcome. For major changes, please open an issue or join our [discord](https://discord.com/invite/TXvTZdBuQa) to discuss what you would like to change.
+
+Before opening an issue, please check the [FAQ](https://yomihon.github.io/docs/faq/general) and search [existing issues](https://github.com/yomihon/yomihon/issues).
 
 [Code of conduct](./CODE_OF_CONDUCT.md) · [Contributing guide](./CONTRIBUTING.md)
 
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+Model and dataset attribution for externally fetched ML assets is documented in [MODEL_ATTRIBUTION.md](./MODEL_ATTRIBUTION.md).
 
-Before reporting a new issue, take a look at the [FAQ](https://yomihon.github.io/docs/faq/general), the [changelog](https://yomihon.github.io/changelogs/) and the already opened [issues](https://github.com/yomihon/yomihon/issues); if you got any questions, join our [Discord server](https://discord.com/invite/TXvTZdBuQa).
+## Credits
 
+Yomihon is a community-driven fork of the [Mihon](https://github.com/mihonapp/mihon) project. Thank you to all the people who have contributed.
 
-<!--
-### Repositories
+> Note: this project is unaffiliated with the official Mihon Organization.
 
-[![mihonapp/website - GitHub](https://github-readme-stats.vercel.app/api/pin/?username=mihonapp&repo=website&bg_color=161B22&text_color=c9d1d9&title_color=0877d2&icon_color=0877d2&border_radius=8&hide_border=true&description_lines_count=2)](https://github.com/mihonapp/website/)
-[![mihonapp/bitmap.kt - GitHub](https://github-readme-stats.vercel.app/api/pin/?username=mihonapp&repo=bitmap.kt&bg_color=161B22&text_color=c9d1d9&title_color=0877d2&icon_color=0877d2&border_radius=8&hide_border=true&description_lines_count=2)](https://github.com/mihonapp/bitmap.kt/)
--->
-
-### Credits
-
-Thank you to all the people who have contributed to the [Mihon](https://github.com/mihonapp/mihon) project!
-
-Notice: This project is unaffiliated with the [Mihon Organization](https://github.com/mihonapp).
+---
 
 ### Disclaimer
-
-The developer(s) of this application does not have any affiliation with the content providers available, and this application hosts zero content.
-
+The developer(s) of this application have no affiliation with the content providers available. This application hosts zero content. Users are responsible for the content they bring or access.
 
 ### License
+Copyright © 2015 Javier Tomás  
+Copyright © 2024 Mihon Open Source Project  
+Copyright © 2025 Yomihon  
 
-<pre>
-Copyright © 2015 Javier Tomás
-Copyright © 2024 Mihon Open Source Project
-Copyright © 2025 Yomihon
+Licensed under the Apache License, Version 2.0. See the [LICENSE](/LICENSE) file for more details.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-</pre>
-
-</div>

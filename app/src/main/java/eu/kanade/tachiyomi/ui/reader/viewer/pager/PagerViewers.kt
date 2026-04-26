@@ -29,6 +29,7 @@ class R2LPagerViewer(activity: ReaderActivity) : PagerViewer(activity) {
      * Moves to the next page. On a R2L pager the next page is the one at the left.
      */
     override fun moveToNext() {
+        if (tryAdvancePanelForward()) return
         moveLeft()
     }
 
@@ -36,6 +37,7 @@ class R2LPagerViewer(activity: ReaderActivity) : PagerViewer(activity) {
      * Moves to the previous page. On a R2L pager the previous page is the one at the right.
      */
     override fun moveToPrevious() {
+        if (tryAdvancePanelBackward()) return
         moveRight()
     }
 }

@@ -149,7 +149,7 @@ private fun TableCellNode(
                 if (!hasBlockContent) {
                     FlowRow {
                         node.children.forEach { child ->
-                            InlineNode(child, onLinkClick, textStyle = textStyle)
+                            InlineStructuredNode(child, parsedCss, onLinkClick, textStyle = textStyle)
                         }
                     }
                 } else if (cellContent.isNotBlank()) {

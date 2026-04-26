@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage:
+  ./scripts/adb-wireless pair <host:port>
+  ./scripts/adb-wireless connect <host:port>
+  ./scripts/adb-wireless disconnect [host:port]
+  ./scripts/adb-wireless devices
+EOF
+}
+
+if ! command -v adb >/dev/null 2>&1; then
+    echo "adb is not installed in this shell."
+    exit 1
+fi
+
+command_name="${1:-}"
+
+case "${command_name}" in
+    pair)
+        endpoint="${2:-}"
+        if [[ -z "${endpoint}" ]]; then
+            usage
+            exit 1
+        fi
+        adb pair "${endpoint}"
+        ;;
+    connect)
+        endpoint="${2:-}"
+        if [[ -z "${endpoint}" ]]; then
+            usage
+            exit 1
+        fi
+        adb connect "${endpoint}"
+        adb devices -l
+        ;;
+    disconnect)
+        endpoint="${2:-}"
+        if [[ -n "${endpoint}" ]]; then
+            adb disconnect "${endpoint}"
+        else
+            adb disconnect
+        fi
+        adb devices -l
+        ;;
+    devices)
+        adb devices -l
+        ;;
+    *)
+        usage
+        exit 1
+        ;;
+esac

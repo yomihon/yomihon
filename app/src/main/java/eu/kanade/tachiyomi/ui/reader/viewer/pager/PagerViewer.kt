@@ -17,10 +17,15 @@ import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.InsertPage
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderActiveOcrOverlay
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderActiveOcrTapResult
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderSelectionCapture
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderSelectionRegion
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.injectLazy
 import kotlin.math.min
@@ -101,7 +106,37 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
         pager.id = R.id.reader_pager
         pager.adapter = adapter
         pager.addOnPageChangeListener(pagerListener)
-        pager.tapListener = { event ->
+        pager.tapListener = tap@{ event ->
+            val currentPage = adapter.items.getOrNull(pager.currentItem) as? ReaderPage
+            val pageHolder = currentPage?.let(::getPageHolder)
+            val activeOverlayTap = if (activity.hasActiveOcrOverlaySession()) {
+                pageHolder?.tryConsumeActiveOcrOverlayTap(event.rawX, event.rawY)
+            } else {
+                null
+            }
+            when (activeOverlayTap) {
+                is ReaderActiveOcrTapResult.SelectWord -> {
+                    activity.searchActiveOcrOverlay(activeOverlayTap.offset)
+                    return@tap
+                }
+                ReaderActiveOcrTapResult.BubbleTap -> {
+                    activity.dismissActiveOcrOverlaySession()
+                    return@tap
+                }
+                null -> {}
+            }
+
+            if (activity.shouldHandleCachedOcrRegionTaps() &&
+                pageHolder?.tryConsumeOcrTap(event.rawX, event.rawY) == true
+            ) {
+                return@tap
+            }
+
+            if (activity.hasActiveOcrOverlaySession()) {
+                activity.dismissActiveOcrOverlaySession()
+                return@tap
+            }
+
             val viewPosition = IntArray(2)
             pager.getLocationOnScreen(viewPosition)
             val viewPositionRelativeToWindow = IntArray(2)
@@ -164,6 +199,43 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
      */
     override fun getView(): View {
         return pager
+    }
+
+    override fun setActiveOcrOverlay(overlay: ReaderActiveOcrOverlay?): Boolean {
+        var matched = overlay == null
+        pager.children
+            .filterIsInstance(PagerPageHolder::class.java)
+            .forEach { holder ->
+                val activeOverlay = overlay?.takeIf { holder.matchesOcrPage(it.page) }
+                holder.setActiveOcrOverlay(activeOverlay)
+                if (activeOverlay != null) {
+                    matched = true
+                }
+            }
+        return matched
+    }
+
+    override fun resolveSelectionCaptures(region: ReaderSelectionRegion): List<ReaderSelectionCapture> {
+        return pager.children
+            .filterIsInstance(PagerPageHolder::class.java)
+            .mapNotNull { holder ->
+                val childRect = android.graphics.Rect()
+                if (!holder.getGlobalVisibleRect(childRect)) return@mapNotNull null
+
+                val intersection = android.graphics.RectF(region.screenRect)
+                if (!intersection.intersect(android.graphics.RectF(childRect))) return@mapNotNull null
+
+                val page = holder.item as? ReaderPage ?: return@mapNotNull null
+                val sourceRect = holder.sourceRectForScreenRect(intersection) ?: return@mapNotNull null
+                ReaderSelectionCapture(
+                    page = page,
+                    sourceRect = sourceRect,
+                    screenRect = intersection,
+                    bitmapSource = holder,
+                )
+            }
+            .toList()
+            .sortedWith(compareBy<ReaderSelectionCapture> { it.screenRect.top }.thenBy { it.screenRect.left })
     }
 
     /**
@@ -245,6 +317,8 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
             logcat { "Request preload next chapter because we're at page ${page.number} of ${pages.size}" }
             adapter.nextTransition?.to?.let(activity::requestPreloadChapter)
         }
+
+        activity.syncActiveOcrOverlay()
     }
 
     /**
@@ -253,6 +327,7 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
      */
     private fun onTransitionSelected(transition: ChapterTransition) {
         logcat { "onTransitionSelected: $transition" }
+        activity.dismissActiveOcrOverlaySession()
         val toChapter = transition.to
         if (toChapter != null) {
             logcat { "Request preload destination chapter because we're on the transition" }
@@ -320,6 +395,8 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
      * Moves to the next page.
      */
     open fun moveToNext() {
+        if (tryAdvancePanelForward()) return
+        logcat(LogPriority.VERBOSE) { "Panel nav viewer fallback moveToNext -> page" }
         moveRight()
     }
 
@@ -327,16 +404,51 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
      * Moves to the previous page.
      */
     open fun moveToPrevious() {
+        if (tryAdvancePanelBackward()) return
+        logcat(LogPriority.VERBOSE) { "Panel nav viewer fallback moveToPrevious -> page" }
         moveLeft()
     }
 
+    protected fun tryAdvancePanelForward(): Boolean {
+        val page = currentPage as? ReaderPage
+        val holder = page?.let(::getPageHolder)
+        if (holder == null) {
+            logcat(LogPriority.VERBOSE) {
+                "Panel nav viewer tryForward: no holder (currentPage=${currentPage?.javaClass?.simpleName})"
+            }
+            return false
+        }
+        val advanced = config.panelNavigation && holder.hasPanels() && holder.zoomToNextPanel()
+        logcat(LogPriority.VERBOSE) {
+            "Panel nav viewer tryForward page=${page.index} enabled=${config.panelNavigation} hasPanels=${holder.hasPanels()} hasNext=${holder.hasNextPanel()} advanced=$advanced"
+        }
+        return advanced
+    }
+
+    protected fun tryAdvancePanelBackward(): Boolean {
+        val page = currentPage as? ReaderPage
+        val holder = page?.let(::getPageHolder)
+        if (holder == null) {
+            logcat(LogPriority.VERBOSE) {
+                "Panel nav viewer tryBackward: no holder (currentPage=${currentPage?.javaClass?.simpleName})"
+            }
+            return false
+        }
+        val advanced = config.panelNavigation && holder.hasPanels() && holder.zoomToPreviousPanel()
+        logcat(LogPriority.VERBOSE) {
+            "Panel nav viewer tryBackward page=${page.index} enabled=${config.panelNavigation} hasPanels=${holder.hasPanels()} hasPrev=${holder.hasPreviousPanel()} advanced=$advanced"
+        }
+        return advanced
+    }
+
     /**
-     * Moves to the page at the right.
+     * Moves to the page at the right. In L2R this is "next", in R2L this is "previous".
      */
     protected open fun moveRight() {
+        if (tryAdvancePanelRight()) return
         if (pager.currentItem != adapter.count - 1) {
             val holder = (currentPage as? ReaderPage)?.let(::getPageHolder)
-            if (holder != null && config.navigateToPan && holder.canPanRight()) {
+            if (holder != null && !config.panelNavigation && config.navigateToPan && holder.canPanRight()) {
                 holder.panRight()
             } else {
                 pager.setCurrentItem(pager.currentItem + 1, config.usePageTransitions)
@@ -345,16 +457,31 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
     }
 
     /**
-     * Moves to the page at the left.
+     * Moves to the page at the left. In L2R this is "previous", in R2L this is "next".
      */
     protected open fun moveLeft() {
+        if (tryAdvancePanelLeft()) return
         if (pager.currentItem != 0) {
             val holder = (currentPage as? ReaderPage)?.let(::getPageHolder)
-            if (holder != null && config.navigateToPan && holder.canPanLeft()) {
+            if (holder != null && !config.panelNavigation && config.navigateToPan && holder.canPanLeft()) {
                 holder.panLeft()
             } else {
                 pager.setCurrentItem(pager.currentItem - 1, config.usePageTransitions)
             }
+        }
+    }
+
+    private fun tryAdvancePanelRight(): Boolean {
+        return when (this) {
+            is R2LPagerViewer -> tryAdvancePanelBackward()
+            else -> tryAdvancePanelForward()
+        }
+    }
+
+    private fun tryAdvancePanelLeft(): Boolean {
+        return when (this) {
+            is R2LPagerViewer -> tryAdvancePanelForward()
+            else -> tryAdvancePanelBackward()
         }
     }
 

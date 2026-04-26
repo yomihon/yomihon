@@ -10,6 +10,7 @@ data class RestoreOptions(
     val appSettings: Boolean = true,
     val extensionRepoSettings: Boolean = true,
     val sourceSettings: Boolean = true,
+    val savedSearches: Boolean = true,
 ) {
 
     fun asBooleanArray() = booleanArrayOf(
@@ -18,9 +19,11 @@ data class RestoreOptions(
         appSettings,
         extensionRepoSettings,
         sourceSettings,
+        savedSearches,
     )
 
-    fun canRestore() = libraryEntries || categories || appSettings || extensionRepoSettings || sourceSettings
+    fun canRestore() =
+        libraryEntries || categories || appSettings || extensionRepoSettings || sourceSettings || savedSearches
 
     companion object {
         val options = persistentListOf(
@@ -49,14 +52,20 @@ data class RestoreOptions(
                 getter = RestoreOptions::sourceSettings,
                 setter = { options, enabled -> options.copy(sourceSettings = enabled) },
             ),
+            Entry(
+                label = MR.strings.saved_searches,
+                getter = RestoreOptions::savedSearches,
+                setter = { options, enabled -> options.copy(savedSearches = enabled) },
+            ),
         )
 
         fun fromBooleanArray(array: BooleanArray) = RestoreOptions(
-            libraryEntries = array[0],
-            categories = array[1],
-            appSettings = array[2],
-            extensionRepoSettings = array[3],
-            sourceSettings = array[4],
+            libraryEntries = array.getOrElse(0) { true },
+            categories = array.getOrElse(1) { true },
+            appSettings = array.getOrElse(2) { true },
+            extensionRepoSettings = array.getOrElse(3) { true },
+            sourceSettings = array.getOrElse(4) { true },
+            savedSearches = array.getOrElse(5) { true },
         )
     }
 

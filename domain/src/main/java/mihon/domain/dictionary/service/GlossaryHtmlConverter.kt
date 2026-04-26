@@ -20,7 +20,7 @@ fun List<GlossaryEntry>.toHtml(styles: String? = null): String {
     if (!styles.isNullOrBlank()) {
         sb.append("<style>").append(styles).append("</style>")
     }
-    sb.append("<div class=\"glossary\">")
+    sb.append("<div class=\"glossary\" style=\"text-align: left;\">")
     forEach { it.appendTo(sb) }
     sb.append("</div>")
     return sb.toString()
@@ -118,7 +118,7 @@ private fun GlossaryNode.Element.appendAttributesTo(sb: StringBuilder) {
         var first = true
         attributes.style.forEach { (key, value) ->
             if (!first) sb.append("; ")
-            sb.append(key.toKebabCase()).append(": ").append(value)
+            sb.append(key.toKebabCase()).append(": ").append(value.escapeHtml())
             first = false
         }
         sb.append("\"")

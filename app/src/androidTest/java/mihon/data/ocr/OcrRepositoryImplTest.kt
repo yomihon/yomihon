@@ -8,6 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.test.runTest
 import mihon.domain.ocr.interactor.OcrProcessor
+import mihon.domain.ocr.model.OcrImage
 import mihon.domain.ocr.model.OcrModel
 import mihon.domain.ocr.repository.OcrRepository
 import org.junit.Assert.assertEquals
@@ -16,7 +17,9 @@ import org.junit.Before
 import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
+import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.getEnum
+import tachiyomi.domain.download.service.DownloadPreferences
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -32,7 +35,10 @@ class OcrRepositoryImplTest {
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
-        ocrRepository = OcrRepositoryImpl(context)
+        ocrRepository = OcrRepositoryImpl(
+            context = context,
+            downloadPreferences = DownloadPreferences(AndroidPreferenceStore(context)),
+        )
         ocrProcessor = OcrProcessor(ocrRepository)
     }
 
@@ -46,7 +52,7 @@ class OcrRepositoryImplTest {
         for ((resourceName, expectedText) in testCases) {
             val bitmap = getBitmap(resourceName)
 
-            val text = ocrProcessor.getText(bitmap)
+            val text = ocrProcessor.getText(bitmap.toOcrImage())
 
             assertNotNull(text)
             assertEquals(expectedText, text)
@@ -60,13 +66,13 @@ class OcrRepositoryImplTest {
         val bitmap = getBitmap(resourceName)
 
         // Ensure OCR is initialized and working
-        val firstRunText = ocrProcessor.getText(bitmap)
+        val firstRunText = ocrProcessor.getText(bitmap.toOcrImage())
         assertEquals("First run failed", expectedText, firstRunText)
 
         ocrRepository.cleanup()
 
         // Run OCR again - should auto re-initialize
-        val secondRunText = ocrProcessor.getText(bitmap)
+        val secondRunText = ocrProcessor.getText(bitmap.toOcrImage())
 
         assertNotNull("Result was null after cleanup", secondRunText)
         assertEquals("Text did not match after cleanup re-initialization", expectedText, secondRunText)
@@ -91,7 +97,7 @@ class OcrRepositoryImplTest {
         for ((resourceName, expectedText) in testCases) {
             val bitmap = getBitmap(resourceName)
 
-            val text = ocrProcessor.getText(bitmap)
+            val text = ocrProcessor.getText(bitmap.toOcrImage())
 
             assertNotNull(text)
             assertEquals(expectedText, text)
@@ -109,5 +115,15 @@ class OcrRepositoryImplTest {
         require(bitmap != null) { "Bitmap could not be decoded from $resourceName" }
 
         return bitmap
+    }
+
+    private fun Bitmap.toOcrImage(): OcrImage {
+        val pixels = IntArray(width * height)
+        getPixels(pixels, 0, width, 0, 0, width, height)
+        return OcrImage(
+            width = width,
+            height = height,
+            pixels = pixels,
+        )
     }
 }

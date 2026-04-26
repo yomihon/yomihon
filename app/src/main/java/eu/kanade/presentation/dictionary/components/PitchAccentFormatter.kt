@@ -65,10 +65,16 @@ internal object PitchAccentFormatter {
     /**
      * Parse pitch accent data from term meta entries.
      */
-    fun parsePitchAccents(termMetaList: List<DictionaryTermMeta>): List<PitchAccentData> {
-        return termMetaList
+    fun parsePitchAccents(
+        termMetaList: List<DictionaryTermMeta>,
+        reading: String? = null,
+    ): List<PitchAccentData> {
+        val parsed = termMetaList
             .filter { it.mode == TermMetaMode.PITCH }
             .mapNotNull { parsePitchAccent(it) }
+
+        val targetReading = reading?.takeIf { it.isNotBlank() } ?: return parsed
+        return parsed.filter { it.reading == targetReading }
     }
 
     /**
@@ -259,8 +265,11 @@ internal object PitchAccentFormatter {
      * Generate SVG strings for all pitch accent patterns from term meta entries.
      * Returns HTML-ready SVG markup suitable for Anki card fields.
      */
-    fun formatPitchAccentSvg(termMetaList: List<DictionaryTermMeta>): String {
-        val pitchData = parsePitchAccents(termMetaList)
+    fun formatPitchAccentSvg(
+        termMetaList: List<DictionaryTermMeta>,
+        reading: String? = null,
+    ): String {
+        val pitchData = parsePitchAccents(termMetaList, reading)
         if (pitchData.isEmpty()) return ""
 
         return pitchData

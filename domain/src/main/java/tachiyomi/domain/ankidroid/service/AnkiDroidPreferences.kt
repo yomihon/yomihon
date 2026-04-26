@@ -10,6 +10,8 @@ class AnkiDroidPreferences(
     fun modelId() = preferenceStore.getLong("ankidroid_model_id", -1L)
     fun deckName() = preferenceStore.getString("ankidroid_deck_name", "Yomihon")
     fun modelName() = preferenceStore.getString("ankidroid_model_name", "Yomihon Card")
+    fun dictionaryAudioPrefill() = preferenceStore.getBoolean("pref_anki_dictionary_audio_prefill", true)
+    fun croppedImageExport() = preferenceStore.getBoolean("pref_cropped_image_export", false)
 
     fun fieldMappings(): Preference<Map<String, String>> = preferenceStore.getObjectFromString(
         key = "ankidroid_field_mappings",
@@ -46,6 +48,7 @@ class AnkiDroidPreferences(
             "Word Reading" to "furigana",
             "Word Meaning" to "glossary",
             "Sentence" to "sentence",
+            "Word Audio" to "audio",
             "Pitch Accent" to "pitchAccent",
             "Frequency" to "frequency",
             "Picture" to "picture",

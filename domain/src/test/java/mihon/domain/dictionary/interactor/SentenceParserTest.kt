@@ -2,15 +2,23 @@ package mihon.domain.dictionary.interactor
 
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import mihon.domain.dictionary.model.Dictionary
+import mihon.domain.dictionary.model.DictionaryBackend
 import mihon.domain.dictionary.model.DictionaryTerm
 import mihon.domain.dictionary.repository.DictionaryRepository
+import mihon.domain.dictionary.service.DictionaryLookupMatch
+import mihon.domain.dictionary.service.DictionarySearchEntry
+import mihon.domain.dictionary.service.DictionarySearchGateway
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class SentenceParserTest {
     private lateinit var dictionaryRepository: DictionaryRepository
+    private lateinit var dictionarySearchGateway: DictionarySearchGateway
     private lateinit var searchDictionaryTerms: SearchDictionaryTerms
     private val testDictionaryIds = listOf(1L)
 
@@ -33,10 +41,8 @@ class SentenceParserTest {
     @BeforeEach
     fun setup() {
         dictionaryRepository = mockk()
-
-        // Default: return empty for any query
-        coEvery { dictionaryRepository.searchTerms(any(), any()) } returns emptyList()
-        coEvery { dictionaryRepository.getDictionary(any()) } returns mihon.domain.dictionary.model.Dictionary(
+        dictionarySearchGateway = mockk()
+        val defaultDictionary = Dictionary(
             id = 1L,
             title = "Test",
             revision = "1",
@@ -44,7 +50,18 @@ class SentenceParserTest {
             sourceLanguage = null,
         )
 
-        searchDictionaryTerms = SearchDictionaryTerms(dictionaryRepository)
+        // Default: return empty for any query
+        coEvery { dictionaryRepository.searchTerms(any(), any()) } returns emptyList()
+        coEvery { dictionaryRepository.getAllDictionaries() } returns listOf(defaultDictionary)
+        coEvery { dictionarySearchGateway.exactSearch(any(), any()) } answers {
+            runBlocking {
+                dictionaryRepository.searchTerms(firstArg(), secondArg()).map { DictionarySearchEntry(it, emptyList()) }
+            }
+        }
+        coEvery { dictionarySearchGateway.lookup(any(), any(), any()) } returns emptyList<DictionaryLookupMatch>()
+        coEvery { dictionarySearchGateway.getTermMeta(any(), any()) } returns emptyMap()
+
+        searchDictionaryTerms = SearchDictionaryTerms(dictionaryRepository, dictionarySearchGateway)
     }
 
     @Test
@@ -95,6 +112,19 @@ class SentenceParserTest {
         match.word shouldBe "たべる"
         match.sourceOffset shouldBe 1
         match.sourceLength shouldBe 6
+    }
+
+    @Test
+    fun `findFirstWordMatch ignores OCR spaces inside Japanese text and preserves source range`() = runTest {
+        coEvery { dictionaryRepository.searchTerms("私は", testDictionaryIds) } returns listOf(
+            mockTerm("私は", "わたしは", "n"),
+        )
+
+        val match = searchDictionaryTerms.findFirstWordMatch("私 は 学生", testDictionaryIds)
+
+        match.word shouldBe "私は"
+        match.sourceOffset shouldBe 0
+        match.sourceLength shouldBe 3
     }
 
     @Test
@@ -152,15 +182,32 @@ class SentenceParserTest {
 
     @Test
     fun `handles deinflection for longest match`() = runTest {
-        // Setup: "食べる" (dictionary form of 食べた) exists
-        coEvery { dictionaryRepository.searchTerms("食べる", testDictionaryIds) } returns listOf(
-            mockTerm("食べる", "たべる", "v1"),
+        coEvery { dictionaryRepository.getAllDictionaries() } returns listOf(
+            Dictionary(
+                id = 1L,
+                title = "Japanese",
+                revision = "1",
+                version = 1,
+                sourceLanguage = "ja",
+                backend = DictionaryBackend.HOSHI,
+                storageReady = true,
+            ),
+        )
+        coEvery { dictionarySearchGateway.lookup("食べたって言ったよ", testDictionaryIds, any()) } returns listOf(
+            DictionaryLookupMatch(
+                matched = "食べた",
+                deinflected = "食べる",
+                process = listOf("past"),
+                term = mockTerm("食べる", "たべる", "v1"),
+                termMeta = emptyList(),
+            ),
         )
 
         val word = searchDictionaryTerms.findFirstWord("食べたって言ったよ", testDictionaryIds)
 
-        // Returns the original substring "食べた", not the deinflected form "食べる"
         word shouldBe "食べた"
+        coVerify(exactly = 1) { dictionarySearchGateway.lookup("食べたって言ったよ", testDictionaryIds, any()) }
+        coVerify(exactly = 0) { dictionarySearchGateway.exactSearch(any(), any()) }
     }
 
     @Test
@@ -230,6 +277,19 @@ class SentenceParserTest {
     }
 
     @Test
+    fun `segments Chinese text across OCR spaces`() = runTest {
+        coEvery { dictionaryRepository.searchTerms("你好", testDictionaryIds) } returns listOf(
+            mockTerm("你好"),
+        )
+
+        val match = searchDictionaryTerms.findFirstWordMatch("你 好 世界", testDictionaryIds)
+
+        match.word shouldBe "你好"
+        match.sourceOffset shouldBe 0
+        match.sourceLength shouldBe 3
+    }
+
+    @Test
     fun `segments Korean text by longest character match`() = runTest {
         coEvery { dictionaryRepository.searchTerms("안녕", testDictionaryIds) } returns listOf(
             mockTerm("안녕"),
@@ -238,6 +298,17 @@ class SentenceParserTest {
         val word = searchDictionaryTerms.findFirstWord("안녕하세요", testDictionaryIds)
 
         word shouldBe "안녕"
+    }
+
+    @Test
+    fun `preserves Korean spaces for direct lookup`() = runTest {
+        coEvery { dictionaryRepository.searchTerms("안녕 하세요", testDictionaryIds) } returns listOf(
+            mockTerm("안녕 하세요"),
+        )
+
+        val word = searchDictionaryTerms.findFirstWord("안녕 하세요 반가워요", testDictionaryIds)
+
+        word shouldBe "안녕 하세요"
     }
 
     @Test
@@ -254,11 +325,13 @@ class SentenceParserTest {
 
     @Test
     fun `preserves English apostrophes correctly`() = runTest {
-        coEvery { dictionaryRepository.getDictionary(1L) } returns mihon.domain.dictionary.model.Dictionary(
-            title = "Test",
-            revision = "1",
-            version = 1,
-            sourceLanguage = "en",
+        coEvery { dictionaryRepository.getAllDictionaries() } returns listOf(
+            Dictionary(
+                title = "Test",
+                revision = "1",
+                version = 1,
+                sourceLanguage = "en",
+            ),
         )
         coEvery { dictionaryRepository.searchTerms("don't", testDictionaryIds) } returns listOf(
             mockTerm("don't"),
@@ -271,11 +344,13 @@ class SentenceParserTest {
 
     @Test
     fun `segments kanji-only Japanese correctly when restricted`() = runTest {
-        coEvery { dictionaryRepository.getDictionary(1L) } returns mihon.domain.dictionary.model.Dictionary(
-            title = "Test",
-            revision = "1",
-            version = 1,
-            sourceLanguage = "ja",
+        coEvery { dictionaryRepository.getAllDictionaries() } returns listOf(
+            Dictionary(
+                title = "Test",
+                revision = "1",
+                version = 1,
+                sourceLanguage = "ja",
+            ),
         )
         coEvery { dictionaryRepository.searchTerms("世界", testDictionaryIds) } returns listOf(
             mockTerm("世界", "せかい", "n"),

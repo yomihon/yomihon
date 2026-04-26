@@ -15,6 +15,7 @@ data class BackupOptions(
     val extensionRepoSettings: Boolean = true,
     val sourceSettings: Boolean = true,
     val privateSettings: Boolean = false,
+    val savedSearches: Boolean = true,
 ) {
 
     fun asBooleanArray() = booleanArrayOf(
@@ -28,9 +29,11 @@ data class BackupOptions(
         extensionRepoSettings,
         sourceSettings,
         privateSettings,
+        savedSearches,
     )
 
-    fun canCreate() = libraryEntries || categories || appSettings || extensionRepoSettings || sourceSettings
+    fun canCreate() =
+        libraryEntries || categories || appSettings || extensionRepoSettings || sourceSettings || savedSearches
 
     companion object {
         val libraryOptions = persistentListOf(
@@ -68,6 +71,11 @@ data class BackupOptions(
                 setter = { options, enabled -> options.copy(readEntries = enabled) },
                 enabled = { it.libraryEntries },
             ),
+            Entry(
+                label = MR.strings.saved_searches,
+                getter = BackupOptions::savedSearches,
+                setter = { options, enabled -> options.copy(savedSearches = enabled) },
+            ),
         )
 
         val settingsOptions = persistentListOf(
@@ -95,16 +103,17 @@ data class BackupOptions(
         )
 
         fun fromBooleanArray(array: BooleanArray) = BackupOptions(
-            libraryEntries = array[0],
-            categories = array[1],
-            chapters = array[2],
-            tracking = array[3],
-            history = array[4],
-            readEntries = array[5],
-            appSettings = array[6],
-            extensionRepoSettings = array[7],
-            sourceSettings = array[8],
-            privateSettings = array[9],
+            libraryEntries = array.getOrElse(0) { true },
+            categories = array.getOrElse(1) { true },
+            chapters = array.getOrElse(2) { true },
+            tracking = array.getOrElse(3) { true },
+            history = array.getOrElse(4) { true },
+            readEntries = array.getOrElse(5) { true },
+            appSettings = array.getOrElse(6) { true },
+            extensionRepoSettings = array.getOrElse(7) { true },
+            sourceSettings = array.getOrElse(8) { true },
+            privateSettings = array.getOrElse(9) { false },
+            savedSearches = array.getOrElse(10) { true },
         )
     }
 

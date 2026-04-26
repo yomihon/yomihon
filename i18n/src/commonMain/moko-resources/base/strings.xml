@@ -153,6 +153,14 @@
     <string name="action_install">Install</string>
     <string name="action_share">Share</string>
     <string name="action_save">Save</string>
+    <string name="save_search">Save search</string>
+    <string name="save_search_hint">Search name</string>
+    <string name="saved_searches">Saved searches</string>
+    <string name="saved_searches_delete">Saved searches (hold to delete)</string>
+    <string name="save_search_delete">Delete saved search query?</string>
+    <string name="save_search_delete_message">Are you sure you wish to delete your saved search query: '%1$s'?</string>
+    <string name="save_search_invalid">Saved search invalid, filters have changed</string>
+    <string name="save_search_invalid_name">Invalid saved search name</string>
     <string name="action_reset">Reset</string>
     <string name="action_revert_to_default">Revert to default</string>
     <!-- missing undo feature after Compose rewrite #7454 -->
@@ -433,8 +441,7 @@
     <string name="pref_read_with_long_tap">Show actions on long tap</string>
     <string name="pref_long_tap_ocr">Activate OCR on long tap</string>
     <string name="pref_long_tap_ocr_summary">Overrides default long tap action</string>
-    <string name="pref_ocr_model">OCR model</string>
-    <string name="pref_ocr_model_summary">Select the OCR model to use</string>
+    <string name="pref_ocr_model">Text recognition model</string>
     <string name="ocr_model_legacy">Legacy</string>
     <string name="ocr_model_fast">Fast (Experimental)</string>
     <string name="ocr_model_glens">Online</string>
@@ -470,6 +477,7 @@
     <string name="scale_type_original_size">Original size</string>
     <string name="scale_type_smart_fit">Smart fit</string>
     <string name="pref_navigate_pan">Pan wide images</string>
+    <string name="pref_panel_navigation">Panel-by-panel navigation</string>
     <string name="pref_landscape_zoom">Automatically zoom into wide images</string>
     <string name="pref_zoom_start">Zoom start position</string>
     <string name="zoom_start_automatic">Automatic</string>
@@ -528,6 +536,7 @@
     <string name="save_chapter_as_cbz">Save as CBZ archive</string>
     <string name="split_tall_images">Split tall images</string>
     <string name="split_tall_images_summary">Improves reader performance</string>
+    <string name="pref_auto_ocr_on_download">Auto OCR on chapter download</string>
 
     <!-- Tracking section -->
     <string name="tracking_guide">Tracking guide</string>
@@ -590,6 +599,9 @@
     <string name="cache_deleted">Cache cleared, %1$d files deleted</string>
     <string name="cache_delete_error">Error occurred while clearing</string>
     <string name="pref_auto_clear_chapter_cache">Clear chapter cache on app launch</string>
+    <string name="pref_clear_ocr_cache">Clear OCR Cache</string>
+    <string name="ocr_cache_deleted">OCR cache cleared</string>
+    <string name="ocr_cache_delete_error">Could not clear OCR cache</string>
     <string name="export">Export</string>
     <string name="library_list">Library List</string>
     <string name="library_exported">Library Exported</string>
@@ -983,6 +995,7 @@
 
     <!-- Notification channels -->
     <string name="channel_common">Common</string>
+    <string name="label_text_recognition">Text Recognition</string>
     <string name="channel_progress">Progress</string>
     <string name="channel_complete">Complete</string>
     <string name="channel_errors">Errors</string>
@@ -1059,7 +1072,7 @@
     <string name="dictionary_import_progress">Imported %1$d entries…</string>
     <string name="dictionary_import_downloading">Downloading dictionary…</string>
     <string name="dictionary_import_download_progress">Downloading dictionary (%1$s)…</string>
-    <string name="dictionary_import_continues_background">The import will continue in the background. A notification will show when complete.</string>
+    <string name="dictionary_import_continues_background">The import will continue in the background. This may take a moment.</string>
     <string name="dictionary_import_invalid_url">Invalid or untrusted download URL</string>
     <string name="dictionary_import_download_failed">Failed to download dictionary</string>
     <string name="dictionary_import_too_large">Dictionary file is too large</string>
@@ -1067,6 +1080,21 @@
     <string name="dictionary_import_reading_index">Reading dictionary info…</string>
     <string name="dictionary_import_importing_info">Importing dictionary info…</string>
     <string name="dictionary_import_parsing_files">Parsing and importing dictionary entries…</string>
+    <string name="dictionary_migration_in_progress">Migrating dictionaries</string>
+    <string name="dictionary_migration_complete">Dictionary migration complete</string>
+    <string name="dictionary_migration_complete_summary">All legacy dictionaries have been migrated.</string>
+    <string name="dictionary_migration_card_title">Legacy dictionary migration</string>
+    <string name="dictionary_migration_running_summary">Current dictionary: %1$s</string>
+    <string name="dictionary_migration_progress_summary">%1$d of %2$d dictionaries completed</string>
+    <string name="dictionary_migration_idle_summary">All dictionaries are already using the new backend.</string>
+    <string name="dictionary_migration_stage_building_archive">Reconstructing archive</string>
+    <string name="dictionary_migration_stage_importing">Importing into new storage</string>
+    <string name="dictionary_migration_stage_validating">Validating imported dictionary</string>
+    <string name="dictionary_migration_stage_rebuilding_session">Refreshing search index</string>
+    <string name="dictionary_migration_stage_cleaning_up">Cleaning up legacy data</string>
+    <string name="dictionary_migration_stage_complete">Migration complete</string>
+    <string name="dictionary_migration_stage_queued">Queued</string>
+    <string name="dictionary_migration_stage_error">Migration failed</string>
     <string name="deleting_dictionary">Deleting Dictionary</string>
     <string name="exit_screen">Unfinished Operation</string>
     <string name="confirm_exit_while_busy">Leaving now might pause or cancel the current dictionary operation.</string>
@@ -1095,6 +1123,8 @@
     <string name="dictionary_no_enabled">No dictionaries are enabled.</string>
     <string name="no_dictionaries_enabled">No Dictionaries Enabled</string>
     <string name="dictionary_manage_settings">Manage dictionaries in settings</string>
+    <string name="dictionary_load_fail">Failed to load dictionaries</string>
+    <string name="dictionary_search_failed">Search failed</string>
     <string name="action_move_up">Move up</string>
     <string name="action_move_down">Move down</string>
     <string name="label_priority">Priority:</string>
@@ -1132,14 +1162,26 @@
     <string name="anki_deck_name">Deck name</string>
     <string name="anki_note_type_selection">Note Type Selection</string>
     <string name="anki_note_type_name">Note type name</string>
+    <string name="anki_media_settings">Media</string>
+    <string name="anki_dictionary_audio_prefill">Prefill dictionary audio</string>
+    <string name="anki_dictionary_audio_prefill_summary">Attach fetched dictionary audio to Anki exports when available</string>
+    <string name="anki_cropped_image_export">Crop exported image</string>
+    <string name="anki_cropped_image_export_summary">Select a page region before exporting a card</string>
     <string name="anki_field_mappings">Field Mappings</string>
     <string name="anki_field_empty">Empty</string>
+    <string name="anki_field_audio">Audio</string>
     <string name="anki_field_reading">Reading</string>
+    <string name="anki_field_furigana">Furigana</string>
     <string name="anki_field_expression">Expression</string>
-    <string name="anki_field_glossary">Glossary</string>
+    <string name="anki_field_glossary_first">Glossary (First Dict)</string>
+    <string name="anki_field_glossary_all">Glossary (All Dicts)</string>
+    <string name="anki_field_glossary_dictionary">Glossary (%s)</string>
     <string name="anki_field_sentence">Sentence</string>
     <string name="anki_field_pitch_accent">Pitch Accent</string>
-    <string name="anki_field_frequency">Frequency</string>
+    <string name="anki_field_frequency">Frequency (All)</string>
+    <string name="anki_field_frequency_average_value">Frequency (Average)</string>
+    <string name="anki_field_frequency_lowest_value">Frequency (Lowest)</string>
+    <string name="anki_field_frequency_single_value">Frequency (%s)</string>
     <string name="anki_field_picture">Picture</string>
     <string name="anki_field_mapping_info">Select the default data to fill each field with when creating a card</string>
     <string name="anki_fill_with">Fill with: %s</string>
@@ -1155,9 +1197,36 @@
 
     <!-- OCR Related -->
     <string name="action_ocr">Trigger region selection for text recognition</string>
+    <string name="action_preprocess_ocr">Scan OCR</string>
     <string name="action_copy">Copy</string>
+    <string name="action_play_audio">Play audio</string>
     <string name="ocr_select_region">Drag to select text region</string>
+    <string name="anki_select_image_region">Drag to select Anki image</string>
     <string name="ocr_processing">Processing OCR…</string>
+    <string name="ocr_queue_header">Text recognition queue</string>
+    <string name="ocr_queue_empty">No OCR scans</string>
+    <string name="ocr_preprocess_title">OCR scanning</string>
+    <string name="ocr_preprocess_queued">Queued</string>
+    <string name="ocr_preprocess_progress">%1$s - %2$d/%3$d pages scanned</string>
+    <string name="ocr_preprocess_completed">%1$s scanned</string>
+    <string name="ocr_preprocess_failed">%1$s could not be scanned</string>
+    <string name="ocr_scan_manga_not_found">Manga not found</string>
+    <string name="pref_category_dictionary_ocr_results">Dictionary style</string>
+    <string name="pref_dictionary_ocr_result_presentation">Result style</string>
+    <string name="pref_dictionary_ocr_result_presentation_summary">Choose how auto scanned dictionary results open in the reader</string>
+    <string name="pref_dictionary_ocr_result_presentation_sheet">Bottom sheet</string>
+    <string name="pref_dictionary_ocr_result_presentation_popup">Popup</string>
+    <string name="pref_dictionary_ocr_result_popup_width">Popup width</string>
+    <string name="pref_dictionary_ocr_result_popup_width_value">%1$ddp</string>
+    <string name="pref_dictionary_ocr_result_popup_height">Popup height</string>
+    <string name="pref_dictionary_ocr_result_popup_height_value">%1$ddp</string>
+    <string name="pref_dictionary_ocr_result_popup_scale">Popup content scale</string>
+    <string name="pref_dictionary_ocr_result_popup_scale_value">%1$d%%</string>
+    <string name="pref_dictionary_ocr_result_dim_background">Darken background</string>
+    <string name="pref_dictionary_ocr_result_dim_background_summary">Darken the reader background while OCR results are open</string>
+    <string name="error_anki_image_fail">Failed to get Anki image</string>
+    <string name="warn_ocr_image_decode">OCR Failed: Image Decoding Issue</string>
+    <string name="error_ocr_image_fail">OCR Failed: Unexpected Image Issue</string>
     <string name="error_unknown">Unknown OCR Error Occurred</string>
     <string name="ocr_memory_error">Not Enough Memory to Run OCR</string>
     <string name="ocr_initialization_error">OCR Initialization Failed</string>

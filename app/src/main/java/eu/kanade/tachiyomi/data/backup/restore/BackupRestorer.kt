@@ -8,11 +8,13 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionRepos
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
+import eu.kanade.tachiyomi.data.backup.models.BackupSavedSearch
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionRepoRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.PreferenceRestorer
+import eu.kanade.tachiyomi.data.backup.restore.restorers.SavedSearchRestorer
 import eu.kanade.tachiyomi.util.system.createFileInCacheDir
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
@@ -34,6 +36,7 @@ class BackupRestorer(
     private val preferenceRestorer: PreferenceRestorer = PreferenceRestorer(context),
     private val extensionRepoRestorer: ExtensionRepoRestorer = ExtensionRepoRestorer(),
     private val mangaRestorer: MangaRestorer = MangaRestorer(),
+    private val savedSearchRestorer: SavedSearchRestorer = SavedSearchRestorer(),
 ) {
 
     private var restoreAmount = 0
@@ -76,6 +79,9 @@ class BackupRestorer(
         if (options.categories) {
             restoreAmount += 1
         }
+        if (options.savedSearches) {
+            restoreAmount += 1
+        }
         if (options.appSettings) {
             restoreAmount += 1
         }
@@ -89,6 +95,9 @@ class BackupRestorer(
         coroutineScope {
             if (options.categories) {
                 restoreCategories(backup.backupCategories)
+            }
+            if (options.savedSearches) {
+                restoreSavedSearches(backup.backupSavedSearches)
             }
             if (options.appSettings) {
                 restoreAppPreferences(backup.backupPreferences, backup.backupCategories.takeIf { options.categories })
@@ -138,6 +147,21 @@ class BackupRestorer(
                 restoreProgress += 1
                 notifier.showRestoreProgress(it.title, restoreProgress, restoreAmount, isSync)
             }
+    }
+
+    private fun CoroutineScope.restoreSavedSearches(
+        backupSavedSearches: List<BackupSavedSearch>,
+    ) = launch {
+        ensureActive()
+        savedSearchRestorer.restoreSavedSearches(backupSavedSearches)
+
+        restoreProgress += 1
+        notifier.showRestoreProgress(
+            context.stringResource(MR.strings.saved_searches),
+            restoreProgress,
+            restoreAmount,
+            isSync,
+        )
     }
 
     private fun CoroutineScope.restoreAppPreferences(

@@ -1,6 +1,8 @@
 package mihon.domain.dictionary.interactor
 
 import mihon.domain.dictionary.model.Dictionary
+import mihon.domain.dictionary.model.DictionaryBackend
+import mihon.domain.dictionary.model.DictionaryIndex
 import mihon.domain.dictionary.repository.DictionaryRepository
 
 class DictionaryInteractor(
@@ -10,12 +12,41 @@ class DictionaryInteractor(
         return dictionaryRepository.getAllDictionaries()
     }
 
+    suspend fun getFreqDictionaryIds(): List<Long> {
+        return dictionaryRepository.getFreqDictionaryIds()
+    }
+
     suspend fun getDictionary(dictionaryId: Long): Dictionary? {
         return dictionaryRepository.getDictionary(dictionaryId)
     }
 
     suspend fun updateDictionary(dictionary: Dictionary) {
         dictionaryRepository.updateDictionary(dictionary)
+    }
+
+    suspend fun createDictionary(
+        index: DictionaryIndex,
+        styles: String? = null,
+    ): Dictionary {
+        dictionaryRepository.bumpAllPrioritiesUp()
+
+        val dictionary = Dictionary(
+            title = index.title,
+            revision = index.revision,
+            version = index.effectiveVersion,
+            author = index.author,
+            url = index.url,
+            description = index.description,
+            attribution = index.attribution,
+            styles = styles,
+            sourceLanguage = index.sourceLanguage,
+            targetLanguage = index.targetLanguage,
+            priority = 1,
+            backend = DictionaryBackend.HOSHI,
+            storageReady = false,
+        )
+        val dictionaryId = dictionaryRepository.insertDictionary(dictionary)
+        return dictionary.copy(id = dictionaryId)
     }
 
     suspend fun deleteDictionary(dictionaryId: Long) {

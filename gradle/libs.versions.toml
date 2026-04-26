@@ -15,7 +15,7 @@ firebase-bom = "34.3.0"
 markdown = "0.37.0"
 junit = "6.0.0"
 wanakana-core-version = "1.1.1"
-furiganable = "0.2.2"
+furiganable = "v0.1.2"
 core-ktx-version = "1.7.0"
 litert = "2.1.0"
 
@@ -82,6 +82,7 @@ moko-core = { module = "dev.icerock.moko:resources", version.ref = "moko" }
 
 logcat = "com.squareup.logcat:logcat:0.4"
 litert = { module = "com.google.ai.edge.litert:litert", version.ref = "litert" }
+hoshidicts = "com.github.yomihon:hoshidicts:v1.4.1"
 
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
 firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
@@ -119,7 +120,7 @@ markdown-coil = { module = "com.mikepenz:multiplatform-markdown-renderer-coil3",
 stringSimilarity = { module = "com.aallam.similarity:string-similarity-kotlin", version = "0.1.0" }
 wanakana-core = { module = "dev.esnault.wanakana:wanakana-core", version.ref = "wanakana-core-version" }
 core-ktx = { group = "androidx.test", name = "core-ktx", version.ref = "core-ktx-version" }
-furiganable = { module = "com.turtlekazu.furiganable:compose-m3", version.ref = "furiganable" }
+furiganable = { module = "com.github.yomihon.Furiganable:compose-m3", version.ref = "furiganable" }
 
 [plugins]
 google-services = { id = "com.google.gms.google-services", version = "4.4.3" }

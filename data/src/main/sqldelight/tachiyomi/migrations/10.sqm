@@ -1,0 +1,19 @@
+ALTER TABLE dictionaries ADD COLUMN backend TEXT NOT NULL DEFAULT 'legacy_db';
+ALTER TABLE dictionaries ADD COLUMN storage_path TEXT;
+ALTER TABLE dictionaries ADD COLUMN storage_ready INTEGER NOT NULL DEFAULT 0;
+
+CREATE INDEX dictionaries_backend ON dictionaries(backend);
+
+CREATE TABLE dictionary_migration_status (
+    dictionary_id INTEGER NOT NULL PRIMARY KEY,
+    state TEXT NOT NULL,
+    stage TEXT NOT NULL,
+    progress_text TEXT,
+    completed_dicts INTEGER NOT NULL DEFAULT 0,
+    total_dicts INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY(dictionary_id) REFERENCES dictionaries(_id) ON DELETE CASCADE
+);
+
+CREATE INDEX dictionary_migration_status_updated_at ON dictionary_migration_status(updated_at);

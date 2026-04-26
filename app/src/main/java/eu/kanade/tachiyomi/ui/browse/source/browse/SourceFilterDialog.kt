@@ -7,7 +7,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -18,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
@@ -37,6 +43,12 @@ fun SourceFilterDialog(
     onReset: () -> Unit,
     onFilter: () -> Unit,
     onUpdate: (FilterList) -> Unit,
+    onSave: () -> Unit = {},
+    savedSearches: ImmutableList<BrowseSourceScreenModel.SavedSearchItem> = persistentListOf(),
+    onSavedSearch: (BrowseSourceScreenModel.SavedSearchItem) -> Unit = {},
+    onSavedSearchPress: (BrowseSourceScreenModel.SavedSearchItem) -> Unit = {},
+    onSavedSearchPressDesc: String = "",
+    shouldShowSavingButton: Boolean = true,
 ) {
     val updateFilters = { onUpdate(filters) }
 
@@ -59,6 +71,16 @@ fun SourceFilterDialog(
 
                     Spacer(modifier = Modifier.weight(1f))
 
+                    if (shouldShowSavingButton) {
+                        IconButton(onClick = onSave) {
+                            Icon(
+                                imageVector = Icons.Default.Save,
+                                contentDescription = stringResource(MR.strings.action_save),
+                                tint = MaterialTheme.colorScheme.onBackground,
+                            )
+                        }
+                    }
+
                     Button(onClick = {
                         onFilter()
                         onDismissRequest()
@@ -67,6 +89,15 @@ fun SourceFilterDialog(
                     }
                 }
                 HorizontalDivider()
+            }
+
+            item {
+                SavedSearchItem(
+                    savedSearches = savedSearches,
+                    onSavedSearch = onSavedSearch,
+                    onSavedSearchPress = onSavedSearchPress,
+                    onSavedSearchPressDesc = onSavedSearchPressDesc,
+                )
             }
 
             items(filters) {

@@ -65,13 +65,22 @@ object Notifications {
     const val ID_INCOGNITO_MODE = -701
 
     /**
-     * Notification channel and ids used for dictionary import.
+     * Notification channel and ids used for dictionary migration.
      */
     private const val GROUP_DICTIONARY = "group_dictionary"
     const val CHANNEL_DICTIONARY_PROGRESS = "dictionary_progress_channel"
-    const val ID_DICTIONARY_IMPORT_PROGRESS = -801
+    const val ID_DICTIONARY_MIGRATION_PROGRESS = -801
     const val CHANNEL_DICTIONARY_COMPLETE = "dictionary_complete_channel"
-    const val ID_DICTIONARY_IMPORT_COMPLETE = -802
+    const val ID_DICTIONARY_MIGRATION_COMPLETE = -802
+
+    /**
+     * Notification channel and ids used by OCR scanning.
+     */
+    private const val GROUP_OCR = "group_ocr"
+    const val CHANNEL_OCR_PROGRESS = "ocr_progress_channel"
+    const val ID_OCR_PROGRESS = -901
+    const val CHANNEL_OCR_ERROR = "ocr_error_channel"
+    const val ID_OCR_ERROR = -902
 
     /**
      * Notification channel and ids used for app and extension updates.
@@ -125,6 +134,9 @@ object Notifications {
                 },
                 buildNotificationChannelGroup(GROUP_DICTIONARY) {
                     setName(context.stringResource(MR.strings.pref_category_dictionaries))
+                },
+                buildNotificationChannelGroup(GROUP_OCR) {
+                    setName(context.stringResource(MR.strings.label_text_recognition))
                 },
             ),
         )
@@ -189,6 +201,16 @@ object Notifications {
                     setGroup(GROUP_DICTIONARY)
                     setShowBadge(false)
                     setSound(null, null)
+                },
+                buildNotificationChannel(CHANNEL_OCR_PROGRESS, IMPORTANCE_LOW) {
+                    setName(context.stringResource(MR.strings.channel_progress))
+                    setGroup(GROUP_OCR)
+                    setShowBadge(false)
+                },
+                buildNotificationChannel(CHANNEL_OCR_ERROR, IMPORTANCE_LOW) {
+                    setName(context.stringResource(MR.strings.channel_errors))
+                    setGroup(GROUP_OCR)
+                    setShowBadge(false)
                 },
             ),
         )

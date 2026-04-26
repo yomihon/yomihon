@@ -157,9 +157,99 @@ object ImageUtil {
         return output
     }
 
+    /*
+     * Approximates reader crop bounds for aligning OCR coords on cropped images
+     */
+    fun detectBorderCrop(imageSource: BufferedSource): Rect? {
+        val decoder = ImageDecoder.newInstance(imageSource.peek().inputStream()) ?: return null
+        return try {
+            val originalWidth = decoder.width
+            val originalHeight = decoder.height
+            if (originalWidth <= 0 || originalHeight <= 0) return null
+
+            var sampleSize = 1
+            val largestDimension = max(originalWidth, originalHeight)
+            while (largestDimension / sampleSize > 512) {
+                sampleSize *= 2
+            }
+            val sampled = decoder.decode(sampleSize = sampleSize) ?: return null
+
+            try {
+                val sampledBounds = detectBorderCrop(sampled)
+                Rect(
+                    sampledBounds.left * sampleSize,
+                    sampledBounds.top * sampleSize,
+                    min(originalWidth, sampledBounds.right * sampleSize),
+                    min(originalHeight, sampledBounds.bottom * sampleSize),
+                ).takeIf {
+                    it.left > 0 || it.top > 0 || it.right < originalWidth || it.bottom < originalHeight
+                }
+            } finally {
+                if (!sampled.isRecycled) {
+                    sampled.recycle()
+                }
+            }
+        } finally {
+            decoder.recycle()
+        }
+    }
+
+    fun detectBorderCrop(bitmap: Bitmap): Rect {
+        if (bitmap.width <= 1 || bitmap.height <= 1) {
+            return Rect(0, 0, bitmap.width, bitmap.height)
+        }
+
+        val background = averageCornerColor(bitmap)
+        val left = findInset(bitmap, horizontal = true, fromStart = true, background = background)
+        val right = findInset(bitmap, horizontal = true, fromStart = false, background = background)
+        val top = findInset(bitmap, horizontal = false, fromStart = true, background = background)
+        val bottom = findInset(bitmap, horizontal = false, fromStart = false, background = background)
+
+        val rect = Rect(left, top, right, bottom)
+        return if (rect.width() <= 0 || rect.height() <= 0) {
+            Rect(0, 0, bitmap.width, bitmap.height)
+        } else {
+            rect
+        }
+    }
+
     private fun rotateBitMap(bitmap: Bitmap, degrees: Float): Bitmap {
         val matrix = Matrix().apply { postRotate(degrees) }
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    }
+
+    private fun averageCornerColor(bitmap: Bitmap): Int {
+        val topLeft = bitmap[0, 0]
+        val topRight = bitmap[bitmap.width - 1, 0]
+        val bottomLeft = bitmap[0, bitmap.height - 1]
+        val bottomRight = bitmap[bitmap.width - 1, bitmap.height - 1]
+        val red = (topLeft.red + topRight.red + bottomLeft.red + bottomRight.red) / 4
+        val green = (topLeft.green + topRight.green + bottomLeft.green + bottomRight.green) / 4
+        val blue = (topLeft.blue + topRight.blue + bottomLeft.blue + bottomRight.blue) / 4
+        return Color.rgb(red, green, blue)
+    }
+
+    private fun findInset(
+        bitmap: Bitmap,
+        horizontal: Boolean,
+        fromStart: Boolean,
+        @ColorInt background: Int,
+    ): Int {
+        val outerLimit = if (horizontal) bitmap.width else bitmap.height
+        val innerLimit = if (horizontal) bitmap.height else bitmap.width
+        val range = if (fromStart) 0 until outerLimit else (outerLimit - 1) downTo 0
+        val requiredDifferingPixels = (innerLimit * 0.01f).toInt() + 1
+
+        for (outer in range) {
+            var differingPixels = 0
+            for (inner in 0 until innerLimit) {
+                val pixel = if (horizontal) bitmap[outer, inner] else bitmap[inner, outer]
+                if (!pixel.isCloseTo(background) && ++differingPixels >= requiredDifferingPixels) {
+                    return if (fromStart) outer else outer + 1
+                }
+            }
+        }
+        return if (fromStart) 0 else outerLimit
     }
 
     /**

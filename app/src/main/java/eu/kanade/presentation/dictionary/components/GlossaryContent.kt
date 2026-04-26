@@ -1,8 +1,12 @@
 package eu.kanade.presentation.dictionary.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,7 +19,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -40,7 +47,6 @@ import mihon.domain.dictionary.model.GlossaryTag
 import mihon.domain.dictionary.model.collectText
 import mihon.domain.dictionary.model.containsLink
 import mihon.domain.dictionary.model.extractForms
-import mihon.domain.dictionary.model.hasBlockContent
 import mihon.domain.dictionary.model.hasFurigana
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -140,9 +146,9 @@ private fun StructuredDefinition(
 ) {
     if (nodes.isEmpty()) return
     val containsLink = nodes.containsLink()
-    if (!nodes.any { it.hasBlockContent() }) {
+    if (!nodes.any { it.isLayoutBlock() }) {
         if (containsLink) {
-            InlineDefinitionRow(nodes, indentLevel, onLinkClick)
+            InlineDefinitionRow(nodes, indentLevel, parsedCss, onLinkClick)
         } else {
             DefinitionRow(text = nodes.collectText(), indentLevel = indentLevel)
         }
@@ -151,7 +157,12 @@ private fun StructuredDefinition(
     Column(
         modifier = Modifier.padding(start = bulletIndent(indentLevel), top = 2.dp, bottom = 2.dp),
     ) {
-        nodes.forEach { node -> StructuredNode(node, indentLevel, parsedCss, onLinkClick) }
+        StructuredContainerChildren(
+            nodes = nodes,
+            indentLevel = indentLevel,
+            parsedCss = parsedCss,
+            onLinkClick = onLinkClick,
+        )
     }
 }
 
@@ -194,6 +205,114 @@ private fun DeinflectionRow(entry: GlossaryEntry.Deinflection, indentLevel: Int)
     DefinitionRow(text = content, indentLevel = indentLevel)
 }
 
+private fun GlossaryNode.isLayoutBlock(): Boolean = when (this) {
+    is GlossaryNode.Text -> false
+    is GlossaryNode.LineBreak -> true
+    is GlossaryNode.Element -> when (tag) {
+        GlossaryTag.Div,
+        GlossaryTag.OrderedList,
+        GlossaryTag.UnorderedList,
+        GlossaryTag.ListItem,
+        GlossaryTag.Details,
+        GlossaryTag.Summary,
+        GlossaryTag.Table,
+        GlossaryTag.Thead,
+        GlossaryTag.Tbody,
+        GlossaryTag.Tfoot,
+        GlossaryTag.Tr,
+        GlossaryTag.Td,
+        GlossaryTag.Th,
+        -> true
+        else -> false
+    }
+}
+
+private fun GlossaryNode.isInlineRenderable(): Boolean = when (this) {
+    is GlossaryNode.Text -> true
+    is GlossaryNode.LineBreak -> false
+    is GlossaryNode.Element -> {
+        if (isLayoutBlock()) {
+            false
+        } else {
+            children.all { child -> child.isInlineRenderable() }
+        }
+    }
+}
+
+@Composable
+private fun StructuredContainerChildren(
+    nodes: List<GlossaryNode>,
+    indentLevel: Int,
+    parsedCss: ParsedCss,
+    onLinkClick: (String) -> Unit,
+    textStyle: TextStyle = MaterialTheme.typography.bodyMedium,
+) {
+    if (nodes.isEmpty()) return
+
+    val inlineBuffer = mutableListOf<GlossaryNode>()
+
+    @Composable
+    fun flushInlineBuffer() {
+        if (inlineBuffer.isEmpty()) return
+        InlineNodeSequence(
+            nodes = inlineBuffer.toList(),
+            indentLevel = indentLevel,
+            parsedCss = parsedCss,
+            onLinkClick = onLinkClick,
+            textStyle = textStyle,
+        )
+        inlineBuffer.clear()
+    }
+
+    nodes.forEach { child ->
+        when {
+            child is GlossaryNode.LineBreak -> {
+                flushInlineBuffer()
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+            child.isInlineRenderable() -> inlineBuffer += child
+            else -> {
+                flushInlineBuffer()
+                StructuredNode(child, indentLevel, parsedCss, onLinkClick, textStyle)
+            }
+        }
+    }
+
+    flushInlineBuffer()
+}
+
+@Composable
+private fun InlineNodeSequence(
+    nodes: List<GlossaryNode>,
+    indentLevel: Int,
+    parsedCss: ParsedCss,
+    onLinkClick: (String) -> Unit,
+    textStyle: TextStyle = MaterialTheme.typography.bodyMedium,
+) {
+    if (nodes.isEmpty()) return
+
+    val chipLikeOnly = nodes.all {
+        it is GlossaryNode.Element &&
+            it.tag == GlossaryTag.Span &&
+            it.children.all { child -> child.isInlineRenderable() }
+    }
+
+    FlowRow(
+        modifier = Modifier.padding(bottom = 2.dp),
+        horizontalArrangement = if (chipLikeOnly) Arrangement.spacedBy(4.dp) else Arrangement.Start,
+        verticalArrangement = if (chipLikeOnly) Arrangement.spacedBy(4.dp) else Arrangement.Top,
+    ) {
+        nodes.forEach { child ->
+            InlineStructuredNode(
+                node = child,
+                parsedCss = parsedCss,
+                onLinkClick = onLinkClick,
+                textStyle = textStyle,
+            )
+        }
+    }
+}
+
 @Composable
 private fun StructuredNode(
     node: GlossaryNode,
@@ -223,20 +342,32 @@ private fun StructuredElement(
 ) {
     when (node.tag) {
         GlossaryTag.UnorderedList -> StructuredList(
-            node.children,
-            indentLevel,
-            ListType.Unordered,
-            parsedCss,
-            onLinkClick,
-            textStyle,
+            children = node.children,
+            indentLevel = indentLevel,
+            type = ListType.Unordered,
+            parsedCss = parsedCss,
+            onLinkClick = onLinkClick,
+            textStyle = textStyle,
+            listStyleType = (
+                getCssStyles(
+                    node.attributes.dataAttributes,
+                    parsedCss,
+                ) + node.attributes.style
+                )["listStyleType"],
         )
         GlossaryTag.OrderedList -> StructuredList(
-            node.children,
-            indentLevel,
-            ListType.Ordered,
-            parsedCss,
-            onLinkClick,
-            textStyle,
+            children = node.children,
+            indentLevel = indentLevel,
+            type = ListType.Ordered,
+            parsedCss = parsedCss,
+            onLinkClick = onLinkClick,
+            textStyle = textStyle,
+            listStyleType = (
+                getCssStyles(
+                    node.attributes.dataAttributes,
+                    parsedCss,
+                ) + node.attributes.style
+                )["listStyleType"],
         )
         GlossaryTag.ListItem -> StructuredListItem(
             node,
@@ -259,7 +390,13 @@ private fun StructuredElement(
         GlossaryTag.Td, GlossaryTag.Th, GlossaryTag.Unknown, GlossaryTag.Rt, GlossaryTag.Rp,
         -> {
             Column {
-                node.children.forEach { child -> StructuredNode(child, indentLevel, parsedCss, onLinkClick, textStyle) }
+                StructuredContainerChildren(
+                    nodes = node.children,
+                    indentLevel = indentLevel,
+                    parsedCss = parsedCss,
+                    onLinkClick = onLinkClick,
+                    textStyle = textStyle,
+                )
             }
         }
     }
@@ -273,6 +410,7 @@ private fun StructuredList(
     parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
     textStyle: TextStyle,
+    listStyleType: String? = null,
 ) {
     if (children.isEmpty()) return
     var itemIndex = 0
@@ -287,6 +425,7 @@ private fun StructuredList(
                     parsedCss,
                     onLinkClick,
                     baseTextStyle = textStyle,
+                    parentListStyleType = listStyleType,
                 )
                 itemIndex += 1
             } else {
@@ -305,12 +444,13 @@ private fun StructuredListItem(
     parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
     baseTextStyle: TextStyle,
+    parentListStyleType: String? = null,
 ) {
     val cssStyleMap = getCssStyles(node.attributes.dataAttributes, parsedCss)
     val combinedStyleMap = cssStyleMap + node.attributes.style
     val textStyle = applyTypography(baseTextStyle, combinedStyleMap)
 
-    val inlineText = if (node.children.any { child -> child.hasBlockContent() }) {
+    val inlineText = if (node.children.any { child -> child.isLayoutBlock() }) {
         null
     } else {
         node.children.collectText()
@@ -321,17 +461,21 @@ private fun StructuredListItem(
         modifier = Modifier.padding(top = 2.dp, bottom = 2.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        val marker = when (type) {
-            ListType.Unordered -> "•"
-            ListType.Ordered -> "${index + 1}."
-        }
-
-        Text(
-            text = marker,
-            style = textStyle,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(end = 6.dp),
+        val marker = resolveListMarker(
+            type = type,
+            index = index,
+            itemListStyleType = combinedStyleMap["listStyleType"],
+            parentListStyleType = parentListStyleType,
         )
+
+        if (marker.isNotEmpty()) {
+            Text(
+                text = marker,
+                style = textStyle,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(end = 6.dp),
+            )
+        }
 
         if (!inlineText.isNullOrBlank() && !containsLink) {
             TextWithReading(
@@ -341,31 +485,13 @@ private fun StructuredListItem(
             )
         } else {
             Column {
-                val children = node.children
-                val firstListIndex = children.indexOfFirst {
-                    it is GlossaryNode.Element &&
-                        (it.tag == GlossaryTag.OrderedList || it.tag == GlossaryTag.UnorderedList)
-                }.let { if (it == -1) children.size else it }
-
-                val inlineChildren = children.subList(0, firstListIndex)
-                val blockChildren = children.subList(firstListIndex, children.size)
-
-                if (inlineChildren.isNotEmpty()) {
-                    FlowRow(
-                        modifier = Modifier.padding(bottom = 4.dp),
-                    ) {
-                        inlineChildren.forEach { child ->
-                            StructuredNode(child, indentLevel, parsedCss, onLinkClick, textStyle)
-                            Spacer(Modifier.width(6.dp))
-                        }
-                    }
-                }
-
-                if (blockChildren.isNotEmpty()) {
-                    blockChildren.forEach { child ->
-                        StructuredNode(child, indentLevel, parsedCss, onLinkClick, textStyle)
-                    }
-                }
+                StructuredContainerChildren(
+                    nodes = node.children,
+                    indentLevel = indentLevel,
+                    parsedCss = parsedCss,
+                    onLinkClick = onLinkClick,
+                    textStyle = textStyle,
+                )
             }
         }
     }
@@ -376,6 +502,7 @@ private fun RubyNode(
     node: GlossaryNode.Element,
     modifier: Modifier = Modifier,
     textStyle: TextStyle = MaterialTheme.typography.bodyMedium,
+    bottomPadding: Dp = 2.dp,
 ) {
     val baseNodes = node.children.filterNot { child ->
         child is GlossaryNode.Element && (child.tag == GlossaryTag.Rt || child.tag == GlossaryTag.Rp)
@@ -397,7 +524,7 @@ private fun RubyNode(
         formattedText = furiganaText,
         style = textStyle,
         furiganaFontSize = textStyle.fontSize * 0.60f,
-        modifier = modifier.padding(bottom = 2.dp),
+        modifier = modifier.padding(bottom = bottomPadding),
     )
 }
 
@@ -408,6 +535,7 @@ private fun LinkNode(
     onLinkClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     textStyle: TextStyle = MaterialTheme.typography.bodyMedium,
+    bottomPadding: Dp = 2.dp,
 ) {
     val href = node.attributes.properties["href"]
     val linkText = node.children.collectText().ifBlank { href ?: "" }
@@ -490,8 +618,69 @@ private fun DetailsNode(
     onLinkClick: (String) -> Unit,
     textStyle: TextStyle,
 ) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    // Separate summary from body children
+    val summaryNode = node.children.firstOrNull {
+        it is GlossaryNode.Element && it.tag == GlossaryTag.Summary
+    } as? GlossaryNode.Element
+    val bodyChildren = node.children.filter {
+        !(it is GlossaryNode.Element && it.tag == GlossaryTag.Summary)
+    }
+
     Column {
-        node.children.forEach { child -> StructuredNode(child, indentLevel + 1, parsedCss, onLinkClick, textStyle) }
+        // Clickable summary row with expand/collapse indicator
+        Row(
+            modifier = Modifier
+                .clickable { isExpanded = !isExpanded }
+                .padding(start = bulletIndent(indentLevel), top = 2.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = if (isExpanded) "▼ " else "▶ ",
+                style = textStyle.copy(fontSize = textStyle.fontSize * 0.75f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(end = 4.dp),
+            )
+            if (summaryNode != null) {
+                val cssStyleMap = getCssStyles(summaryNode.attributes.dataAttributes, parsedCss)
+                val combinedStyleMap = cssStyleMap + summaryNode.attributes.style
+                val summaryStyle = applyTypography(
+                    textStyle.copy(fontWeight = FontWeight.SemiBold),
+                    combinedStyleMap,
+                )
+                val summaryText = summaryNode.children.collectText()
+                TextWithReading(
+                    formattedText = summaryText,
+                    style = summaryStyle,
+                    furiganaFontSize = summaryStyle.fontSize * 0.60f,
+                )
+            } else {
+                Text(
+                    text = "Details",
+                    style = textStyle.copy(fontWeight = FontWeight.SemiBold),
+                )
+            }
+        }
+
+        // Collapsible body content
+        AnimatedVisibility(
+            visible = isExpanded,
+            enter = expandVertically(),
+            exit = shrinkVertically(),
+        ) {
+            Column(
+                modifier = Modifier.padding(start = bulletIndent(indentLevel + 1)),
+            ) {
+                StructuredContainerChildren(
+                    nodes = bodyChildren,
+                    indentLevel = indentLevel + 1,
+                    parsedCss = parsedCss,
+                    onLinkClick = onLinkClick,
+                    textStyle = textStyle,
+                )
+            }
+        }
     }
 }
 
@@ -551,7 +740,13 @@ private fun DivNode(
     )
 
     Column(modifier = boxModifier) {
-        node.children.forEach { child -> StructuredNode(child, indentLevel, parsedCss, onLinkClick, textStyle) }
+        StructuredContainerChildren(
+            nodes = node.children,
+            indentLevel = indentLevel,
+            parsedCss = parsedCss,
+            onLinkClick = onLinkClick,
+            textStyle = textStyle,
+        )
     }
 }
 
@@ -576,6 +771,19 @@ private fun SpanNode(
         defaultCornerRadius = 4.dp,
         defaultPadding = PaddingValues(horizontal = 4.dp),
     )
+
+    if (node.children.any { child -> child is GlossaryNode.LineBreak || child.isLayoutBlock() }) {
+        Column(modifier = boxModifier) {
+            StructuredContainerChildren(
+                nodes = node.children,
+                indentLevel = 0,
+                parsedCss = parsedCss,
+                onLinkClick = onLinkClick,
+                textStyle = textStyle,
+            )
+        }
+        return
+    }
 
     // Build annotated text for proper character-level wrapping
     val annotatedResult = remember(node.children) { buildAnnotatedText(node.children) }
@@ -616,33 +824,54 @@ private fun SpanNode(
 }
 
 @Composable
-internal fun InlineNode(
+internal fun InlineStructuredNode(
     node: GlossaryNode,
+    parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
     textStyle: TextStyle = MaterialTheme.typography.bodyMedium,
 ) {
     when (node) {
-        is GlossaryNode.Text -> Text(
-            text = node.text,
-            style = textStyle,
-        )
-        is GlossaryNode.LineBreak -> { /* Ignore in inline context */ }
+        is GlossaryNode.Text -> {
+            if (node.text.isNotEmpty()) {
+                Text(
+                    text = node.text,
+                    style = textStyle,
+                )
+            }
+        }
+        is GlossaryNode.LineBreak -> Unit
         is GlossaryNode.Element -> {
-            val styledTextStyle = applyTypography(textStyle, node.attributes.style)
+            val cssStyleMap = getCssStyles(node.attributes.dataAttributes, parsedCss)
+            val combinedStyleMap = cssStyleMap + node.attributes.style
+            val styledTextStyle = applyTypography(textStyle, combinedStyleMap)
 
             when (node.tag) {
-                GlossaryTag.Ruby -> RubyNode(node, modifier = Modifier, textStyle = styledTextStyle)
-                GlossaryTag.Span -> {
-                    node.children.forEach { InlineNode(it, onLinkClick, styledTextStyle) }
-                }
-                GlossaryTag.Link -> LinkNode(node, onLinkClick, modifier = Modifier, textStyle = styledTextStyle)
+                GlossaryTag.Ruby -> RubyNode(
+                    node = node,
+                    modifier = Modifier,
+                    textStyle = styledTextStyle,
+                    bottomPadding = 0.dp,
+                )
+                GlossaryTag.Span -> SpanNode(
+                    node = node,
+                    parsedCss = parsedCss,
+                    onLinkClick = onLinkClick,
+                    baseTextStyle = styledTextStyle,
+                )
+                GlossaryTag.Link -> LinkNode(
+                    node = node,
+                    onLinkClick = onLinkClick,
+                    modifier = Modifier,
+                    textStyle = styledTextStyle,
+                    bottomPadding = 0.dp,
+                )
                 else -> {
                     val text = listOf(node).collectText()
                     if (text.isNotBlank()) {
                         TextWithReading(
                             formattedText = text,
                             style = styledTextStyle,
-                            furiganaFontSize = textStyle.fontSize * 0.60f,
+                            furiganaFontSize = styledTextStyle.fontSize * 0.60f,
                         )
                     }
                 }
@@ -655,6 +884,7 @@ internal fun InlineNode(
 private fun InlineDefinitionRow(
     nodes: List<GlossaryNode>,
     indentLevel: Int,
+    parsedCss: ParsedCss,
     onLinkClick: (String) -> Unit,
 ) {
     Row(
@@ -667,12 +897,49 @@ private fun InlineDefinitionRow(
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(end = 6.dp),
         )
-        FlowRow {
-            nodes.forEach { node ->
-                InlineNode(node, onLinkClick)
-            }
+        InlineNodeSequence(
+            nodes = nodes,
+            indentLevel = indentLevel,
+            parsedCss = parsedCss,
+            onLinkClick = onLinkClick,
+            textStyle = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+private fun resolveListMarker(
+    type: ListType,
+    index: Int,
+    itemListStyleType: String?,
+    parentListStyleType: String?,
+): String {
+    val listStyleType = itemListStyleType ?: parentListStyleType
+    parseQuotedListMarker(listStyleType)?.let { return it }
+
+    return when (type) {
+        ListType.Unordered -> when (listStyleType?.trim()?.lowercase()) {
+            "none" -> ""
+            "circle" -> "◦"
+            "square" -> "▪"
+            else -> "•"
+        }
+        ListType.Ordered -> when (listStyleType?.trim()?.lowercase()) {
+            "none" -> ""
+            else -> "${index + 1}."
         }
     }
+}
+
+private fun parseQuotedListMarker(listStyleType: String?): String? {
+    val value = listStyleType?.trim().orEmpty()
+    if (value.length < 2) return null
+
+    val quote = value.first()
+    if ((quote == 39.toChar() || quote == '"') && value.last() == quote) {
+        return value.substring(1, value.length - 1).trim()
+    }
+
+    return null
 }
 
 internal fun bulletIndent(indentLevel: Int): Dp {

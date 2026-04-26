@@ -16,15 +16,15 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
-import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.math.abs
 import kotlin.math.min
 
 @Composable
 fun OcrSelectionOverlay(
     onCancel: () -> Unit,
+    instructionText: AnnotatedString,
     startPoint: Offset?,
     endPoint: Offset?,
     modifier: Modifier = Modifier,
@@ -67,7 +67,7 @@ fun OcrSelectionOverlay(
         // Instruction text
         if (startPoint == null) {
             Text(
-                text = stringResource(MR.strings.ocr_select_region),
+                text = instructionText,
                 color = Color.White,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier

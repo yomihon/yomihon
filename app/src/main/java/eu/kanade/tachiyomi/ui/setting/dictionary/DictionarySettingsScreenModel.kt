@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.setting.dictionary
 
+import android.app.Application
 import android.content.Context
 import android.net.Uri
 import androidx.compose.runtime.Immutable
@@ -13,58 +14,89 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.domain.dictionary.interactor.DictionaryInteractor
 import mihon.domain.dictionary.model.Dictionary
+import mihon.domain.dictionary.model.DictionaryMigrationState
+import mihon.domain.dictionary.model.DictionaryMigrationStatus
+import mihon.domain.dictionary.repository.DictionaryMigrationStatusRepository
+import mihon.domain.dictionary.repository.DictionaryRepository
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-class DictionarySettingsScreenModel(
+internal class DictionarySettingsScreenModel(
     private val dictionaryInteractor: DictionaryInteractor = Injekt.get(),
+    private val dictionaryRepository: DictionaryRepository = Injekt.get(),
+    private val dictionaryMigrationStatusRepository: DictionaryMigrationStatusRepository = Injekt.get(),
+    private val context: Application = Injekt.get(),
 ) : StateScreenModel<DictionarySettingsScreenModel.State>(State()) {
 
-    init {
-        loadDictionaries()
+    private var shouldShowImportCompletionToast = false
+    private var hasObservedPendingImportRunning = false
 
-        // Observe dictionary import job state
+    init {
+        observeDictionaries()
+        observeMigrationStatuses()
+
         screenModelScope.launch {
-            DictionaryImportJob.isRunningFlow(Injekt.get<android.app.Application>())
+            DictionaryImportJob.isRunningFlow(context)
                 .collectLatest { isRunning ->
-                    mutableState.update { it.copy(isImporting = isRunning) }
-                    if (!isRunning) {
-                        // Refresh dictionary list when import completes
-                        loadDictionaries()
+                    if (shouldShowImportCompletionToast) {
+                        if (isRunning) {
+                            hasObservedPendingImportRunning = true
+                        } else if (hasObservedPendingImportRunning) {
+                            context.toast(MR.strings.dictionary_import_success.getString(context))
+                            shouldShowImportCompletionToast = false
+                            hasObservedPendingImportRunning = false
+                        }
+                    }
+
+                    mutableState.update {
+                        it.copy(
+                            isImporting = isRunning,
+                        )
                     }
                 }
         }
     }
 
-    private fun loadDictionaries() {
+    private fun observeDictionaries() {
         screenModelScope.launch {
-            try {
-                val dictionaries = dictionaryInteractor.getAllDictionaries()
+            dictionaryRepository.subscribeToDictionaries().collectLatest { dictionaries ->
                 mutableState.update {
                     it.copy(
                         dictionaries = dictionaries,
                         isLoading = false,
                     )
                 }
-            } catch (e: Exception) {
-                logcat(LogPriority.ERROR, e) { "Failed to load dictionaries" }
+            }
+        }
+    }
+
+    private fun observeMigrationStatuses() {
+        screenModelScope.launch {
+            dictionaryMigrationStatusRepository.subscribeToMigrationStatuses().collectLatest { statuses ->
+                val activeStatuses = statuses.filter { it.state != DictionaryMigrationState.COMPLETE }
+                val currentStatus = activeStatuses.firstOrNull()
                 mutableState.update {
                     it.copy(
-                        isLoading = false,
-                        error = e.message ?: "Failed to load dictionaries",
+                        migrationStatuses = activeStatuses,
+                        isMigrating = activeStatuses.isNotEmpty(),
+                        currentMigrationStatus = currentStatus,
                     )
                 }
             }
         }
     }
 
-    fun importDictionaryFromUri(context: Context, uri: Uri) {
+    fun importDictionaryFromUri(uri: Uri) {
+        shouldShowImportCompletionToast = true
+        hasObservedPendingImportRunning = state.value.isImporting
         DictionaryImportJob.start(context, uri)
     }
 
-    fun importDictionaryFromUrl(context: Context, url: String) {
+    fun importDictionaryFromUrl(url: String) {
+        shouldShowImportCompletionToast = true
+        hasObservedPendingImportRunning = state.value.isImporting
         DictionaryImportJob.start(context, url)
     }
 
@@ -72,11 +104,10 @@ class DictionarySettingsScreenModel(
         screenModelScope.launch {
             try {
                 dictionaryInteractor.updateDictionary(dictionary)
-                loadDictionaries()
                 context.toast(MR.strings.dictionary_update_success.getString(context))
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "Failed to update dictionary" }
-                context.toast(e.message ?: MR.strings.dictionary_update_fail.getString(context))
+                context.toast(MR.strings.dictionary_update_fail.getString(context))
             }
         }
     }
@@ -93,7 +124,6 @@ class DictionarySettingsScreenModel(
                 val aboveDictionary = dictionaries[currentIndex - 1]
                 dictionaryInteractor.swapDictionaryPriorities(dictionary, aboveDictionary)
                 mutableState.update { it.copy(highlightedDictionaryId = dictionary.id) }
-                loadDictionaries()
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "Failed to move dictionary up" }
             }
@@ -112,7 +142,6 @@ class DictionarySettingsScreenModel(
                 val belowDictionary = dictionaries[currentIndex + 1]
                 dictionaryInteractor.swapDictionaryPriorities(dictionary, belowDictionary)
                 mutableState.update { it.copy(highlightedDictionaryId = dictionary.id) }
-                loadDictionaries()
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "Failed to move dictionary down" }
             }
@@ -124,11 +153,10 @@ class DictionarySettingsScreenModel(
             mutableState.update { it.copy(isDeleting = true, error = null) }
             try {
                 dictionaryInteractor.deleteDictionary(dictionaryId)
-                loadDictionaries()
                 context.toast(MR.strings.dictionary_delete_success.getString(context))
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "Failed to delete dictionary" }
-                context.toast(e.message ?: MR.strings.dictionary_delete_fail.getString(context))
+                context.toast(MR.strings.dictionary_delete_fail.getString(context))
             } finally {
                 mutableState.update { it.copy(isDeleting = false) }
             }
@@ -148,8 +176,9 @@ class DictionarySettingsScreenModel(
         val dictionaries: List<Dictionary> = emptyList(),
         val isLoading: Boolean = true,
         val isImporting: Boolean = false,
-        val importProgress: String? = null,
-        val importedCount: Int = 0,
+        val isMigrating: Boolean = false,
+        val migrationStatuses: List<DictionaryMigrationStatus> = emptyList(),
+        val currentMigrationStatus: DictionaryMigrationStatus? = null,
         val isDeleting: Boolean = false,
         val error: String? = null,
         val highlightedDictionaryId: Long? = null,

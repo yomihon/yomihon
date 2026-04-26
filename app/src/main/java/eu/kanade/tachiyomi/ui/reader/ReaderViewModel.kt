@@ -40,6 +40,7 @@ import eu.kanade.tachiyomi.util.chapter.removeDuplicates
 import eu.kanade.tachiyomi.util.editCover
 import eu.kanade.tachiyomi.util.lang.byteSize
 import eu.kanade.tachiyomi.util.lang.takeBytes
+import eu.kanade.tachiyomi.util.ocr.toOcrImage
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -58,7 +59,9 @@ import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import mihon.domain.ocr.exception.OcrException
 import mihon.domain.ocr.interactor.OcrProcessor
+import mihon.domain.ocr.model.flattenOcrTextForQuery
 import mihon.domain.ocr.repository.OcrRepository
+import mihon.domain.panel.repository.PanelDetectionRepository
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -261,6 +264,7 @@ class ReaderViewModel @JvmOverloads constructor(
         }
         // Already checks if resources are initialized
         Injekt.get<OcrRepository>().cleanup()
+        Injekt.get<PanelDetectionRepository>().cleanup()
         super.onCleared()
     }
 
@@ -847,10 +851,15 @@ class ReaderViewModel @JvmOverloads constructor(
         viewModelScope.launchIO {
             mutableState.update { it.copy(isProcessingOcr = true, ocrSelectionMode = false) }
             try {
-                val text = ocrProcessor.getText(bitmap)
+                val text = ocrProcessor.getText(bitmap.toOcrImage())
                 withUIContext {
-                    if (text.isNotBlank()) {
-                        mutableState.update { it.copy(dialog = Dialog.OcrResult(text), isProcessingOcr = false) }
+                    val queryText = flattenOcrTextForQuery(text)
+                    if (queryText.isNotBlank()) {
+                        showOcrResult(
+                            queryText = queryText,
+                            origin = OcrResultOrigin.ManualSelection,
+                        )
+                        mutableState.update { it.copy(isProcessingOcr = false) }
                     } else {
                         mutableState.update { it.copy(isProcessingOcr = false) }
                         eventChannel.send(Event.OcrNoTextFound)
@@ -887,6 +896,16 @@ class ReaderViewModel @JvmOverloads constructor(
                     bitmap.recycle()
                 }
             }
+        }
+    }
+
+    fun showOcrResult(
+        queryText: String,
+        origin: OcrResultOrigin,
+        initialSearchText: String = queryText,
+    ) {
+        mutableState.update {
+            it.copy(dialog = Dialog.OcrResult(queryText, origin, initialSearchText))
         }
     }
 
@@ -1057,7 +1076,16 @@ class ReaderViewModel @JvmOverloads constructor(
         data object ReadingModeSelect : Dialog
         data object OrientationModeSelect : Dialog
         data class PageActions(val page: ReaderPage) : Dialog
-        data class OcrResult(val text: String) : Dialog
+        data class OcrResult(
+            val queryText: String,
+            val origin: OcrResultOrigin,
+            val initialSearchText: String,
+        ) : Dialog
+    }
+
+    enum class OcrResultOrigin {
+        CachedPageTap,
+        ManualSelection,
     }
 
     sealed interface Event {

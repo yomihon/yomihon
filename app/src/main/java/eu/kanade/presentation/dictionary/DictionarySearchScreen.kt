@@ -24,7 +24,8 @@ fun DictionarySearchScreen(
     snackbarHostState: SnackbarHostState,
     onQueryChange: (String) -> Unit,
     onSearch: (String) -> Unit,
-    onTermClick: (DictionaryTerm) -> Unit,
+    onTermGroupClick: (List<DictionaryTerm>) -> Unit,
+    onPlayAudioClick: (List<DictionaryTerm>) -> Unit,
     onOpenDictionarySettings: () -> Unit,
 ) {
     Scaffold(
@@ -61,7 +62,9 @@ fun DictionarySearchScreen(
                 enabledDictionaryIds = state.enabledDictionaryIds.toSet(),
                 termMetaMap = state.results?.termMetaMap ?: emptyMap(),
                 existingTermExpressions = state.existingTermExpressions,
-                onTermClick = onTermClick,
+                audioStates = state.audioStates,
+                onTermGroupClick = onTermGroupClick,
+                onPlayAudioClick = onPlayAudioClick,
                 onQueryChange = onQueryChange,
                 onSearch = onSearch,
                 onOpenDictionarySettings = onOpenDictionarySettings,

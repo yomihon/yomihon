@@ -20,11 +20,16 @@ Before you start, please note that the ability to use following technologies is 
 - [Kotlin](https://kotlinlang.org/)
 - It's recommended to download the float32 encoder, decoder, and embeddings from [Hugging Face](https://huggingface.co/bluolightning/manga-ocr-tflite/tree/main)
   - Move the model files to the `app/src/main/assets/ocr/` directory
-  - Rename the files to `encoder.tflite`, `decoder.tflite`, and `embeddings.tflite`
+  - Rename the files to `encoder.tflite`, `decoder.tflite`, and `embeddings.bin`
+- To test the experimental panel detector locally, download [`manga_panel_detector_int8.tflite`](https://huggingface.co/leoxs22/manga-panel-detector-yolo26n/tree/main)
+  - Move it to `data/src/main/assets/panel_detector/`
+  - Rename it to `model.tflite`
+  - See [`MODEL_ATTRIBUTION.md`](./MODEL_ATTRIBUTION.md) for the required model and dataset citations
 
 ### Tools
 
 - [Android Studio](https://developer.android.com/studio)
+- [VS Code DevContainer workflow](./.devcontainer/README.md) for a containerized Android toolchain on macOS/Linux
 - Emulator or phone with developer options enabled to test changes.
 
 # Translations

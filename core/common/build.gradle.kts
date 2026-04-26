@@ -6,6 +6,10 @@ plugins {
 
 android {
     namespace = "eu.kanade.tachiyomi.core.common"
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 kotlin {

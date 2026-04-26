@@ -4,7 +4,9 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import androidx.core.util.isNotEmpty
 import com.ichi2.anki.FlashCardsContract
@@ -58,47 +60,10 @@ class AnkiDroidRepositoryImpl(
 
             val fieldMappings = ankiDroidPreferences.fieldMappings().get()
 
-            val pictureFilename = if (card.pictureUrl.isNotBlank()) {
-                try {
-                    val uri = card.pictureUrl.toUri()
+            val pictureFilename = importPicture(card.pictureUrl)
+            val audioFilename = importAudio(card.audio)
 
-                    AddContentApi.getAnkiDroidPackageName(appContext)?.let { packageName ->
-                        appContext.grantUriPermission(
-                            packageName,
-                            uri,
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                        )
-                    }
-
-                    val mimeType = appContext.contentResolver.getType(uri)
-                    val extension = ImageUtil.getExtensionFromMimeType(mimeType) {
-                        appContext.contentResolver.openInputStream(uri)!!
-                    }
-                    val preferredName = "yomihon-${System.currentTimeMillis()}.$extension"
-
-                    // https://github.com/ankidroid/Anki-Android/issues/10335
-                    val contentValues = ContentValues()
-                    contentValues.put(FlashCardsContract.AnkiMedia.FILE_URI, uri.toString())
-                    contentValues.put(FlashCardsContract.AnkiMedia.PREFERRED_NAME, preferredName)
-
-                    val returnUri = appContext.contentResolver.insert(
-                        FlashCardsContract.AnkiMedia.CONTENT_URI,
-                        contentValues,
-                    )
-
-                    if (returnUri == null) {
-                        return@withContext AnkiDroidRepository.Result.Error()
-                    }
-
-                    returnUri.lastPathSegment ?: preferredName
-                } catch (e: Exception) {
-                    null
-                }
-            } else {
-                null
-            }
-
-            val fieldValues = buildFieldValues(card, modelFields, fieldMappings, pictureFilename)
+            val fieldValues = buildFieldValues(card, modelFields, fieldMappings, pictureFilename, audioFilename)
 
             val added = api.addNote(modelId, deckId, fieldValues, card.tags)
 
@@ -153,27 +118,87 @@ class AnkiDroidRepositoryImpl(
         modelFields: List<String>,
         fieldMappings: Map<String, String>,
         pictureFilename: String?,
+        audioFilename: String?,
     ): Array<String> {
         return modelFields.map { noteField ->
             val appField = fieldMappings[noteField]
             if (appField == "picture") {
                 if (pictureFilename != null) {
-                    "<img src=\"$pictureFilename\">"
+                    "<img src=\"$pictureFilename\" style=\"margin-top: 16px;\">"
                 } else {
                     ""
                 }
+            } else if (appField == "audio") {
+                audioFilename?.let { "[sound:$it]" }.orEmpty()
             } else if (appField == "furigana") {
-                if (card.reading.isNotBlank() && card.reading != card.expression) {
-                    "<ruby>${card.expression}<rt>${card.reading}</rt></ruby>"
-                } else {
-                    card.expression
-                }
+                formatFurigana(card.expression, card.reading)
             } else if (appField != null) {
                 card.getFieldValue(appField)
             } else {
                 ""
             }
         }.toTypedArray()
+    }
+
+    private fun importPicture(pictureUrl: String): String? {
+        if (pictureUrl.isBlank()) return null
+        return runCatching {
+            val uri = pictureUrl.toUri()
+            val mimeType = appContext.contentResolver.getType(uri)
+            val extension = ImageUtil.getExtensionFromMimeType(mimeType) {
+                appContext.contentResolver.openInputStream(uri)!!
+            }
+            importMedia(
+                uri = uri.toString(),
+                preferredName = "yomihon-${System.currentTimeMillis()}.$extension",
+            )
+        }.getOrNull()
+    }
+
+    private fun importAudio(audioPath: String): String? {
+        if (audioPath.isBlank()) return null
+        return runCatching {
+            val file = java.io.File(audioPath)
+            if (!file.isFile) return@runCatching null
+            val extension = file.extension.ifBlank { "mp3" }
+            val uri = file.getUriCompat()
+            importMedia(
+                uri = uri.toString(),
+                preferredName = "yomihon-audio-${System.currentTimeMillis()}.$extension",
+            )
+        }.getOrNull()
+    }
+
+    private fun importMedia(
+        uri: String,
+        preferredName: String,
+    ): String? {
+        AddContentApi.getAnkiDroidPackageName(appContext)?.let { packageName ->
+            appContext.grantUriPermission(
+                packageName,
+                uri.toUri(),
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        }
+
+        val contentValues = ContentValues()
+        contentValues.put(FlashCardsContract.AnkiMedia.FILE_URI, uri)
+        contentValues.put(FlashCardsContract.AnkiMedia.PREFERRED_NAME, preferredName)
+
+        val returnUri = appContext.contentResolver.insert(
+            FlashCardsContract.AnkiMedia.CONTENT_URI,
+            contentValues,
+        ) ?: return null
+
+        return returnUri.lastPathSegment ?: preferredName
+    }
+
+    private fun java.io.File.getUriCompat(): Uri {
+        return FileProvider.getUriForFile(
+            appContext,
+            appContext.packageName + ".provider",
+            this,
+        )
     }
 
     override suspend fun getDecks(): Map<Long, String> = withContext(Dispatchers.IO) {
@@ -295,7 +320,7 @@ class AnkiDroidRepositoryImpl(
 
             <hr>
 
-            <div class="word-meaning">{{Word Meaning}}</div>
+            <div class="glossary">{{Word Meaning}}</div>
 
             <hr>
 
@@ -346,10 +371,26 @@ img {
 
 b{color: #5586cd}
 
-.word-meaning {
+.glossary {
   font-size: 16px;
   padding-bottom: 20px;
   text-align: left;
+}
+
+.glossary table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.glossary th,
+.glossary td {
+  border: 1px solid #8a8a8a;
+  padding: 0.25em 0.5em;
+  vertical-align: top;
+}
+
+.glossary th {
+  font-weight: bold;
 }
 
 .word-reading rt {
@@ -384,4 +425,128 @@ b{color: #5586cd}
 }
 """
     }
+}
+
+private data class ExpressionToken(
+    val value: String,
+    val hasKanji: Boolean,
+)
+
+private data class FuriganaParseResult(
+    val html: String,
+    val nextReadingIndex: Int,
+)
+
+internal fun formatFurigana(expression: String, reading: String): String {
+    if (reading.isBlank() || reading == expression) {
+        return expression
+    }
+
+    val tokens = tokenizeExpression(expression)
+    if (tokens.none(ExpressionToken::hasKanji)) {
+        return expression
+    }
+
+    if (tokens.size == 1 && tokens[0].hasKanji) {
+        return "<ruby>$expression<rt>$reading</rt></ruby>"
+    }
+
+    val normalizedReading = reading.normalizeKana()
+    val formatted = buildFurigana(tokens, reading, normalizedReading, tokenIndex = 0, readingIndex = 0)
+    return formatted?.takeIf { it.nextReadingIndex == reading.length }?.html ?: expression
+}
+
+private fun tokenizeExpression(expression: String): List<ExpressionToken> {
+    if (expression.isEmpty()) return emptyList()
+
+    val tokens = mutableListOf<ExpressionToken>()
+    val current = StringBuilder()
+    var currentHasKanji = expression[0].isKanjiLike()
+
+    expression.forEach { char ->
+        val hasKanji = char.isKanjiLike()
+        if (current.isNotEmpty() && hasKanji != currentHasKanji) {
+            tokens += ExpressionToken(current.toString(), currentHasKanji)
+            current.clear()
+        }
+        current.append(char)
+        currentHasKanji = hasKanji
+    }
+
+    if (current.isNotEmpty()) {
+        tokens += ExpressionToken(current.toString(), currentHasKanji)
+    }
+
+    return tokens
+}
+
+private fun buildFurigana(
+    tokens: List<ExpressionToken>,
+    reading: String,
+    normalizedReading: String,
+    tokenIndex: Int,
+    readingIndex: Int,
+): FuriganaParseResult? {
+    if (tokenIndex == tokens.size) {
+        return FuriganaParseResult(html = "", nextReadingIndex = readingIndex)
+    }
+
+    val token = tokens[tokenIndex]
+    if (!token.hasKanji) {
+        val normalizedToken = token.value.normalizeKana()
+        if (!normalizedReading.startsWith(normalizedToken, startIndex = readingIndex)) {
+            return null
+        }
+
+        val next = buildFurigana(
+            tokens = tokens,
+            reading = reading,
+            normalizedReading = normalizedReading,
+            tokenIndex = tokenIndex + 1,
+            readingIndex = readingIndex + token.value.length,
+        ) ?: return null
+
+        return FuriganaParseResult(
+            html = token.value + next.html,
+            nextReadingIndex = next.nextReadingIndex,
+        )
+    }
+
+    val minReadingEnd = readingIndex + 1
+    for (candidateEnd in minReadingEnd..reading.length) {
+        val rubyReading = reading.substring(readingIndex, candidateEnd)
+        val next = buildFurigana(
+            tokens = tokens,
+            reading = reading,
+            normalizedReading = normalizedReading,
+            tokenIndex = tokenIndex + 1,
+            readingIndex = candidateEnd,
+        ) ?: continue
+
+        return FuriganaParseResult(
+            html = "<ruby>${token.value}<rt>$rubyReading</rt></ruby>${next.html}",
+            nextReadingIndex = next.nextReadingIndex,
+        )
+    }
+
+    return null
+}
+
+private fun String.normalizeKana(): String {
+    return buildString(length) {
+        for (char in this@normalizeKana) {
+            append(char.toHiragana())
+        }
+    }
+}
+
+private fun Char.toHiragana(): Char {
+    return when (this) {
+        in '\u30A1'..'\u30F6' -> (code - 0x60).toChar()
+        else -> this
+    }
+}
+
+private fun Char.isKanjiLike(): Boolean {
+    return this == '々' || Character.UnicodeScript.of(code) == Character.UnicodeScript.HAN
 }

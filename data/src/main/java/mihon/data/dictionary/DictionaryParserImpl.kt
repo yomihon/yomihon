@@ -18,43 +18,18 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import mihon.domain.dictionary.model.DictionaryIndex
-import mihon.domain.dictionary.model.DictionaryKanji
-import mihon.domain.dictionary.model.DictionaryKanjiMeta
-import mihon.domain.dictionary.model.DictionaryTag
-import mihon.domain.dictionary.model.DictionaryTerm
-import mihon.domain.dictionary.model.DictionaryTermMeta
 import mihon.domain.dictionary.model.GlossaryElementAttributes
 import mihon.domain.dictionary.model.GlossaryEntry
 import mihon.domain.dictionary.model.GlossaryImageAttributes
 import mihon.domain.dictionary.model.GlossaryNode
 import mihon.domain.dictionary.model.GlossaryTag
-import mihon.domain.dictionary.model.KanjiMetaMode
-import mihon.domain.dictionary.model.TermMetaMode
 import mihon.domain.dictionary.service.DictionaryParseException
 import mihon.domain.dictionary.service.DictionaryParser
-import java.io.InputStream
-import java.io.InputStreamReader
+import java.io.StringReader
 
 class DictionaryParserImpl : DictionaryParser {
 
     private val jsonParser = Json { ignoreUnknownKeys = true }
-
-    private inline fun <T> parseBank(
-        stream: InputStream,
-        bankName: String,
-        crossinline readItem: (JsonReader) -> T,
-    ): Sequence<T> = sequence {
-        val reader = JsonReader(InputStreamReader(stream, Charsets.UTF_8))
-        try {
-            reader.beginArray()
-            while (reader.hasNext()) {
-                yield(readItem(reader))
-            }
-            reader.endArray()
-        } catch (e: Exception) {
-            throw DictionaryParseException("Failed to parse $bankName", e)
-        }
-    }
 
     override fun parseIndex(jsonString: String): DictionaryIndex {
         try {
@@ -92,115 +67,26 @@ class DictionaryParserImpl : DictionaryParser {
         }
     }
 
-    override fun parseTagBank(stream: InputStream): Sequence<DictionaryTag> =
-        parseBank(stream, "tag_bank") { reader -> readSingleTag(reader) }
+    override fun parseGlossary(rawGlossary: String): List<GlossaryEntry> {
+        if (rawGlossary.isBlank()) return emptyList()
 
-    private fun readSingleTag(reader: JsonReader): DictionaryTag {
-        reader.beginArray()
-        val name = reader.nextString()
-        val category = reader.nextString()
-        val order = reader.nextInt()
-        val notes = reader.nextString()
-        val score = reader.nextInt()
-        reader.endArray()
-
-        return DictionaryTag(
-            dictionaryId = 0L,
-            name = name,
-            category = category,
-            order = order,
-            notes = notes,
-            score = score,
-        )
-    }
-
-    override fun parseTermBank(stream: InputStream, version: Int): Sequence<DictionaryTerm> =
-        parseBank(stream, "term_bank") { reader -> readSingleTerm(reader, version) }
-
-    private fun readSingleTerm(reader: JsonReader, version: Int): DictionaryTerm {
-        reader.beginArray()
-        val expression = reader.nextString()
-        val reading = reader.nextString()
-        val definitionTags = readStringOrArray(reader)
-        val rules = readStringOrArray(reader)
-        val score = reader.nextInt()
-
-        val glossary: List<GlossaryEntry>
-        val sequence: Long?
-        val termTags: String?
-
-        if (version == 1) {
-            val glossaryList = mutableListOf<GlossaryEntry>()
-            while (reader.hasNext()) {
-                glossaryList.add(GlossaryEntry.TextDefinition(reader.nextString()))
-            }
-            glossary = glossaryList
-            sequence = null
-            termTags = null
-        } else {
-            glossary = readGlossaryArray(reader)
-            sequence = if (reader.hasNext() && reader.peek() != JsonToken.END_ARRAY) {
-                readNullableLong(reader)
-            } else {
-                null
-            }
-            termTags = if (reader.hasNext() && reader.peek() != JsonToken.END_ARRAY) {
-                readStringOrArray(reader)
-            } else {
-                null
-            }
-        }
-
-        reader.endArray()
-
-        return DictionaryTerm(
-            dictionaryId = 0L,
-            expression = expression,
-            reading = reading,
-            definitionTags = definitionTags,
-            rules = rules,
-            score = score,
-            glossary = glossary,
-            sequence = sequence,
-            termTags = termTags,
-        )
-    }
-
-    private fun readStringOrArray(reader: JsonReader): String? {
-        return when (reader.peek()) {
-            JsonToken.NULL -> {
-                reader.nextNull()
-                null
-            }
-            JsonToken.STRING -> reader.nextString().takeIf { it.isNotEmpty() }
-            JsonToken.BEGIN_ARRAY -> {
-                val parts = mutableListOf<String>()
-                reader.beginArray()
-                while (reader.hasNext()) {
-                    parts.add(reader.nextString())
+        val reader = JsonReader(StringReader(rawGlossary))
+        return try {
+            when (reader.peek()) {
+                JsonToken.BEGIN_ARRAY -> readGlossaryArray(reader)
+                JsonToken.STRING -> listOf(GlossaryEntry.TextDefinition(reader.nextString()))
+                JsonToken.BEGIN_OBJECT -> listOf(readGlossaryObject(reader))
+                JsonToken.NULL -> {
+                    reader.nextNull()
+                    emptyList()
                 }
-                reader.endArray()
-                parts.toList().joinToString(" ").takeIf { it.isNotEmpty() }
+                else -> {
+                    reader.skipValue()
+                    emptyList()
+                }
             }
-            else -> {
-                reader.skipValue()
-                null
-            }
-        }
-    }
-
-    private fun readNullableLong(reader: JsonReader): Long? {
-        return when (reader.peek()) {
-            JsonToken.NULL -> {
-                reader.nextNull()
-                null
-            }
-            JsonToken.NUMBER -> reader.nextLong()
-            JsonToken.STRING -> reader.nextString().toLongOrNull()
-            else -> {
-                reader.skipValue()
-                null
-            }
+        } catch (e: Exception) {
+            throw DictionaryParseException("Failed to parse glossary", e)
         }
     }
 
@@ -424,123 +310,5 @@ class DictionaryParserImpl : DictionaryParser {
             }
             else -> this.toString()
         }
-    }
-
-    override fun parseKanjiBank(stream: InputStream, version: Int): Sequence<DictionaryKanji> =
-        parseBank(stream, "kanji_bank") { reader -> readSingleKanji(reader, version) }
-
-    private fun readSingleKanji(reader: JsonReader, version: Int): DictionaryKanji {
-        reader.beginArray()
-        val character = reader.nextString()
-        val onyomi = reader.nextString()
-        val kunyomi = reader.nextString()
-        val tags = readStringOrArray(reader)
-
-        val meanings: List<String>
-        val stats: Map<String, String>?
-
-        if (version == 1) {
-            val meaningsList = mutableListOf<String>()
-            while (reader.hasNext()) {
-                meaningsList.add(reader.nextString())
-            }
-            meanings = meaningsList
-            stats = null
-        } else {
-            meanings = readStringArray(reader)
-            stats = if (reader.hasNext() && reader.peek() == JsonToken.BEGIN_OBJECT) {
-                readStringMap(reader)
-            } else {
-                null
-            }
-        }
-
-        reader.endArray()
-
-        return DictionaryKanji(
-            dictionaryId = 0L,
-            character = character,
-            onyomi = onyomi,
-            kunyomi = kunyomi,
-            tags = tags,
-            meanings = meanings,
-            stats = stats,
-        )
-    }
-
-    private fun readStringArray(reader: JsonReader): List<String> {
-        val result = mutableListOf<String>()
-        when (reader.peek()) {
-            JsonToken.BEGIN_ARRAY -> {
-                reader.beginArray()
-                while (reader.hasNext()) {
-                    result.add(reader.nextString())
-                }
-                reader.endArray()
-            }
-            JsonToken.STRING -> result.add(reader.nextString())
-            else -> reader.skipValue()
-        }
-        return result.toList()
-    }
-
-    private fun readStringMap(reader: JsonReader): Map<String, String> {
-        val result = mutableMapOf<String, String>()
-        reader.beginObject()
-        while (reader.hasNext()) {
-            val key = reader.nextName()
-            val value = when (reader.peek()) {
-                JsonToken.STRING -> reader.nextString()
-                JsonToken.NUMBER -> reader.nextString()
-                JsonToken.BOOLEAN -> reader.nextBoolean().toString()
-                JsonToken.NULL -> {
-                    reader.nextNull()
-                    ""
-                }
-                else -> {
-                    reader.skipValue()
-                    ""
-                }
-            }
-            result[key] = value
-        }
-        reader.endObject()
-        return result.toMap()
-    }
-
-    override fun parseTermMetaBank(stream: InputStream): Sequence<DictionaryTermMeta> =
-        parseBank(stream, "term_meta_bank") { reader -> readSingleTermMeta(reader) }
-
-    private fun readSingleTermMeta(reader: JsonReader): DictionaryTermMeta {
-        reader.beginArray()
-        val expression = reader.nextString()
-        val mode = reader.nextString()
-        val data = readJsonElement(reader).toString()
-        reader.endArray()
-
-        return DictionaryTermMeta(
-            dictionaryId = 0L,
-            expression = expression,
-            mode = TermMetaMode.fromString(mode),
-            data = data,
-        )
-    }
-
-    override fun parseKanjiMetaBank(stream: InputStream): Sequence<DictionaryKanjiMeta> =
-        parseBank(stream, "kanji_meta_bank") { reader -> readSingleKanjiMeta(reader) }
-
-    private fun readSingleKanjiMeta(reader: JsonReader): DictionaryKanjiMeta {
-        reader.beginArray()
-        val character = reader.nextString()
-        val mode = reader.nextString()
-        val data = readJsonElement(reader).toString()
-        reader.endArray()
-
-        return DictionaryKanjiMeta(
-            dictionaryId = 0L,
-            character = character,
-            mode = KanjiMetaMode.fromString(mode),
-            data = data,
-        )
     }
 }

@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -44,11 +43,6 @@ class DownloadQueueScreenModel(
     private val progressJobs = mutableMapOf<Download, Job>()
 
     val listener = object : DownloadAdapter.DownloadItemListener {
-        /**
-         * Called when an item is released from a drag.
-         *
-         * @param position The position of the released item.
-         */
         override fun onItemReleased(position: Int) {
             val adapter = adapter ?: return
             val downloads = adapter.headerItems.flatMap { header ->
@@ -59,12 +53,6 @@ class DownloadQueueScreenModel(
             reorder(downloads)
         }
 
-        /**
-         * Called when the menu item of a download is pressed
-         *
-         * @param position The position of the item
-         * @param menuItem The menu Item pressed
-         */
         override fun onMenuItemClick(position: Int, menuItem: MenuItem) {
             val item = adapter?.getItem(position) ?: return
             if (item is DownloadItem) {
@@ -139,13 +127,13 @@ class DownloadQueueScreenModel(
         adapter = null
     }
 
-    val isDownloaderRunning = downloadManager.isDownloaderRunning
+    val isDownloadQueueRunning = downloadManager.isDownloaderRunning
         .stateIn(screenModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     fun getDownloadStatusFlow() = downloadManager.statusFlow()
     fun getDownloadProgressFlow() = downloadManager.progressFlow()
 
-    fun startDownloads() {
+    fun resumeDownloads() {
         downloadManager.startDownloads()
     }
 
@@ -180,16 +168,10 @@ class DownloadQueueScreenModel(
         reorder(newDownloads)
     }
 
-    /**
-     * Called when the status of a download changes.
-     *
-     * @param download the download whose status has changed.
-     */
     fun onStatusChange(download: Download) {
         when (download.status) {
             Download.State.DOWNLOADING -> {
                 launchProgressJob(download)
-                // Initial update of the downloaded pages
                 onUpdateDownloadedPages(download)
             }
             Download.State.DOWNLOADED -> {
@@ -204,11 +186,6 @@ class DownloadQueueScreenModel(
         }
     }
 
-    /**
-     * Observe the progress of a download and notify the view.
-     *
-     * @param download the download to observe its progress.
-     */
     private fun launchProgressJob(download: Download) {
         val job = screenModelScope.launch {
             while (download.pages == null) {
@@ -216,7 +193,7 @@ class DownloadQueueScreenModel(
             }
 
             val progressFlows = download.pages!!.map(Page::progressFlow)
-            combine(progressFlows, Array<Int>::sum)
+            kotlinx.coroutines.flow.combine(progressFlows, Array<Int>::sum)
                 .distinctUntilChanged()
                 .debounce(50)
                 .collectLatest {
@@ -224,45 +201,22 @@ class DownloadQueueScreenModel(
                 }
         }
 
-        // Avoid leaking jobs
         progressJobs.remove(download)?.cancel()
-
         progressJobs[download] = job
     }
 
-    /**
-     * Unsubscribes the given download from the progress subscriptions.
-     *
-     * @param download the download to unsubscribe.
-     */
     private fun cancelProgressJob(download: Download) {
         progressJobs.remove(download)?.cancel()
     }
 
-    /**
-     * Called when the progress of a download changes.
-     *
-     * @param download the download whose progress has changed.
-     */
     private fun onUpdateProgress(download: Download) {
         getHolder(download)?.notifyProgress()
     }
 
-    /**
-     * Called when a page of a download is downloaded.
-     *
-     * @param download the download whose page has been downloaded.
-     */
     fun onUpdateDownloadedPages(download: Download) {
         getHolder(download)?.notifyDownloadedPages()
     }
 
-    /**
-     * Returns the holder for the given download.
-     *
-     * @param download the download to find.
-     * @return the holder of the download or null if it's not bound.
-     */
     private fun getHolder(download: Download): DownloadHolder? {
         return controllerBinding.root.findViewHolderForItemId(download.chapter.id) as? DownloadHolder
     }

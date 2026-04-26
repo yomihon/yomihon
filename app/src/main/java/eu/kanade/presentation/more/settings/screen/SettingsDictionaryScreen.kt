@@ -54,7 +54,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -74,20 +73,29 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
+import eu.kanade.domain.dictionary.DictionaryPreferences
+import eu.kanade.domain.dictionary.OcrResultPresentation
 import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.more.settings.Preference
+import eu.kanade.presentation.more.settings.PreferenceItem
 import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.tachiyomi.ui.setting.dictionary.DictionarySettingsScreenModel
 import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import mihon.domain.dictionary.model.Dictionary
+import mihon.domain.dictionary.model.DictionaryMigrationState
+import mihon.domain.dictionary.model.DictionaryMigrationStatus
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.TextButton
 import tachiyomi.presentation.core.i18n.stringResource
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import tachiyomi.presentation.core.util.collectAsState as collectPreferenceAsState
 
 object SettingsDictionaryScreen : Screen {
 
@@ -99,15 +107,23 @@ object SettingsDictionaryScreen : Screen {
         val screenModel = rememberScreenModel { DictionarySettingsScreenModel() }
         val state by screenModel.state.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
-        val scope = rememberCoroutineScope()
         val lazyListState = rememberLazyListState()
+        val dictionaryPreferences = remember { Injekt.get<DictionaryPreferences>() }
+        val ocrResultPresentationPref = remember(dictionaryPreferences) {
+            dictionaryPreferences.ocrResultPresentation()
+        }
+        val ocrResultPresentation by ocrResultPresentationPref.collectPreferenceAsState()
+        val ocrResultPreferences = rememberOcrResultPreferences(
+            dictionaryPreferences = dictionaryPreferences,
+            isPopup = ocrResultPresentation == OcrResultPresentation.POPUP,
+        )
 
         // File picker for dictionary import
         val pickDictionary = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.GetContent(),
         ) { uri ->
             if (uri != null) {
-                screenModel.importDictionaryFromUri(context, uri)
+                screenModel.importDictionaryFromUri(uri)
             } else {
                 context.toast(MR.strings.file_null_uri_error)
             }
@@ -116,10 +132,8 @@ object SettingsDictionaryScreen : Screen {
         // Show error messages
         LaunchedEffect(state.error) {
             state.error?.let { error ->
-                scope.launch {
-                    snackbarHostState.showSnackbar(error)
-                    screenModel.clearError()
-                }
+                snackbarHostState.showSnackbar(error)
+                screenModel.clearError()
             }
         }
 
@@ -168,6 +182,12 @@ object SettingsDictionaryScreen : Screen {
             ) {
                 item {
                     // Spacer for top padding
+                }
+
+                item {
+                    OcrResultPreferenceGroup(
+                        preferences = ocrResultPreferences,
+                    )
                 }
 
                 // Recommended Dictionaries
@@ -220,8 +240,8 @@ object SettingsDictionaryScreen : Screen {
                                     recommended.forEach { dict ->
                                         RecommendedDictionaryItem(
                                             dictionary = dict,
-                                            enabled = !state.isImporting && !state.isDeleting,
-                                            onImport = { screenModel.importDictionaryFromUrl(context, dict.url) },
+                                            enabled = !state.isImporting && !state.isDeleting && !state.isMigrating,
+                                            onImport = { screenModel.importDictionaryFromUrl(dict.url) },
                                         )
                                     }
                                 }
@@ -278,7 +298,7 @@ object SettingsDictionaryScreen : Screen {
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
-                        enabled = !state.isImporting && !state.isDeleting,
+                        enabled = !state.isImporting && !state.isDeleting && !state.isMigrating,
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Add,
@@ -289,7 +309,7 @@ object SettingsDictionaryScreen : Screen {
                     }
                 }
 
-                // Import progress
+                // Import status
                 if (state.isImporting) {
                     item {
                         Card(
@@ -310,32 +330,82 @@ object SettingsDictionaryScreen : Screen {
                                     text = stringResource(MR.strings.importing_dictionary),
                                     style = MaterialTheme.typography.titleMedium,
                                 )
-                                LinearProgressIndicator(
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                                if (state.importedCount > 0) {
-                                    Text(
-                                        text = stringResource(
-                                            MR.strings.dictionary_import_progress,
-                                            state.importedCount,
-                                        ),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                } else {
-                                    state.importProgress?.let { progress ->
-                                        Text(
-                                            text = progress,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                }
                                 Text(
                                     text = stringResource(MR.strings.dictionary_import_continues_background),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
+                            }
+                        }
+                    }
+                }
+
+                if (state.currentMigrationStatus != null) {
+                    item {
+                        val currentStatus = state.currentMigrationStatus
+                        val total = currentStatus?.totalDictionaries ?: 0
+                        val completed = currentStatus?.completedDictionaries ?: 0
+                        val currentDictionary = state.dictionaries.firstOrNull { it.id == currentStatus?.dictionaryId }
+                        val progress = if (total > 0) {
+                            completed.toFloat() / total.toFloat()
+                        } else {
+                            0f
+                        }
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            ),
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(MR.strings.dictionary_migration_card_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                LinearProgressIndicator(
+                                    progress = { progress.coerceIn(0f, 1f) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                currentDictionary?.let { dictionary ->
+                                    Text(
+                                        text = stringResource(
+                                            MR.strings.dictionary_migration_running_summary,
+                                            dictionary.title,
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                if (total > 0) {
+                                    Text(
+                                        text = stringResource(
+                                            MR.strings.dictionary_migration_progress_summary,
+                                            completed,
+                                            total,
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                currentStatus?.progressText?.let { progressText ->
+                                    Text(
+                                        text = progressText,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (currentStatus.state == DictionaryMigrationState.ERROR) {
+                                            MaterialTheme.colorScheme.error
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
@@ -421,7 +491,10 @@ object SettingsDictionaryScreen : Screen {
                         Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                             DictionaryItem(
                                 dictionary = dictionary,
-                                isOperationInProgress = state.isImporting || state.isDeleting,
+                                migrationStatus = state.migrationStatuses.firstOrNull {
+                                    it.dictionaryId == dictionary.id
+                                },
+                                isOperationInProgress = state.isImporting || state.isDeleting || state.isMigrating,
                                 isFirst = index == 0,
                                 isLast = index == state.dictionaries.size - 1,
                                 isHighlighted = dictionary.id == state.highlightedDictionaryId,
@@ -446,6 +519,94 @@ object SettingsDictionaryScreen : Screen {
                 item {
                     // Spacer for bottom padding (fab overlap etc if needed, or just visual breathing room)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun rememberOcrResultPreferences(
+    dictionaryPreferences: DictionaryPreferences,
+    isPopup: Boolean,
+): List<Preference.PreferenceItem<out Any>> {
+    val popupWidthPref = remember(dictionaryPreferences) { dictionaryPreferences.ocrResultPopupWidthDp() }
+    val popupWidth by popupWidthPref.collectPreferenceAsState()
+
+    val popupHeightPref = remember(dictionaryPreferences) { dictionaryPreferences.ocrResultPopupHeightDp() }
+    val popupHeight by popupHeightPref.collectPreferenceAsState()
+
+    val popupScalePref = remember(dictionaryPreferences) { dictionaryPreferences.ocrResultPopupScalePercent() }
+    val popupScale by popupScalePref.collectPreferenceAsState()
+
+    return listOf(
+        Preference.PreferenceItem.ListPreference(
+            preference = dictionaryPreferences.ocrResultPresentation(),
+            entries = persistentMapOf(
+                OcrResultPresentation.SHEET to stringResource(MR.strings.pref_dictionary_ocr_result_presentation_sheet),
+                OcrResultPresentation.POPUP to stringResource(MR.strings.pref_dictionary_ocr_result_presentation_popup),
+            ),
+            title = stringResource(MR.strings.pref_dictionary_ocr_result_presentation),
+            subtitle = stringResource(MR.strings.pref_dictionary_ocr_result_presentation_summary),
+        ),
+        Preference.PreferenceItem.SliderPreference(
+            value = popupWidth,
+            valueRange = 240..520 step 20,
+            title = stringResource(MR.strings.pref_dictionary_ocr_result_popup_width),
+            subtitle = stringResource(MR.strings.pref_dictionary_ocr_result_popup_width_value, popupWidth),
+            enabled = isPopup,
+            onValueChanged = {
+                popupWidthPref.set(it)
+                true
+            },
+        ),
+        Preference.PreferenceItem.SliderPreference(
+            value = popupHeight,
+            valueRange = 180..640 step 20,
+            title = stringResource(MR.strings.pref_dictionary_ocr_result_popup_height),
+            subtitle = stringResource(MR.strings.pref_dictionary_ocr_result_popup_height_value, popupHeight),
+            enabled = isPopup,
+            onValueChanged = {
+                popupHeightPref.set(it)
+                true
+            },
+        ),
+        Preference.PreferenceItem.SliderPreference(
+            value = popupScale,
+            valueRange = 60..140 step 5,
+            title = stringResource(MR.strings.pref_dictionary_ocr_result_popup_scale),
+            subtitle = stringResource(MR.strings.pref_dictionary_ocr_result_popup_scale_value, popupScale),
+            enabled = isPopup,
+            onValueChanged = {
+                popupScalePref.set(it)
+                true
+            },
+        ),
+        Preference.PreferenceItem.SwitchPreference(
+            preference = dictionaryPreferences.ocrResultDimBackground(),
+            title = stringResource(MR.strings.pref_dictionary_ocr_result_dim_background),
+            subtitle = stringResource(MR.strings.pref_dictionary_ocr_result_dim_background_summary),
+        ),
+    )
+}
+
+@Composable
+private fun OcrResultPreferenceGroup(
+    preferences: List<Preference.PreferenceItem<out Any>>,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+    ) {
+        Column {
+            eu.kanade.presentation.more.settings.widget.PreferenceGroupHeader(
+                title = stringResource(MR.strings.pref_category_dictionary_ocr_results),
+            )
+            preferences.forEach { item ->
+                PreferenceItem(
+                    item = item,
+                    highlightKey = null,
+                )
             }
         }
     }
@@ -513,6 +674,7 @@ private fun RecommendedDictionaryItem(
 @Composable
 private fun DictionaryItem(
     dictionary: Dictionary,
+    migrationStatus: DictionaryMigrationStatus?,
     isOperationInProgress: Boolean,
     isFirst: Boolean,
     isLast: Boolean,
@@ -613,6 +775,19 @@ private fun DictionaryItem(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    migrationStatus
+                        ?.takeIf { it.state != DictionaryMigrationState.COMPLETE }
+                        ?.let { status ->
+                            Text(
+                                text = status.progressText ?: status.stage.name,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (status.state == DictionaryMigrationState.ERROR) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                },
+                            )
+                        }
                 }
             }
 

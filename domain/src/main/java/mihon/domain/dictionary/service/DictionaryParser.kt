@@ -1,12 +1,7 @@
 package mihon.domain.dictionary.service
 
 import mihon.domain.dictionary.model.DictionaryIndex
-import mihon.domain.dictionary.model.DictionaryKanji
-import mihon.domain.dictionary.model.DictionaryKanjiMeta
-import mihon.domain.dictionary.model.DictionaryTag
-import mihon.domain.dictionary.model.DictionaryTerm
-import mihon.domain.dictionary.model.DictionaryTermMeta
-import java.io.InputStream
+import mihon.domain.dictionary.model.GlossaryEntry
 
 /**
  * Service for parsing dictionary files.
@@ -15,11 +10,7 @@ import java.io.InputStream
  */
 interface DictionaryParser {
     fun parseIndex(jsonString: String): DictionaryIndex
-    fun parseTagBank(stream: InputStream): Sequence<DictionaryTag>
-    fun parseTermBank(stream: InputStream, version: Int): Sequence<DictionaryTerm>
-    fun parseKanjiBank(stream: InputStream, version: Int): Sequence<DictionaryKanji>
-    fun parseTermMetaBank(stream: InputStream): Sequence<DictionaryTermMeta>
-    fun parseKanjiMetaBank(stream: InputStream): Sequence<DictionaryKanjiMeta>
+    fun parseGlossary(rawGlossary: String): List<GlossaryEntry>
 }
 
 class DictionaryParseException(message: String, cause: Throwable? = null) : Exception(message, cause)

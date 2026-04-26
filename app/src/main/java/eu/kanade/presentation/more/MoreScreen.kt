@@ -7,6 +7,7 @@ import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.AttachMoney
 import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.GetApp
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.QueryStats
@@ -22,6 +23,7 @@ import eu.kanade.presentation.more.settings.widget.SwitchPreferenceWidget
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.more.DownloadQueueState
+import eu.kanade.tachiyomi.ui.more.OcrQueueState
 import tachiyomi.core.common.Constants
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
@@ -32,11 +34,13 @@ import tachiyomi.presentation.core.i18n.stringResource
 @Composable
 fun MoreScreen(
     downloadQueueStateProvider: () -> DownloadQueueState,
+    ocrQueueStateProvider: () -> OcrQueueState,
     downloadedOnly: Boolean,
     onDownloadedOnlyChange: (Boolean) -> Unit,
     incognitoMode: Boolean,
     onIncognitoModeChange: (Boolean) -> Unit,
     onClickDownloadQueue: () -> Unit,
+    onClickOcrQueue: () -> Unit,
     onClickCategories: () -> Unit,
     onClickStats: () -> Unit,
     onClickDataAndStorage: () -> Unit,
@@ -101,6 +105,35 @@ fun MoreScreen(
                     },
                     icon = Icons.Outlined.GetApp,
                     onPreferenceClick = onClickDownloadQueue,
+                )
+            }
+            item {
+                val ocrQueueState = ocrQueueStateProvider()
+                TextPreferenceWidget(
+                    title = stringResource(MR.strings.label_text_recognition),
+                    subtitle = when (ocrQueueState) {
+                        OcrQueueState.Stopped -> null
+                        is OcrQueueState.Paused -> {
+                            val pending = ocrQueueState.pending
+                            if (pending == 0) {
+                                stringResource(MR.strings.paused)
+                            } else {
+                                "${stringResource(MR.strings.paused)} • ${
+                                    pluralStringResource(
+                                        MR.plurals.download_queue_summary,
+                                        count = pending,
+                                        pending,
+                                    )
+                                }"
+                            }
+                        }
+                        is OcrQueueState.Running -> {
+                            val pending = ocrQueueState.pending
+                            pluralStringResource(MR.plurals.download_queue_summary, count = pending, pending)
+                        }
+                    },
+                    icon = Icons.Outlined.DocumentScanner,
+                    onPreferenceClick = onClickOcrQueue,
                 )
             }
             item {

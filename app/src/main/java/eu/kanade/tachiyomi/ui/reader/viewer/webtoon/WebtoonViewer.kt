@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.core.app.ActivityCompat
+import androidx.core.view.children
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
@@ -17,6 +18,12 @@ import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderActiveOcrOverlay
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderActiveOcrTapResult
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderOcrPageIdentity
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderSelectionCapture
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderSelectionRegion
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
 import kotlinx.coroutines.MainScope
@@ -111,19 +118,58 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
                 }
             },
         )
-        recycler.tapListener = { event ->
-            val viewPosition = IntArray(2)
-            recycler.getLocationOnScreen(viewPosition)
-            val viewPositionRelativeToWindow = IntArray(2)
-            recycler.getLocationInWindow(viewPositionRelativeToWindow)
-            val pos = PointF(
-                (event.rawX - viewPosition[0] + viewPositionRelativeToWindow[0]) / recycler.width,
-                (event.rawY - viewPosition[1] + viewPositionRelativeToWindow[1]) / recycler.originalHeight,
-            )
-            when (config.navigator.getAction(pos)) {
-                NavigationRegion.MENU -> activity.toggleMenu()
-                NavigationRegion.NEXT, NavigationRegion.RIGHT -> scrollDown()
-                NavigationRegion.PREV, NavigationRegion.LEFT -> scrollUp()
+        recycler.tapListener = tap@{ event ->
+            val child = recycler.findChildViewUnder(event.x, event.y) as? ReaderPageImageView
+            val activeOverlayTap = if (activity.hasActiveOcrOverlaySession()) {
+                child?.let {
+                    // Webtoon can be scaled/translated; use recycler-local coordinates for stable hit-testing.
+                    val localX = event.x - it.x
+                    val localY = event.y - it.y
+                    it.tryConsumeActiveOcrOverlayTapLocal(localX, localY)
+                }
+            } else {
+                null
+            }
+            when (activeOverlayTap) {
+                is ReaderActiveOcrTapResult.SelectWord -> {
+                    activity.searchActiveOcrOverlay(activeOverlayTap.offset)
+                    return@tap
+                }
+                ReaderActiveOcrTapResult.BubbleTap -> {
+                    activity.dismissActiveOcrOverlaySession()
+                    return@tap
+                }
+                null -> {}
+            }
+
+            val consumedOcrTap = if (activity.shouldHandleCachedOcrRegionTaps()) {
+                child?.let {
+                    val localX = event.x - it.x
+                    val localY = event.y - it.y
+                    it.tryConsumeOcrTapLocal(localX, localY)
+                } == true
+            } else {
+                false
+            }
+            if (!consumedOcrTap) {
+                if (activity.hasActiveOcrOverlaySession()) {
+                    activity.dismissActiveOcrOverlaySession()
+                    return@tap
+                }
+
+                val viewPosition = IntArray(2)
+                recycler.getLocationOnScreen(viewPosition)
+                val viewPositionRelativeToWindow = IntArray(2)
+                recycler.getLocationInWindow(viewPositionRelativeToWindow)
+                val pos = PointF(
+                    (event.rawX - viewPosition[0] + viewPositionRelativeToWindow[0]) / recycler.width,
+                    (event.rawY - viewPosition[1] + viewPositionRelativeToWindow[1]) / recycler.originalHeight,
+                )
+                when (config.navigator.getAction(pos)) {
+                    NavigationRegion.MENU -> activity.toggleMenu()
+                    NavigationRegion.NEXT, NavigationRegion.RIGHT -> scrollDown()
+                    NavigationRegion.PREV, NavigationRegion.LEFT -> scrollUp()
+                }
             }
         }
         recycler.longTapListener = f@{ event ->
@@ -197,6 +243,49 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
         return frame
     }
 
+    override fun setActiveOcrOverlay(overlay: ReaderActiveOcrOverlay?): Boolean {
+        var matched = overlay == null
+        recycler.children
+            .filterIsInstance(ReaderPageImageView::class.java)
+            .forEach { pageView ->
+                val activeOverlay = overlay?.takeIf { pageView.matchesOcrPage(it.page) }
+                pageView.setActiveOcrOverlay(activeOverlay)
+                if (activeOverlay != null) {
+                    matched = true
+                }
+            }
+        return matched
+    }
+
+    override fun resolveSelectionCaptures(region: ReaderSelectionRegion): List<ReaderSelectionCapture> {
+        return recycler.children
+            .filterIsInstance(ReaderPageImageView::class.java)
+            .mapNotNull { child ->
+                val childRect = android.graphics.Rect()
+                if (!child.getGlobalVisibleRect(childRect)) return@mapNotNull null
+
+                val intersection = android.graphics.RectF(region.screenRect)
+                if (!intersection.intersect(android.graphics.RectF(childRect))) return@mapNotNull null
+
+                val page = adapter.items
+                    .getOrNull(recycler.getChildAdapterPosition(child)) as? ReaderPage
+                    ?: return@mapNotNull null
+                val chapterId = page.chapter.chapter.id ?: return@mapNotNull null
+                val pageIdentity = ReaderOcrPageIdentity(chapterId, page.index)
+                if (!child.matchesOcrPage(pageIdentity)) return@mapNotNull null
+
+                val sourceRect = child.sourceRectForScreenRect(intersection) ?: return@mapNotNull null
+                ReaderSelectionCapture(
+                    page = page,
+                    sourceRect = sourceRect,
+                    screenRect = intersection,
+                    bitmapSource = child,
+                )
+            }
+            .toList()
+            .sortedWith(compareBy<ReaderSelectionCapture> { it.screenRect.top }.thenBy { it.screenRect.left })
+    }
+
     /**
      * Destroys this viewer. Called when leaving the reader or swapping viewers.
      */
@@ -225,6 +314,8 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
                 activity.requestPreloadChapter(transitionChapter)
             }
         }
+
+        activity.syncActiveOcrOverlay()
     }
 
     /**
@@ -233,6 +324,7 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
      */
     private fun onTransitionSelected(transition: ChapterTransition) {
         logcat { "onTransitionSelected: $transition" }
+        activity.dismissActiveOcrOverlaySession()
         val toChapter = transition.to
         if (toChapter != null) {
             logcat { "Request preload destination chapter because we're on the transition" }

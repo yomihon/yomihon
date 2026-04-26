@@ -18,4 +18,29 @@ data class Dictionary(
     val isEnabled: Boolean = true,
     val priority: Int = 0,
     val dateAdded: Long = System.currentTimeMillis(),
+    val backend: DictionaryBackend = DictionaryBackend.HOSHI,
+    val storagePath: String? = null,
+    val storageReady: Boolean = false,
 )
+
+enum class DictionaryBackend {
+    LEGACY_DB,
+    HOSHI,
+    ;
+
+    fun toDbValue(): String {
+        return when (this) {
+            LEGACY_DB -> "legacy_db"
+            HOSHI -> "hoshi"
+        }
+    }
+
+    companion object {
+        fun fromDbValue(value: String?): DictionaryBackend {
+            return when (value?.lowercase()) {
+                "hoshi" -> HOSHI
+                else -> LEGACY_DB
+            }
+        }
+    }
+}

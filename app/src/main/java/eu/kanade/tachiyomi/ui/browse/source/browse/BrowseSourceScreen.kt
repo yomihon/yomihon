@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import cafe.adriel.voyager.core.model.rememberScreenModel
@@ -40,6 +41,8 @@ import eu.kanade.presentation.browse.BrowseSourceContent
 import eu.kanade.presentation.browse.MissingSourceScreen
 import eu.kanade.presentation.browse.components.BrowseSourceToolbar
 import eu.kanade.presentation.browse.components.RemoveMangaDialog
+import eu.kanade.presentation.browse.components.SavedSearchCreateDialog
+import eu.kanade.presentation.browse.components.SavedSearchDeleteDialog
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.manga.DuplicateMangaDialog
 import eu.kanade.presentation.util.AssistContentScreen
@@ -51,6 +54,7 @@ import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreenModel.Listi
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
+import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -103,6 +107,7 @@ data class BrowseSourceScreen(
 
         val scope = rememberCoroutineScope()
         val haptic = LocalHapticFeedback.current
+        val context = LocalContext.current
         val uriHandler = LocalUriHandler.current
         val snackbarHostState = remember { SnackbarHostState() }
 
@@ -186,20 +191,41 @@ data class BrowseSourceScreen(
                                 },
                             )
                         }
-                        if (state.filters.isNotEmpty()) {
+                        FilterChip(
+                            selected = state.listing is Listing.Search &&
+                                (state.listing as Listing.Search).savedSearchId == null,
+                            onClick = screenModel::openFilterSheet,
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.FilterList,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(FilterChipDefaults.IconSize),
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = if (state.filters.isNotEmpty()) {
+                                        stringResource(MR.strings.action_filter)
+                                    } else {
+                                        stringResource(MR.strings.action_search)
+                                    },
+                                )
+                            },
+                        )
+                        state.savedSearches.forEach { savedSearch ->
                             FilterChip(
-                                selected = state.listing is Listing.Search,
-                                onClick = screenModel::openFilterSheet,
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Outlined.FilterList,
-                                        contentDescription = null,
-                                        modifier = Modifier
-                                            .size(FilterChipDefaults.IconSize),
-                                    )
+                                selected = state.listing is Listing.Search &&
+                                    (state.listing as Listing.Search).savedSearchId == savedSearch.id,
+                                onClick = {
+                                    screenModel.onSavedSearch(savedSearch) {
+                                        context.toast(it)
+                                    }
                                 },
                                 label = {
-                                    Text(text = stringResource(MR.strings.action_filter))
+                                    Text(
+                                        text = savedSearch.name,
+                                    )
                                 },
                             )
                         }
@@ -246,6 +272,15 @@ data class BrowseSourceScreen(
                     onReset = screenModel::resetFilters,
                     onFilter = { screenModel.search(filters = state.filters) },
                     onUpdate = screenModel::setFilters,
+                    onSave = screenModel::onSaveSearch,
+                    savedSearches = state.savedSearches,
+                    onSavedSearch = { search ->
+                        screenModel.onSavedSearch(search) {
+                            context.toast(it)
+                        }
+                    },
+                    onSavedSearchPress = screenModel::onSavedSearchPress,
+                    onSavedSearchPressDesc = stringResource(MR.strings.saved_searches_delete),
                 )
             }
             is BrowseSourceScreenModel.Dialog.AddDuplicateManga -> {
@@ -287,6 +322,18 @@ data class BrowseSourceScreen(
                     },
                 )
             }
+            is BrowseSourceScreenModel.Dialog.CreateSavedSearch -> SavedSearchCreateDialog(
+                onDismissRequest = onDismissRequest,
+                currentSavedSearches = dialog.currentSavedSearches,
+                saveSearch = screenModel::saveSearch,
+            )
+            is BrowseSourceScreenModel.Dialog.DeleteSavedSearch -> SavedSearchDeleteDialog(
+                onDismissRequest = onDismissRequest,
+                name = dialog.name,
+                deleteSavedSearch = {
+                    screenModel.deleteSearch(dialog.idToDelete)
+                },
+            )
             else -> {}
         }
 

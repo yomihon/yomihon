@@ -7,6 +7,7 @@ import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.domain.dictionary.DictionaryPreferences
+import eu.kanade.presentation.dictionary.components.DictionaryCardAudioState
 import eu.kanade.presentation.dictionary.components.FrequencyFormatter
 import eu.kanade.presentation.dictionary.components.PitchAccentFormatter
 import kotlinx.coroutines.channels.Channel
@@ -18,14 +19,20 @@ import logcat.LogPriority
 import mihon.domain.ankidroid.interactor.AddDictionaryCard
 import mihon.domain.ankidroid.interactor.FindExistingAnkiNotes
 import mihon.domain.ankidroid.repository.AnkiDroidRepository
+import mihon.domain.dictionary.audio.DictionaryAudio
+import mihon.domain.dictionary.audio.DictionaryAudioPlayer
+import mihon.domain.dictionary.audio.DictionaryAudioRepository
+import mihon.domain.dictionary.audio.DictionaryAudioResult
 import mihon.domain.dictionary.interactor.DictionaryInteractor
 import mihon.domain.dictionary.interactor.SearchDictionaryTerms
 import mihon.domain.dictionary.model.Dictionary
 import mihon.domain.dictionary.model.DictionaryTerm
 import mihon.domain.dictionary.model.DictionaryTermMeta
-import mihon.domain.dictionary.model.toDictionaryTermCard
+import mihon.domain.dictionary.model.buildGlossaryHtmlBundle
+import mihon.domain.dictionary.model.createGroupedTermCard
 import mihon.domain.dictionary.service.toHtml
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.ankidroid.service.AnkiDroidPreferences
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -36,11 +43,14 @@ class DictionarySearchScreenModel(
     private val addDictionaryCard: AddDictionaryCard = Injekt.get(),
     private val findExistingAnkiNotes: FindExistingAnkiNotes = Injekt.get(),
     private val dictionaryPreferences: DictionaryPreferences = Injekt.get(),
+    private val ankiDroidPreferences: AnkiDroidPreferences = Injekt.get(),
+    private val dictionaryAudioRepository: DictionaryAudioRepository = Injekt.get(),
+    private val dictionaryAudioPlayer: DictionaryAudioPlayer = Injekt.get(),
 ) : StateScreenModel<DictionarySearchScreenModel.State>(State()) {
 
     val snackbarHostState = SnackbarHostState()
 
-    private val _events = Channel<Event>()
+    private val _events = Channel<Event>(Channel.BUFFERED)
     val events: Flow<Event> = _events.receiveAsFlow()
 
     // Simple LRU cache for search results (max 10 entries)
@@ -49,6 +59,7 @@ class DictionarySearchScreenModel(
             return size > 10
         }
     }
+    private val audioCache = linkedMapOf<String, DictionaryAudio>()
 
     private data class SearchCacheEntry(
         val results: List<DictionaryTerm>,
@@ -78,7 +89,7 @@ class DictionarySearchScreenModel(
                 }
             } catch (e: Exception) {
                 mutableState.update { it.copy(isLoading = false) }
-                _events.send(Event.ShowError(UiMessage.Text(e.message ?: "Failed to load dictionaries")))
+                _events.send(Event.ShowError(UiMessage.Resource(MR.strings.dictionary_load_fail)))
             }
         }
     }
@@ -96,7 +107,7 @@ class DictionarySearchScreenModel(
                 }
             } catch (e: Exception) {
                 mutableState.update { it.copy(isLoading = false) }
-                _events.send(Event.ShowError(UiMessage.Text(e.message ?: "Failed to load dictionaries")))
+                _events.send(Event.ShowError(UiMessage.Resource(MR.strings.dictionary_load_fail)))
             }
         }
     }
@@ -135,7 +146,7 @@ class DictionarySearchScreenModel(
             try {
                 val enabledDictionaryIds = state.value.enabledDictionaryIds
                 if (enabledDictionaryIds.isEmpty()) {
-                    _events.send(Event.ShowError(UiMessage.Text("No dictionaries enabled")))
+                    _events.send(Event.ShowError(UiMessage.Resource(MR.strings.dictionary_no_enabled)))
                     mutableState.update { it.copy(isSearching = false, results = null) }
                     return@launch
                 }
@@ -197,7 +208,7 @@ class DictionarySearchScreenModel(
                 checkExistingNotesInBackground(items.map { it.expression }.distinct())
             } catch (e: Exception) {
                 mutableState.update { it.copy(isSearching = false) }
-                _events.send(Event.ShowError(UiMessage.Text(e.message ?: "Search failed")))
+                _events.send(Event.ShowError(UiMessage.Resource(MR.strings.dictionary_search_failed)))
             }
         }
     }
@@ -215,65 +226,176 @@ class DictionarySearchScreenModel(
         mutableState.update { it.copy(selectedTerm = term) }
     }
 
-    fun addToAnki(term: DictionaryTerm, pictureUri: Uri? = null) {
+    fun addGroupToAnki(terms: List<DictionaryTerm>, pictureUri: Uri? = null) {
+        if (terms.isEmpty()) return
         screenModelScope.launch {
-            val dictionary = state.value.dictionaries
-                .firstOrNull { it.id == term.dictionaryId }
-            val dictionaryName = dictionary?.title.orEmpty()
-            val styles = dictionary?.styles
-            val glossaryHtml = term.glossary.toHtml(styles)
+            try {
+                val expression = terms.first().expression
+                val reading = terms.first().reading
+                val dicts = state.value.dictionaries
 
-            // Determine sentence: use query unless it matches the exported word, in which case it's just a duplicate
-            val query = state.value.query
-            val sentence = if (query.isNotBlank() && query != term.expression) query else ""
+                // Build all glossary HTML variants in one pass
+                val glossaryHtml = buildGlossaryHtmlBundle(terms, dicts) { term, styles ->
+                    term.glossary.toHtml(styles)
+                }
 
-            val termMeta = state.value.results?.termMetaMap?.get(term.expression) ?: emptyList()
-            val pitchAccentSvg = PitchAccentFormatter.formatPitchAccentSvg(termMeta)
-            val frequencyText = formatFrequencyText(termMeta)
-            val pictureUrl = pictureUri?.toString() ?: ""
+                // Shared metadata
+                val query = state.value.query
+                val sentence = if (query.isNotBlank() && query != expression) query else ""
+                val termMeta = state.value.results?.termMetaMap?.get(expression) ?: emptyList()
+                val pitchAccentSvg = PitchAccentFormatter.formatPitchAccentSvg(termMeta, reading)
+                val frequencyText = formatFrequencyText(termMeta, reading)
+                val pictureUrl = pictureUri?.toString() ?: ""
+                val audio = if (ankiDroidPreferences.dictionaryAudioPrefill().get()) {
+                    ensureAudioForExport(expression, reading)
+                } else {
+                    null
+                }
 
-            val card = term.toDictionaryTermCard(
-                dictionaryName = dictionaryName,
-                glossaryHtml = glossaryHtml,
-                sentence = sentence,
-                pitchAccent = pitchAccentSvg,
-                frequency = frequencyText,
-                pictureUrl = pictureUrl,
-            )
+                val frequencies = FrequencyFormatter.parseFrequencies(termMeta, reading)
+                val numericValues = frequencies.mapNotNull { it.numericFrequency }
+                val minValuesPerDict = frequencies
+                    .filter { it.numericFrequency != null }
+                    .groupBy { it.dictionaryId }
+                    .mapValues { (_, dictFrequencies) -> dictFrequencies.minOf { it.numericFrequency!! } }
 
-            when (val result = addDictionaryCard(card)) {
-                AnkiDroidRepository.Result.Added -> {
-                    // Mark expression as existing so the icon updates immediately
-                    mutableState.update {
-                        it.copy(existingTermExpressions = it.existingTermExpressions + term.expression)
-                    }
-                    _events.send(Event.ShowMessage(UiMessage.Resource(MR.strings.anki_add_success)))
-                }
-                AnkiDroidRepository.Result.Duplicate -> {
-                    _events.send(Event.ShowMessage(UiMessage.Resource(MR.strings.anki_add_duplicate)))
-                }
-                AnkiDroidRepository.Result.NotAvailable -> {
-                    _events.send(Event.ShowError(UiMessage.Resource(MR.strings.anki_add_not_available)))
-                }
-                is AnkiDroidRepository.Result.Error -> {
-                    logcat(LogPriority.ERROR, result.throwable)
-                    _events.send(Event.ShowError(UiMessage.Resource(MR.strings.anki_add_failed)))
-                }
+                val avgFreq = minValuesPerDict.values
+                    .takeIf { it.isNotEmpty() }
+                    ?.average()
+                    ?.toInt()
+                    ?.toString()
+                    ?: ""
+                val minFreq = numericValues.minOrNull()?.toString() ?: ""
+                val singleFreqValues = minValuesPerDict.mapValues { it.value.toString() }
+
+                val card = createGroupedTermCard(
+                    expression = expression,
+                    reading = reading,
+                    terms = terms,
+                    dictionaries = dicts,
+                    glossaryHtml = glossaryHtml,
+                    sentence = sentence,
+                    audio = audio?.file?.absolutePath.orEmpty(),
+                    pitchAccent = pitchAccentSvg,
+                    frequency = frequencyText,
+                    pictureUrl = pictureUrl,
+                    freqAvgValue = avgFreq,
+                    freqLowestValue = minFreq,
+                    singleFreqValues = singleFreqValues,
+                )
+
+                handleAnkiResult(addDictionaryCard(card), expression)
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Failed to add term group to Anki" }
+                _events.send(Event.ShowError(UiMessage.Resource(MR.strings.anki_add_failed)))
             }
         }
     }
 
-    private fun formatFrequencyText(termMeta: List<DictionaryTermMeta>): String {
-        val grouped = FrequencyFormatter.parseGroupedFrequencies(termMeta)
-        if (grouped.isEmpty()) return ""
+    private suspend fun handleAnkiResult(result: AnkiDroidRepository.Result, expression: String) {
+        when (result) {
+            AnkiDroidRepository.Result.Added -> {
+                mutableState.update {
+                    it.copy(existingTermExpressions = it.existingTermExpressions + expression)
+                }
+                _events.send(Event.ShowMessage(UiMessage.Resource(MR.strings.anki_add_success)))
+            }
+            AnkiDroidRepository.Result.Duplicate -> {
+                _events.send(Event.ShowMessage(UiMessage.Resource(MR.strings.anki_add_duplicate)))
+            }
+            AnkiDroidRepository.Result.NotAvailable -> {
+                _events.send(Event.ShowError(UiMessage.Resource(MR.strings.anki_add_not_available)))
+            }
+            is AnkiDroidRepository.Result.Error -> {
+                logcat(LogPriority.ERROR, result.throwable)
+                _events.send(Event.ShowError(UiMessage.Resource(MR.strings.anki_add_failed)))
+            }
+        }
+    }
+
+    private fun formatFrequencyText(termMeta: List<DictionaryTermMeta>, reading: String): String {
+        val frequencies = FrequencyFormatter.parseFrequencies(termMeta, reading)
+        if (frequencies.isEmpty()) return ""
 
         val dictionaries = state.value.dictionaries
-        val listItems = grouped.joinToString("") { freqData ->
+        val listItems = frequencies.joinToString("") { freqData ->
             val dictName = dictionaries.find { it.id == freqData.dictionaryId }?.title ?: ""
-            val entry = if (dictName.isNotBlank()) "$dictName: ${freqData.frequencies}" else freqData.frequencies
+            val entry = if (dictName.isNotBlank()) "$dictName: ${freqData.frequency}" else freqData.frequency
             "<li>$entry</li>"
         }
         return "<ul>$listItems</ul>"
+    }
+
+    fun fetchAndPlayAudio(terms: List<DictionaryTerm>) {
+        if (terms.isEmpty()) return
+        val expression = terms.first().expression
+        val reading = terms.first().reading
+        screenModelScope.launch {
+            val audio = ensureAudio(expression, reading, showFailure = true) ?: return@launch
+            try {
+                dictionaryAudioPlayer.play(audio)
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Failed to play dictionary audio" }
+                markAudioState(expression, reading, DictionaryCardAudioState.Error)
+            }
+        }
+    }
+
+    private suspend fun ensureAudioForExport(
+        expression: String,
+        reading: String,
+    ): DictionaryAudio? {
+        val audio = ensureAudio(expression, reading, showFailure = false)
+        return audio
+    }
+
+    private suspend fun ensureAudio(
+        expression: String,
+        reading: String,
+        showFailure: Boolean,
+    ): DictionaryAudio? {
+        val key = audioKey(expression, reading)
+        val cached = audioCache[key]
+        if (cached != null && cached.file.isFile) {
+            markAudioState(expression, reading, DictionaryCardAudioState.Ready)
+            return cached
+        }
+        if (cached != null && !cached.file.isFile) {
+            audioCache.remove(key)
+        }
+
+        markAudioState(expression, reading, DictionaryCardAudioState.Loading)
+        return when (val result = dictionaryAudioRepository.fetchAudio(expression, reading)) {
+            is DictionaryAudioResult.Success -> {
+                audioCache[key] = result.audio
+                markAudioState(expression, reading, DictionaryCardAudioState.Ready)
+                result.audio
+            }
+            DictionaryAudioResult.NotFound -> {
+                markAudioState(expression, reading, DictionaryCardAudioState.Error)
+                null
+            }
+            is DictionaryAudioResult.Error -> {
+                logcat(LogPriority.ERROR, result.throwable) { "Failed to fetch dictionary audio" }
+                markAudioState(expression, reading, DictionaryCardAudioState.Error)
+                null
+            }
+        }
+    }
+
+    private fun markAudioState(
+        expression: String,
+        reading: String,
+        audioState: DictionaryCardAudioState,
+    ) {
+        val key = audioKey(expression, reading)
+        mutableState.update {
+            it.copy(audioStates = it.audioStates + (key to audioState))
+        }
+    }
+
+    private fun audioKey(expression: String, reading: String): String {
+        return "$expression|$reading"
     }
 
     @Immutable
@@ -295,6 +417,7 @@ class DictionarySearchScreenModel(
         val isSearching: Boolean = false,
         val hasSearched: Boolean = false,
         val existingTermExpressions: Set<String> = emptySet(),
+        val audioStates: Map<String, DictionaryCardAudioState> = emptyMap(),
     )
 
     sealed interface UiMessage {

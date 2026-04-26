@@ -7,6 +7,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
@@ -14,8 +15,6 @@ import android.graphics.Paint
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View.LAYER_TYPE_HARDWARE
@@ -38,10 +37,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.core.content.getSystemService
 import androidx.core.graphics.ColorUtils
-import androidx.core.graphics.createBitmap
 import androidx.core.net.toUri
 import androidx.core.transition.doOnEnd
 import androidx.core.view.WindowCompat
@@ -53,11 +52,15 @@ import com.google.android.material.elevation.SurfaceColors
 import com.google.android.material.transition.platform.MaterialContainerTransform
 import com.hippo.unifile.UniFile
 import dev.chrisbanes.insetter.applyInsetter
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.dictionary.DictionaryPreferences
+import eu.kanade.domain.dictionary.OcrResultPresentation
 import eu.kanade.presentation.reader.DisplayRefreshHost
 import eu.kanade.presentation.reader.OcrLoadingIndicator
-import eu.kanade.presentation.reader.OcrResultBottomSheet
+import eu.kanade.presentation.reader.OcrResultOverlay
+import eu.kanade.presentation.reader.OcrResultPopupSettings
 import eu.kanade.presentation.reader.OcrSelectionOverlay
 import eu.kanade.presentation.reader.OrientationSelectDialog
 import eu.kanade.presentation.reader.PageIndicatorText
@@ -70,6 +73,8 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.coil.TachiyomiImageDecoder
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.data.saver.Image
+import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.databinding.ReaderActivityBinding
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
@@ -85,7 +90,13 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsScreenModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderActiveOcrOverlay
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderOcrRegionSelection
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderSelectionCapture
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderSelectionRegion
+import eu.kanade.tachiyomi.ui.reader.viewer.queryRangeToDisplayRange
+import eu.kanade.tachiyomi.ui.reader.viewer.searchTextForOffset
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import eu.kanade.tachiyomi.util.system.isNightMode
@@ -103,14 +114,15 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import logcat.LogPriority
+import mihon.domain.dictionary.model.DictionaryTerm
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.ankidroid.service.AnkiDroidPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
@@ -134,6 +146,11 @@ class ReaderActivity : BaseActivity() {
 
     private val readerPreferences = Injekt.get<ReaderPreferences>()
     private val preferences = Injekt.get<BasePreferences>()
+    private val dictionaryPreferences = Injekt.get<DictionaryPreferences>()
+    private val ankiDroidPreferences = Injekt.get<AnkiDroidPreferences>()
+    private val imageSaver = Injekt.get<ImageSaver>()
+    private val selectionBitmapCropper = Injekt.get<ReaderSelectionCropper>()
+    private val dictionarySearchScreenModel by lazy { DictionarySearchScreenModel() }
 
     lateinit var binding: ReaderActivityBinding
 
@@ -162,12 +179,64 @@ class ReaderActivity : BaseActivity() {
 
     private var ocrDragStart by mutableStateOf<Offset?>(null)
     private var ocrDragEnd by mutableStateOf<Offset?>(null)
+    private var activeOcrOverlaySession by mutableStateOf<ActiveOcrOverlaySession?>(null)
+    private var selectionAction: SelectionAction = SelectionAction.ProcessOcr
     private var isTapExitEnabled = false
+
+    private data class ActiveOcrOverlaySession(
+        val selection: ReaderOcrRegionSelection,
+        val anchorRectInDialogRoot: android.graphics.RectF,
+        val highlightRange: Pair<Int, Int>? = null,
+    ) {
+        val overlay: ReaderActiveOcrOverlay
+            get() = ReaderActiveOcrOverlay(
+                page = selection.page,
+                regionOrder = selection.regionOrder,
+                displayText = selection.displayText,
+                queryText = selection.queryText,
+                boundingBox = selection.boundingBox,
+                textOrientation = selection.textOrientation,
+                highlightRange = highlightRange,
+            )
+
+        fun matches(selection: ReaderOcrRegionSelection): Boolean {
+            return this.selection.page == selection.page &&
+                this.selection.regionOrder == selection.regionOrder
+        }
+    }
+
+    private sealed interface SelectionAction {
+        data object ProcessOcr : SelectionAction
+
+        data class ExportImageToAnki(val terms: List<DictionaryTerm>) : SelectionAction
+    }
 
     private fun resetOcrDrag() {
         ocrDragStart = null
         ocrDragEnd = null
         isTapExitEnabled = false
+    }
+
+    private fun screenRectToDialogRootRect(rect: android.graphics.RectF): android.graphics.RectF {
+        val location = IntArray(2)
+        binding.dialogRoot.getLocationOnScreen(location)
+        return android.graphics.RectF(
+            rect.left - location[0],
+            rect.top - location[1],
+            rect.right - location[0],
+            rect.bottom - location[1],
+        )
+    }
+
+    private fun dialogRootRectToScreenRect(rect: android.graphics.RectF): android.graphics.RectF {
+        val location = IntArray(2)
+        binding.dialogRoot.getLocationOnScreen(location)
+        return android.graphics.RectF(
+            rect.left + location[0],
+            rect.top + location[1],
+            rect.right + location[0],
+            rect.bottom + location[1],
+        )
     }
 
     var isScrollingThroughPages = false
@@ -268,15 +337,19 @@ class ReaderActivity : BaseActivity() {
                         onSetAsCoverResult(event.result)
                     }
                     ReaderViewModel.Event.OcrNoTextFound -> {
+                        clearActiveOcrOverlaySession()
                         toast(MR.strings.no_results_found)
                     }
                     ReaderViewModel.Event.OcrMemoryError -> {
+                        clearActiveOcrOverlaySession()
                         toast(MR.strings.ocr_memory_error)
                     }
                     ReaderViewModel.Event.OcrInitializationError -> {
+                        clearActiveOcrOverlaySession()
                         toast(MR.strings.ocr_initialization_error)
                     }
                     ReaderViewModel.Event.OcrError -> {
+                        clearActiveOcrOverlaySession()
                         toast(MR.strings.error_unknown)
                     }
                 }
@@ -405,7 +478,9 @@ class ReaderActivity : BaseActivity() {
                         val bottom = max(start.y, end.y)
 
                         if (abs(right - left) > 20 && abs(bottom - top) > 20) {
-                            captureRegionAndProcessOcr(android.graphics.RectF(left, top, right, bottom))
+                            handleSelectedRegion(
+                                rect = android.graphics.RectF(left, top, right, bottom),
+                            )
                             resetOcrDrag()
                             return true
                         } else if (isTapExitEnabled) {
@@ -443,6 +518,11 @@ class ReaderActivity : BaseActivity() {
 
         binding.dialogRoot.setComposeContent {
             val state by viewModel.state.collectAsState()
+            val dimOcrBackground by dictionaryPreferences.ocrResultDimBackground().collectAsState()
+            val ocrResultPresentation by dictionaryPreferences.ocrResultPresentation().collectAsState()
+            val ocrPopupWidthDp by dictionaryPreferences.ocrResultPopupWidthDp().collectAsState()
+            val ocrPopupHeightDp by dictionaryPreferences.ocrResultPopupHeightDp().collectAsState()
+            val ocrPopupScalePercent by dictionaryPreferences.ocrResultPopupScalePercent().collectAsState()
             val settingsScreenModel = remember {
                 ReaderSettingsScreenModel(
                     readerState = viewModel.state,
@@ -450,10 +530,6 @@ class ReaderActivity : BaseActivity() {
                     onChangeReadingMode = viewModel::setMangaReadingMode,
                     onChangeOrientation = viewModel::setMangaOrientationType,
                 )
-            }
-
-            val dictionarySearchScreenModel = remember {
-                DictionarySearchScreenModel()
             }
 
             // Initialize dictionary search model
@@ -563,6 +639,12 @@ class ReaderActivity : BaseActivity() {
                 if (state.ocrSelectionMode) {
                     OcrSelectionOverlay(
                         onCancel = ::exitOcrMode,
+                        instructionText = when (selectionAction) {
+                            SelectionAction.ProcessOcr -> AnnotatedString(stringResource(MR.strings.ocr_select_region))
+                            is SelectionAction.ExportImageToAnki -> AnnotatedString(
+                                stringResource(MR.strings.anki_select_image_region),
+                            )
+                        },
                         startPoint = ocrDragStart,
                         endPoint = ocrDragEnd,
                     )
@@ -575,6 +657,7 @@ class ReaderActivity : BaseActivity() {
                 }
 
                 val onDismissRequest = viewModel::closeDialog
+                val onDismissOcrResult = ::dismissActiveOcrOverlaySession
                 when (val dialog = state.dialog) {
                     is ReaderViewModel.Dialog.Loading -> {
                         AlertDialog(
@@ -631,9 +714,28 @@ class ReaderActivity : BaseActivity() {
                     }
                     is ReaderViewModel.Dialog.OcrResult -> {
                         val searchState by dictionarySearchScreenModel.state.collectAsState()
-                        OcrResultBottomSheet(
-                            onDismissRequest = onDismissRequest,
-                            text = dialog.text,
+                        LaunchedEffect(activeOcrOverlaySession?.selection, searchState.results?.highlightRange) {
+                            updateActiveOcrOverlayHighlight(
+                                activeOcrOverlaySession?.selection?.displayText?.let {
+                                    queryRangeToDisplayRange(it, searchState.results?.highlightRange)
+                                },
+                            )
+                        }
+                        OcrResultOverlay(
+                            onDismissRequest = onDismissOcrResult,
+                            presentation = when (dialog.origin) {
+                                ReaderViewModel.OcrResultOrigin.CachedPageTap -> ocrResultPresentation
+                                ReaderViewModel.OcrResultOrigin.ManualSelection -> OcrResultPresentation.SHEET
+                            },
+                            popupSettings = OcrResultPopupSettings(
+                                widthDp = ocrPopupWidthDp,
+                                heightDp = ocrPopupHeightDp,
+                                contentScale = ocrPopupScalePercent / 100f,
+                            ),
+                            dimBackground = dimOcrBackground,
+                            queryText = dialog.queryText,
+                            initialSearchText = dialog.initialSearchText,
+                            anchorRect = activeOcrOverlaySession?.anchorRectInDialogRoot,
                             onCopyText = {
                                 val clipboard = getSystemService<ClipboardManager>()
                                 clipboard?.setPrimaryClip(
@@ -644,13 +746,23 @@ class ReaderActivity : BaseActivity() {
                             searchState = searchState,
                             onQueryChange = dictionarySearchScreenModel::updateQuery,
                             onSearch = dictionarySearchScreenModel::search,
-                            onTermClick = { term ->
-                                dictionarySearchScreenModel.selectTerm(term)
+                            onTermGroupClick = { terms ->
                                 lifecycleScope.launchIO {
-                                    val uri = viewModel.getCurrentPageUri()
-                                    dictionarySearchScreenModel.addToAnki(term, uri)
+                                    if (
+                                        ankiDroidPreferences.croppedImageExport().get() &&
+                                        viewModel.state.value.dialog is ReaderViewModel.Dialog.OcrResult
+                                    ) {
+                                        withUIContext {
+                                            dismissActiveOcrOverlaySession()
+                                            enterImageExportSelectionMode(terms)
+                                        }
+                                    } else {
+                                        val uri = viewModel.getCurrentPageUri()
+                                        dictionarySearchScreenModel.addGroupToAnki(terms, uri)
+                                    }
                                 }
                             },
+                            onPlayAudioClick = dictionarySearchScreenModel::fetchAndPlayAudio,
                         )
                     }
                     null -> {}
@@ -853,6 +965,15 @@ class ReaderActivity : BaseActivity() {
      * bottom menu and delegates the change to the presenter.
      */
     fun onPageSelected(page: ReaderPage) {
+        val chapterId = page.chapter.chapter.id
+        if (
+            chapterId != null &&
+            activeOcrOverlaySession?.selection?.page?.let {
+                it.chapterId != chapterId || it.pageIndex != page.index
+            } == true
+        ) {
+            dismissActiveOcrOverlaySession()
+        }
         viewModel.onPageSelected(page)
     }
 
@@ -864,57 +985,205 @@ class ReaderActivity : BaseActivity() {
         viewModel.openPageDialog(page)
     }
 
-    /**
-     * Captures a bitmap from the specified region and processes it with OCR.
-     */
-    private fun captureRegionAndProcessOcr(rect: android.graphics.RectF) {
+    private fun handleSelectedRegion(
+        rect: android.graphics.RectF,
+    ) {
+        when (val action = selectionAction) {
+            SelectionAction.ProcessOcr -> captureRegionForOcr(rect)
+            is SelectionAction.ExportImageToAnki -> captureRegionForAnkiExport(rect, action.terms)
+        }
+    }
+
+    private fun captureRegionForAnkiExport(
+        rect: android.graphics.RectF,
+        terms: List<DictionaryTerm>,
+    ) {
         lifecycleScope.launchIO {
             try {
-                val viewerContainer = binding.viewerContainer
+                val croppedBitmap = requireCurrentSelectionBitmap(
+                    rect = rect,
+                    failureLogMessage = "Selected reader region unavailable for Anki export",
+                    failureMessageRes = MR.strings.error_anki_image_fail,
+                ) ?: return@launchIO
 
-                val location = IntArray(2)
-                viewerContainer.getLocationOnScreen(location)
-                val (containerX, containerY) = location
-
-                // Crop to the selected region
-                val left = (containerX + rect.left.toInt()).coerceAtLeast(0)
-                val top = (containerY + rect.top.toInt()).coerceAtLeast(0)
-                val width = (rect.width().toInt()).coerceAtLeast(1)
-                val height = (rect.height().toInt()).coerceAtLeast(1)
-
-                val croppedBitmap = createBitmap(width, height)
-
-                val srcRect = android.graphics.Rect(left, top, left + width, top + height)
-
-                val copyResult = suspendCancellableCoroutine { continuation ->
-                    android.view.PixelCopy.request(
-                        window,
-                        srcRect,
-                        croppedBitmap,
-                        { result -> continuation.resume(result) { cause, _, _ -> } },
-                        Handler(Looper.getMainLooper()),
+                try {
+                    val uri = imageSaver.save(
+                        Image.Cover(
+                            bitmap = croppedBitmap,
+                            name = "anki_export_${System.currentTimeMillis()}",
+                            location = eu.kanade.tachiyomi.data.saver.Location.Cache,
+                        ),
                     )
-                }
-
-                if (copyResult != android.view.PixelCopy.SUCCESS) {
-                    croppedBitmap.recycle()
-                    throw IllegalStateException("PixelCopy failed with result: $copyResult")
-                }
-
-                // Process OCR (the ViewModel takes ownership of the bitmap)
-                viewModel.processOcrRegion(croppedBitmap)
-
-                withUIContext {
-                    exitOcrMode()
+                    dictionarySearchScreenModel.addGroupToAnki(terms, uri)
+                } finally {
+                    if (!croppedBitmap.isRecycled) {
+                        croppedBitmap.recycle()
+                    }
                 }
             } catch (e: Exception) {
-                logcat(LogPriority.ERROR, e) { "Failed to capture region for OCR" }
+                logcat(LogPriority.ERROR, e) { "Failed to capture selected reader region for Anki export" }
                 withUIContext {
                     exitOcrMode()
-                    toast(MR.strings.action_cancel)
+                    toast(MR.strings.error_anki_image_fail)
                 }
             }
         }
+    }
+
+    private fun captureRegionForOcr(
+        rect: android.graphics.RectF,
+    ) {
+        lifecycleScope.launchIO {
+            try {
+                val croppedBitmap = requireCurrentSelectionBitmap(
+                    rect = rect,
+                    failureLogMessage = "Selected reader region unavailable for OCR",
+                    failureMessageRes = MR.strings.warn_ocr_image_decode,
+                ) ?: return@launchIO
+
+                // The ViewModel takes ownership of the bitmap for OCR processing.
+                viewModel.processOcrRegion(croppedBitmap)
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Failed to capture selected reader region for OCR" }
+                withUIContext {
+                    exitOcrMode()
+                    toast(MR.strings.error_ocr_image_fail)
+                }
+            }
+        }
+    }
+
+    private suspend fun requireCurrentSelectionBitmap(
+        rect: android.graphics.RectF,
+        failureLogMessage: String,
+        failureMessageRes: StringResource,
+    ): Bitmap? {
+        val croppedBitmap = cropCurrentSelectionBitmap(rect)
+        if (croppedBitmap != null) {
+            return croppedBitmap
+        }
+
+        logcat(LogPriority.WARN) { failureLogMessage }
+        withUIContext {
+            exitOcrMode()
+            toast(failureMessageRes)
+        }
+        return null
+    }
+
+    private suspend fun cropCurrentSelectionBitmap(
+        rect: android.graphics.RectF,
+    ): Bitmap? {
+        val captures = resolveSelectionCaptures(rect)
+        val manga = viewModel.manga ?: throw IllegalStateException("Manga unavailable")
+        return selectionBitmapCropper.cropSelectionBitmap(manga, captures)
+    }
+
+    private suspend fun resolveSelectionCaptures(
+        rect: android.graphics.RectF,
+    ): List<ReaderSelectionCapture> {
+        val screenRect = dialogRootRectToScreenRect(rect)
+        val captures = withUIContext {
+            val resolvedCaptures = viewModel.state.value.viewer?.resolveSelectionCaptures(
+                ReaderSelectionRegion(screenRect = screenRect),
+            )
+            if (!resolvedCaptures.isNullOrEmpty()) {
+                exitOcrMode()
+            }
+            resolvedCaptures
+        }
+            .orEmpty()
+            .takeIf { it.isNotEmpty() }
+            ?: throw IllegalStateException("Failed to resolve current page region")
+
+        logcat(LogPriority.DEBUG) {
+            "Selection resolved ${captures.size} capture(s) for screenRect=" +
+                "${screenRect.left},${screenRect.top},${screenRect.right},${screenRect.bottom}"
+        }
+        return captures
+    }
+
+    fun showOcrResult(selection: ReaderOcrRegionSelection) {
+        if (!shouldHandleCachedOcrRegionTaps()) {
+            return
+        }
+
+        if (shouldOpenCachedOcrResultInPopup()) {
+            if (!openCachedOcrOverlaySession(selection)) {
+                return
+            }
+        } else {
+            clearActiveOcrOverlaySession()
+        }
+
+        viewModel.showOcrResult(
+            queryText = selection.queryText,
+            origin = ReaderViewModel.OcrResultOrigin.CachedPageTap,
+            initialSearchText = searchTextForOffset(selection.queryText, selection.initialSelectionOffset),
+        )
+    }
+
+    private fun shouldOpenCachedOcrResultInPopup(): Boolean {
+        return dictionaryPreferences.ocrResultPresentation().get() == OcrResultPresentation.POPUP
+    }
+
+    private fun openCachedOcrOverlaySession(selection: ReaderOcrRegionSelection): Boolean {
+        val anchorRect = selection.anchorRectOnScreen?.let(::screenRectToDialogRootRect) ?: return false
+        if (activeOcrOverlaySession?.matches(selection) == true) {
+            dismissActiveOcrOverlaySession()
+            return false
+        }
+
+        activeOcrOverlaySession = ActiveOcrOverlaySession(
+            selection = selection,
+            anchorRectInDialogRoot = anchorRect,
+        )
+        return syncActiveOcrOverlay()
+    }
+
+    fun shouldHandleCachedOcrRegionTaps(): Boolean {
+        return true
+    }
+
+    fun hasActiveOcrOverlaySession(): Boolean {
+        return activeOcrOverlaySession != null
+    }
+
+    fun searchActiveOcrOverlay(offset: Int) {
+        val session = activeOcrOverlaySession ?: return
+        val text = session.selection.queryText
+        activeOcrOverlaySession = session.copy(highlightRange = null)
+        syncActiveOcrOverlay()
+        dictionarySearchScreenModel.updateQuery(text)
+        dictionarySearchScreenModel.search(searchTextForOffset(text, offset))
+    }
+
+    fun syncActiveOcrOverlay(): Boolean {
+        val overlay = activeOcrOverlaySession?.overlay
+        val applied = viewModel.state.value.viewer?.setActiveOcrOverlay(overlay) ?: (overlay == null)
+        if (overlay != null && !applied) {
+            dismissActiveOcrOverlaySession()
+        }
+        return applied
+    }
+
+    fun dismissActiveOcrOverlaySession() {
+        clearActiveOcrOverlaySession()
+        if (viewModel.state.value.dialog is ReaderViewModel.Dialog.OcrResult) {
+            viewModel.closeDialog()
+        }
+    }
+
+    private fun clearActiveOcrOverlaySession() {
+        activeOcrOverlaySession = null
+        viewModel.state.value.viewer?.setActiveOcrOverlay(null)
+    }
+
+    private fun updateActiveOcrOverlayHighlight(highlightRange: Pair<Int, Int>?) {
+        val session = activeOcrOverlaySession ?: return
+        if (session.highlightRange == highlightRange) return
+        activeOcrOverlaySession = session.copy(highlightRange = highlightRange)
+        syncActiveOcrOverlay()
     }
 
     /**
@@ -956,7 +1225,18 @@ class ReaderActivity : BaseActivity() {
      * Temporarily applies fullscreen insets to prevent layout shift in non-fullscreen mode.
      */
     fun enterOcrMode() {
+        selectionAction = SelectionAction.ProcessOcr
+        enterSelectionMode()
+    }
+
+    private fun enterImageExportSelectionMode(terms: List<DictionaryTerm>) {
+        selectionAction = SelectionAction.ExportImageToAnki(terms)
+        enterSelectionMode()
+    }
+
+    private fun enterSelectionMode() {
         resetOcrDrag()
+        dismissActiveOcrOverlaySession()
         if (!readerPreferences.fullscreen().get()) {
             WindowCompat.setDecorFitsSystemWindows(window, false)
             updateViewerInset(fullscreen = true)
@@ -984,6 +1264,7 @@ class ReaderActivity : BaseActivity() {
      */
     fun exitOcrMode() {
         resetOcrDrag()
+        selectionAction = SelectionAction.ProcessOcr
         viewModel.exitOcrMode()
         if (!readerPreferences.fullscreen().get()) {
             WindowCompat.setDecorFitsSystemWindows(window, true)

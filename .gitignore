@@ -1,7 +1,9 @@
 # Build files
 .gradle
+.gradle-cache/
 .kotlin
 build
+.android-adb/
 
 # IDE files
 *.iml
@@ -19,6 +21,7 @@ local.properties
 decoder.tflite
 encoder.tflite
 embeddings.bin  
+data/src/main/assets/panel_detector/model.tflite
 
 # Native/C++ build artifacts
 **/.cxx/

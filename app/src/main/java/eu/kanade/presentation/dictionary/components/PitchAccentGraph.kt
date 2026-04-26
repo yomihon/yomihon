@@ -39,10 +39,11 @@ import mihon.domain.dictionary.model.DictionaryTermMeta
 internal fun PitchAccentSection(
     termMeta: List<DictionaryTermMeta>,
     dictionaries: List<Dictionary>,
+    termReading: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    val pitchData = remember(termMeta) {
-        PitchAccentFormatter.parsePitchAccents(termMeta)
+    val pitchData = remember(termMeta, termReading) {
+        PitchAccentFormatter.parsePitchAccents(termMeta, termReading)
     }
 
     if (pitchData.isEmpty()) return
@@ -68,9 +69,10 @@ internal fun PitchAccentSection(
 internal fun getPitchAccentDictionaryNames(
     termMeta: List<DictionaryTermMeta>,
     dictionaries: List<Dictionary>,
+    termReading: String? = null,
 ): List<String> {
-    val pitchData = remember(termMeta) {
-        PitchAccentFormatter.parsePitchAccents(termMeta)
+    val pitchData = remember(termMeta, termReading) {
+        PitchAccentFormatter.parsePitchAccents(termMeta, termReading)
     }
 
     return remember(pitchData, dictionaries) {

@@ -96,7 +96,7 @@ internal fun PreferenceItem(
                     },
                     modifier = Modifier.padding(
                         horizontal = PrefsHorizontalPadding,
-                        vertical = PrefsVerticalPadding,
+                        vertical = 8.dp,
                     ),
                 )
             }

@@ -26,20 +26,42 @@ import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.domain.track.interactor.RefreshTracks
 import eu.kanade.domain.track.interactor.SyncChapterProgressWithTrack
 import eu.kanade.domain.track.interactor.TrackChapter
+import eu.kanade.tachiyomi.data.dictionary.audio.DictionaryAudioPlayerImpl
+import eu.kanade.tachiyomi.data.dictionary.audio.DictionaryAudioRepositoryImpl
+import eu.kanade.tachiyomi.data.ocr.OcrChapterScanner
+import eu.kanade.tachiyomi.data.ocr.OcrPageSourceGateway
+import eu.kanade.tachiyomi.data.ocr.OcrPageSourceGatewayImpl
+import eu.kanade.tachiyomi.data.ocr.OcrPageSourceResolver
+import eu.kanade.tachiyomi.data.ocr.OcrQueueActions
+import eu.kanade.tachiyomi.data.ocr.OcrScanManager
+import eu.kanade.tachiyomi.data.ocr.OcrScanNotifier
+import eu.kanade.tachiyomi.data.ocr.OcrScanStore
+import eu.kanade.tachiyomi.ui.reader.ReaderSelectionCropper
 import mihon.data.ankidroid.AnkiDroidRepositoryImpl
 import mihon.data.dictionary.DictionaryParserImpl
 import mihon.data.dictionary.DictionaryRepositoryImpl
+import mihon.data.dictionary.DictionarySearchGatewayImpl
+import mihon.data.dictionary.HoshiDictionaryStore
+import mihon.data.dictionary.LegacyDictionaryArchiveBuilder
 import mihon.data.ocr.OcrRepositoryImpl
+import mihon.data.panel.PanelDetectionRepositoryImpl
 import mihon.data.repository.ExtensionRepoRepositoryImpl
 import mihon.domain.ankidroid.interactor.AddDictionaryCard
 import mihon.domain.ankidroid.interactor.FindExistingAnkiNotes
 import mihon.domain.ankidroid.repository.AnkiDroidRepository
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
+import mihon.domain.dictionary.audio.DictionaryAudioPlayer
+import mihon.domain.dictionary.audio.DictionaryAudioRepository
 import mihon.domain.dictionary.interactor.DictionaryInteractor
-import mihon.domain.dictionary.interactor.ImportDictionary
 import mihon.domain.dictionary.interactor.SearchDictionaryTerms
+import mihon.domain.dictionary.repository.DictionaryLegacyRepository
+import mihon.domain.dictionary.repository.DictionaryMigrationStatusRepository
 import mihon.domain.dictionary.repository.DictionaryRepository
+import mihon.domain.dictionary.service.DictionaryArchiveBuilder
 import mihon.domain.dictionary.service.DictionaryParser
+import mihon.domain.dictionary.service.DictionarySearchBackend
+import mihon.domain.dictionary.service.DictionarySearchGateway
+import mihon.domain.dictionary.service.DictionaryStorageGateway
 import mihon.domain.extensionrepo.interactor.CreateExtensionRepo
 import mihon.domain.extensionrepo.interactor.DeleteExtensionRepo
 import mihon.domain.extensionrepo.interactor.GetExtensionRepo
@@ -49,14 +71,24 @@ import mihon.domain.extensionrepo.interactor.UpdateExtensionRepo
 import mihon.domain.extensionrepo.repository.ExtensionRepoRepository
 import mihon.domain.extensionrepo.service.ExtensionRepoService
 import mihon.domain.migration.usecases.MigrateMangaUseCase
+import mihon.domain.ocr.interactor.ClearCachedChapterOcr
+import mihon.domain.ocr.interactor.ClearOcrCache
+import mihon.domain.ocr.interactor.GetCachedChapterIdsOcr
+import mihon.domain.ocr.interactor.GetCachedPageOcr
+import mihon.domain.ocr.interactor.GetOcrCacheSize
 import mihon.domain.ocr.interactor.OcrProcessor
+import mihon.domain.ocr.interactor.ScanPageOcr
+import mihon.domain.ocr.interactor.WithOcrScanSession
 import mihon.domain.ocr.repository.OcrRepository
+import mihon.domain.panel.interactor.DetectPanels
+import mihon.domain.panel.repository.PanelDetectionRepository
 import mihon.domain.upcoming.interactor.GetUpcomingManga
 import tachiyomi.data.category.CategoryRepositoryImpl
 import tachiyomi.data.chapter.ChapterRepositoryImpl
 import tachiyomi.data.history.HistoryRepositoryImpl
 import tachiyomi.data.manga.MangaRepositoryImpl
 import tachiyomi.data.release.ReleaseServiceImpl
+import tachiyomi.data.source.SavedSearchRepositoryImpl
 import tachiyomi.data.source.SourceRepositoryImpl
 import tachiyomi.data.source.StubSourceRepositoryImpl
 import tachiyomi.data.track.TrackRepositoryImpl
@@ -100,8 +132,13 @@ import tachiyomi.domain.manga.interactor.UpdateMangaNotes
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.release.interactor.GetApplicationRelease
 import tachiyomi.domain.release.service.ReleaseService
+import tachiyomi.domain.source.interactor.DeleteSavedSearchById
 import tachiyomi.domain.source.interactor.GetRemoteManga
+import tachiyomi.domain.source.interactor.GetSavedSearchById
+import tachiyomi.domain.source.interactor.GetSavedSearchBySourceId
 import tachiyomi.domain.source.interactor.GetSourcesWithNonLibraryManga
+import tachiyomi.domain.source.interactor.InsertSavedSearch
+import tachiyomi.domain.source.repository.SavedSearchRepository
 import tachiyomi.domain.source.repository.SourceRepository
 import tachiyomi.domain.source.repository.StubSourceRepository
 import tachiyomi.domain.track.interactor.DeleteTrack
@@ -198,9 +235,14 @@ class DomainModule : InjektModule {
 
         addSingletonFactory<SourceRepository> { SourceRepositoryImpl(get(), get()) }
         addSingletonFactory<StubSourceRepository> { StubSourceRepositoryImpl(get()) }
+        addSingletonFactory<SavedSearchRepository> { SavedSearchRepositoryImpl(get()) }
         addFactory { GetEnabledSources(get(), get()) }
         addFactory { GetLanguagesWithSources(get(), get()) }
         addFactory { GetRemoteManga(get()) }
+        addFactory { GetSavedSearchById(get()) }
+        addFactory { GetSavedSearchBySourceId(get()) }
+        addFactory { InsertSavedSearch(get()) }
+        addFactory { DeleteSavedSearchById(get()) }
         addFactory { GetSourcesWithFavoriteCount(get(), get()) }
         addFactory { GetSourcesWithNonLibraryManga(get()) }
         addFactory { SetMigrateSorting(get()) }
@@ -220,11 +262,22 @@ class DomainModule : InjektModule {
         addFactory { ToggleIncognito(get()) }
         addFactory { GetIncognitoState(get(), get(), get()) }
 
-        addSingletonFactory<DictionaryRepository> { DictionaryRepositoryImpl(get()) }
+        addSingletonFactory { DictionaryRepositoryImpl(get()) }
+        addSingletonFactory<DictionaryRepository> { get<DictionaryRepositoryImpl>() }
+        addSingletonFactory<DictionaryLegacyRepository> { get<DictionaryRepositoryImpl>() }
+        addSingletonFactory<DictionaryMigrationStatusRepository> { get<DictionaryRepositoryImpl>() }
         addSingletonFactory<DictionaryParser> { DictionaryParserImpl() }
+        addSingletonFactory { HoshiDictionaryStore(get<Application>(), get(), get()) }
+        addSingletonFactory<DictionarySearchBackend> { get<HoshiDictionaryStore>() }
+        addSingletonFactory<DictionaryStorageGateway> { get<HoshiDictionaryStore>() }
+        addSingletonFactory { DictionarySearchGatewayImpl(get(), get()) }
+        addSingletonFactory<DictionarySearchGateway> { get<DictionarySearchGatewayImpl>() }
+        addSingletonFactory { LegacyDictionaryArchiveBuilder(get(), get()) }
+        addSingletonFactory<DictionaryArchiveBuilder> { get<LegacyDictionaryArchiveBuilder>() }
         addFactory { DictionaryInteractor(get()) }
-        addFactory { SearchDictionaryTerms(get()) }
-        addFactory { ImportDictionary(get()) }
+        addFactory { SearchDictionaryTerms(get(), get()) }
+        addSingletonFactory<DictionaryAudioRepository> { DictionaryAudioRepositoryImpl(get<Application>(), get()) }
+        addSingletonFactory<DictionaryAudioPlayer> { DictionaryAudioPlayerImpl() }
 
         addSingletonFactory { AnkiDroidPreferences(get()) }
         addSingletonFactory<AnkiDroidRepository> { AnkiDroidRepositoryImpl(get<Application>(), get()) }
@@ -236,6 +289,28 @@ class DomainModule : InjektModule {
                 context = get<Application>(),
             )
         }
+        addSingletonFactory { OcrScanStore(get<Application>(), get()) }
+        addSingletonFactory<OcrPageSourceGateway> { OcrPageSourceGatewayImpl(get<Application>(), get(), get()) }
+        addSingletonFactory { OcrPageSourceResolver(get(), get(), get()) }
+        addSingletonFactory { ReaderSelectionCropper(get()) }
+        addSingletonFactory { OcrScanNotifier(get<Application>()) }
+        addSingletonFactory { OcrChapterScanner(get<Application>(), get(), get(), get(), get(), get(), get(), get()) }
+        addSingletonFactory { OcrScanManager(get<Application>(), get(), get(), get()) }
+        addFactory { OcrQueueActions(get(), get()) }
         addFactory { OcrProcessor(get()) }
+        addFactory { WithOcrScanSession(get()) }
+        addFactory { ScanPageOcr(get()) }
+        addFactory { GetCachedChapterIdsOcr(get()) }
+        addFactory { GetCachedPageOcr(get()) }
+        addFactory { ClearCachedChapterOcr(get()) }
+        addFactory { ClearOcrCache(get()) }
+        addFactory { GetOcrCacheSize(get()) }
+
+        addSingletonFactory<PanelDetectionRepository> {
+            PanelDetectionRepositoryImpl(
+                context = get<Application>(),
+            )
+        }
+        addFactory { DetectPanels(get()) }
     }
 }

@@ -37,21 +37,35 @@ object FrequencyFormatter {
     /**
      * Parse frequency data from term meta entries.
      */
-    private fun parseFrequencies(termMetaList: List<DictionaryTermMeta>): List<FrequencyData> {
+    fun parseFrequencies(
+        termMetaList: List<DictionaryTermMeta>,
+        reading: String? = null,
+    ): List<FrequencyData> {
         val frequencies = termMetaList
             .filter { it.mode == TermMetaMode.FREQUENCY }
             .mapNotNull { parseFrequency(it) }
 
+        val targetReading = reading?.takeIf { it.isNotBlank() }
+        val filtered = if (targetReading != null) {
+            val byReading = frequencies.filter { it.reading.isBlank() || it.reading == targetReading }
+            byReading.ifEmpty { frequencies }
+        } else {
+            frequencies
+        }
+
         // Return all frequencies sorted by numeric value (lowest first)
-        return frequencies.sortedBy { it.numericFrequency ?: Int.MAX_VALUE }
+        return filtered.sortedBy { it.numericFrequency ?: Int.MAX_VALUE }
     }
 
     /**
      * Parse and group frequency data by dictionary.
      * Frequencies from the same dictionary are combined with "|" separator.
      */
-    fun parseGroupedFrequencies(termMetaList: List<DictionaryTermMeta>): List<GroupedFrequencyData> {
-        val frequencies = parseFrequencies(termMetaList)
+    fun parseGroupedFrequencies(
+        termMetaList: List<DictionaryTermMeta>,
+        reading: String? = null,
+    ): List<GroupedFrequencyData> {
+        val frequencies = parseFrequencies(termMetaList, reading)
 
         // Group by dictionary ID and combine frequencies
         return frequencies

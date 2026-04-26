@@ -93,19 +93,26 @@ private fun StringBuilder.appendRubyInline(node: GlossaryNode.Element) {
 }
 
 private fun StringBuilder.appendLinkInline(node: GlossaryNode.Element) {
-    val linkText = node.children.collectText().ifBlank { node.attributes.properties["href"] ?: "" }
+    val href = node.attributes.properties["href"]
+    val linkText = node.children.collectText().ifBlank { href ?: "" }
+
+    // For dictionary links (?query=...), just show the link text
+    val isDictionaryLink = href?.startsWith("?") == true &&
+        href.contains("query=")
     append(linkText)
-    node.attributes.properties["href"]?.takeIf { it.isNotBlank() }?.let { href ->
-        append(" (")
-        append(href)
-        append(')')
+    if (!isDictionaryLink) {
+        href?.takeIf { it.isNotBlank() }?.let {
+            append(" (")
+            append(it)
+            append(')')
+        }
     }
 }
 
 fun GlossaryNode.hasBlockContent(): Boolean {
     return when (this) {
         is GlossaryNode.Text -> false
-        is GlossaryNode.LineBreak -> true
+        is GlossaryNode.LineBreak -> false
         is GlossaryNode.Element -> when (tag) {
             GlossaryTag.Ruby, GlossaryTag.Link, GlossaryTag.Span, GlossaryTag.Image ->
                 children.any { child -> child.hasBlockContent() }

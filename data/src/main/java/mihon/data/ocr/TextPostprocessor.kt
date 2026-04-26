@@ -105,31 +105,64 @@ class TextPostprocessor {
     fun postprocess(text: String): String {
         if (text.isEmpty()) return text
 
+        val normalizedLines = text
+            .replace("\r\n", "\n")
+            .replace('\r', '\n')
+            .split('\n')
+            .map(::postprocessSingleLine)
+            .dropWhile(String::isEmpty)
+            .dropLastWhile(String::isEmpty)
+
+        return normalizedLines.joinToString(separator = "\n")
+    }
+
+    private fun postprocessSingleLine(text: String): String {
+        if (text.isEmpty()) return text
+
+        val hasJapaneseText = text.any { it.isJapaneseScript() }
+
         stringBuilder.setLength(0)
         stringBuilder.ensureCapacity(text.length)
 
-        // Single pass: remove whitespace, replace ellipsis, convert to full-width
+        // Single pass: normalize whitespace, replace ellipsis, and optionally convert to full-width
         var i = 0
         val len = text.length
+        var previousNonWhitespace: Char? = null
 
         while (i < len) {
             val char = text[i]
 
             if (char.isWhitespace()) {
-                i++
+                var nextIndex = i + 1
+                while (nextIndex < len && text[nextIndex].isWhitespace()) {
+                    nextIndex++
+                }
+
+                val nextNonWhitespace = text.getOrNull(nextIndex)
+                val shouldKeepSpace = previousNonWhitespace != null &&
+                    nextNonWhitespace != null &&
+                    !previousNonWhitespace.isJapaneseScript() &&
+                    !nextNonWhitespace.isJapaneseScript()
+
+                if (shouldKeepSpace && (stringBuilder.isEmpty() || stringBuilder.last() != ' ')) {
+                    stringBuilder.append(' ')
+                }
+
+                i = nextIndex
                 continue
             }
 
             if (char == '…') {
                 stringBuilder.append("...")
+                previousNonWhitespace = char
                 i++
                 continue
             }
 
-            if (char == '.' || char == '・') {
+            if (char.isOcrDotLike()) {
                 var dotCount = 1
                 var laterCharIndex = i + 1
-                while (laterCharIndex < len && (text[laterCharIndex] == '.' || text[laterCharIndex] == '・')) {
+                while (laterCharIndex < len && text[laterCharIndex].isOcrDotLike()) {
                     dotCount++
                     laterCharIndex++
                 }
@@ -137,22 +170,74 @@ class TextPostprocessor {
                 if (dotCount >= 2) {
                     // Replace with periods
                     repeat(dotCount) { stringBuilder.append('.') }
+                    previousNonWhitespace = text[laterCharIndex - 1]
                     i = laterCharIndex
                     continue
                 }
             }
 
-            // Convert half-width to full-width
-            val code = char.code
-            if (code < HALF_TO_FULL_TABLE.size) {
-                stringBuilder.append(HALF_TO_FULL_TABLE[code])
+            if (char.isOcrExclamationLike() || char.isOcrQuestionLike()) {
+                var punctuationCount = 1
+                var laterCharIndex = i + 1
+                while (
+                    laterCharIndex < len &&
+                    (text[laterCharIndex].isOcrExclamationLike() || text[laterCharIndex].isOcrQuestionLike())
+                ) {
+                    punctuationCount++
+                    laterCharIndex++
+                }
+
+                if (punctuationCount >= 2) {
+                    for (index in i until laterCharIndex) {
+                        stringBuilder.append(
+                            when {
+                                text[index].isOcrExclamationLike() -> '!'
+                                else -> '?'
+                            },
+                        )
+                    }
+                    previousNonWhitespace = text[laterCharIndex - 1]
+                    i = laterCharIndex
+                    continue
+                }
+            }
+
+            if (hasJapaneseText) {
+                // Convert half-width to full-width only when the sentence contains Japanese text.
+                val code = char.code
+                if (code < HALF_TO_FULL_TABLE.size) {
+                    stringBuilder.append(HALF_TO_FULL_TABLE[code])
+                } else {
+                    stringBuilder.append(char)
+                }
             } else {
                 stringBuilder.append(char)
             }
+            previousNonWhitespace = char
 
             i++
         }
 
         return stringBuilder.toString()
+    }
+
+    private fun Char.isJapaneseScript(): Boolean {
+        val codePoint = code
+        return codePoint in 0x3040..0x30FF || // Hiragana + Katakana
+            codePoint in 0x4E00..0x9FFF || // CJK Unified Ideographs (common kanji)
+            codePoint in 0x3400..0x4DBF || // CJK Extension A
+            codePoint in 0xF900..0xFAFF // CJK Compatibility Ideographs
+    }
+
+    private fun Char.isOcrDotLike(): Boolean {
+        return this == '.' || this == '．' || this == '・' || this == '･'
+    }
+
+    private fun Char.isOcrExclamationLike(): Boolean {
+        return this == '!' || this == '！'
+    }
+
+    private fun Char.isOcrQuestionLike(): Boolean {
+        return this == '?' || this == '？'
     }
 }
