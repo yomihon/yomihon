@@ -9,9 +9,13 @@ Discover and read manga, webtoons, comics, and more – easier than ever on your
 
 [![Discord server](https://img.shields.io/discord/1464063546257182876.svg?label=&labelColor=6A7EC2&color=7389D8&logo=discord&logoColor=FFFFFF)](https://discord.com/invite/TXvTZdBuQa)
 [![GitHub downloads](https://img.shields.io/github/downloads/yomihon/yomihon/total?label=downloads&labelColor=27303D&color=0D1117&logo=github&logoColor=FFFFFF&style=flat)](https://yomihon.github.io/download)
+[![Website](https://img.shields.io/badge/website-yomihon.github.io-blue?labelColor=27303D&color=0877d2&logo=googlechrome&logoColor=FFFFFF)](https://yomihon.github.io)
 
 [![CI](https://img.shields.io/github/actions/workflow/status/yomihon/yomihon/build.yml?labelColor=27303D)](https://github.com/yomihon/yomihon/actions/workflows/build_push.yml)
 [![License: Apache-2.0](https://img.shields.io/github/license/mihonapp/mihon?labelColor=27303D&color=0877d2)](/LICENSE)
+
+![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white&labelColor=7F52FF)
+![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white&labelColor=3DDC84&color=2ea86e)
 <!--
 [![Translation status](https://img.shields.io/weblate/progress/mihon?labelColor=27303D&color=946300)](https://hosted.weblate.org/engage/mihon/)
 -->
