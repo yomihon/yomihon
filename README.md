@@ -12,12 +12,10 @@ Discover and read manga, webtoons, comics, and more – easier than ever on your
 [![Website](https://img.shields.io/badge/website-yomihon.github.io-blue?labelColor=27303D&color=0877d2&logo=googlechrome&logoColor=FFFFFF)](https://yomihon.github.io)
 
 [![CI](https://img.shields.io/github/actions/workflow/status/yomihon/yomihon/build.yml?labelColor=27303D)](https://github.com/yomihon/yomihon/actions/workflows/build_push.yml)
-[![License: Apache-2.0](https://img.shields.io/github/license/mihonapp/mihon?labelColor=27303D&color=0877d2)](/LICENSE)
-
-![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white&labelColor=7F52FF)
+[![License: Apache-2.0](https://img.shields.io/github/license/yomihon/yomihon?labelColor=27303D&color=0877d2)](./LICENSE)
 ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white&labelColor=3DDC84&color=2ea86e)
 <!--
-[![Translation status](https://img.shields.io/weblate/progress/mihon?labelColor=27303D&color=946300)](https://hosted.weblate.org/engage/mihon/)
+[![Translation status](https://img.shields.io/weblate/progress/yomihon?labelColor=27303D&color=946300)](https://hosted.weblate.org/engage/yomihon/)
 -->
 
 ## Download
@@ -25,7 +23,7 @@ Discover and read manga, webtoons, comics, and more – easier than ever on your
 
 [![Yomihon Stable](https://img.shields.io/github/release/yomihon/yomihon.svg?maxAge=3600&label=Stable&labelColor=06599d&color=043b69)](https://yomihon.github.io/download)
 <!--
-[![Mihon Beta](https://img.shields.io/github/v/release/mihonapp/mihon-preview.svg?maxAge=3600&label=Beta&labelColor=2c2c47&color=1c1c39)](https://mihon.app/download)
+[![Yomihon Beta](https://img.shields.io/github/v/release/yomihon/yomihon.svg?maxAge=3600&label=Beta&labelColor=2c2c47&color=1c1c39)](https://yomihon.github.io/download)
 -->
 
 *Requires Android 8.0 or higher.*
