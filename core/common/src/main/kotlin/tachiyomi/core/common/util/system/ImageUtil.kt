@@ -162,33 +162,19 @@ object ImageUtil {
      * Approximates reader crop bounds for aligning OCR coords on cropped images
      */
     fun detectBorderCrop(imageSource: BufferedSource): Rect? {
-        val decoder = ImageDecoder.newInstance(imageSource.peek().inputStream()) ?: return null
+        val decoder = ImageDecoder.newInstance(imageSource.peek().inputStream(), cropBorders = true) ?: return null
         return try {
-            val originalWidth = decoder.width
-            val originalHeight = decoder.height
-            if (originalWidth <= 0 || originalHeight <= 0) return null
-
-            var sampleSize = 1
-            val largestDimension = max(originalWidth, originalHeight)
-            while (largestDimension / sampleSize > 512) {
-                sampleSize *= 2
-            }
-            val sampled = decoder.decode(sampleSize = sampleSize) ?: return null
-
-            try {
-                val sampledBounds = detectBorderCrop(sampled)
+            if (decoder.cropX > 0 || decoder.cropY > 0 ||
+                decoder.width < decoder.originalWidth || decoder.height < decoder.originalHeight
+            ) {
                 Rect(
-                    sampledBounds.left * sampleSize,
-                    sampledBounds.top * sampleSize,
-                    min(originalWidth, sampledBounds.right * sampleSize),
-                    min(originalHeight, sampledBounds.bottom * sampleSize),
-                ).takeIf {
-                    it.left > 0 || it.top > 0 || it.right < originalWidth || it.bottom < originalHeight
-                }
-            } finally {
-                if (!sampled.isRecycled) {
-                    sampled.recycle()
-                }
+                    decoder.cropX,
+                    decoder.cropY,
+                    decoder.cropX + decoder.width,
+                    decoder.cropY + decoder.height
+                )
+            } else {
+                null
             }
         } finally {
             decoder.recycle()
