@@ -232,7 +232,7 @@ class OcrRepositoryImpl(
                         modelKey = selectedModel,
                         type = EngineType.FAST,
                     )
-                    OcrModel.OWOCR -> scanWithOwOcr(
+                    OcrModel.OWOCR -> scanOwOcrOrFallback(
                         chapterId = chapterId,
                         pageIndex = pageIndex,
                         image = bitmap,
@@ -350,6 +350,35 @@ class OcrRepositoryImpl(
             imageHeight = image.height,
             regions = result.regions,
         )
+    }
+
+    private suspend fun scanOwOcrOrFallback(
+        chapterId: Long,
+        pageIndex: Int,
+        image: Bitmap,
+        modelKey: OcrModel,
+    ): OcrPageResult {
+        return try {
+            scanWithOwOcr(
+                chapterId = chapterId,
+                pageIndex = pageIndex,
+                image = image,
+                modelKey = modelKey,
+            )
+        } catch (e: OcrException.DetectionUnavailable) {
+            if (!useFallbackModelsPref.get()) {
+                throw e
+            }
+            logcat(LogPriority.WARN, e) {
+                "OWOCR page scanning lacks layout or coordinates. Redirecting to glens."
+            }
+            scanWithGlens(
+                chapterId = chapterId,
+                pageIndex = pageIndex,
+                image = image,
+                modelKey = modelKey,
+            )
+        }
     }
 
     private suspend fun scanWithOwOcr(
