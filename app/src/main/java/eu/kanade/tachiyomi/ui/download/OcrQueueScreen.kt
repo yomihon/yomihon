@@ -43,6 +43,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.more.settings.widget.EditTextPreferenceWidget
+import eu.kanade.presentation.more.settings.widget.InfoWidget
 import eu.kanade.presentation.more.settings.widget.ListPreferenceWidget
 import eu.kanade.presentation.more.settings.widget.PreferenceGroupHeader
 import eu.kanade.presentation.more.settings.widget.SwitchPreferenceWidget
@@ -211,6 +212,7 @@ object OcrQueueScreen : Screen() {
                             true
                         },
                     )
+                    InfoWidget(text = stringResource(MR.strings.pref_owocr_address_note))
                 }
                 SwitchPreferenceWidget(
                     checked = autoOcrOnDownload,

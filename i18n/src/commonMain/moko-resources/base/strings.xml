@@ -448,6 +448,7 @@
     <string name="ocr_model_owocr">OwOCR (Self-hosted)</string>
     <string name="pref_owocr_address">OwOCR Server Address</string>
     <string name="pref_owocr_address_summary">WebSocket URL of your self-hosted OwOCR instance</string>
+    <string name="pref_owocr_address_note">You will need to configure your host's IP and make sure OwOCR is running with \"owocr -r websocket -w websocket\" or via the installer package, with read and write to websocket.</string>
     <string name="pref_use_fallback_models">Use fallback models</string>
     <string name="pref_use_fallback_models_summary">Use alternative model when the primary model fails</string>
     <string name="pref_create_folder_per_manga">Save pages into separate folders</string>
