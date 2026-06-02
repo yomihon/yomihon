@@ -11,4 +11,6 @@ class OcrPreferences(
     fun ocrModel() = preferenceStore.getEnum("pref_ocr_model", OcrModel.LEGACY)
 
     fun autoOcrOnDownload() = preferenceStore.getBoolean("auto_ocr_on_download", false)
+
+    fun owocrAddress() = preferenceStore.getString("pref_owocr_address", "ws://10.0.2.2:7331")
 }

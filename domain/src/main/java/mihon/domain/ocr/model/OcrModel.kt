@@ -18,4 +18,9 @@ enum class OcrModel {
      * Online Google Lens OCR model.
      */
     GLENS,
+
+    /**
+     * Self-hosted OwOCR model.
+     */
+    OWOCR,
 }
