@@ -51,6 +51,7 @@ class OcrRepositoryImpl(
     private var legacyEngine: LegacyOcrEngine? = null
     private var fastEngine: FastOcrEngine? = null
     private var glensEngine: GlensOcrEngine? = null
+    private var owOcrEngine: OwOcrEngine? = null
     private var detEngine: DetOcrEngine? = null
 
     private val engineLocks = OcrEngineLocks()
@@ -73,6 +74,7 @@ class OcrRepositoryImpl(
         LEGACY,
         FAST,
         GLENS,
+        OWOCR,
     }
 
     private fun selectedEngineType(): EngineType {
@@ -80,6 +82,7 @@ class OcrRepositoryImpl(
             OcrModel.LEGACY -> EngineType.LEGACY
             OcrModel.FAST -> EngineType.FAST
             OcrModel.GLENS -> EngineType.GLENS
+            OcrModel.OWOCR -> EngineType.OWOCR
         }
     }
 
@@ -104,6 +107,7 @@ class OcrRepositoryImpl(
             EngineType.GLENS -> EngineType.FAST
             EngineType.FAST -> EngineType.GLENS
             EngineType.LEGACY -> EngineType.GLENS
+            EngineType.OWOCR -> EngineType.GLENS
         }
     }
 
@@ -132,6 +136,11 @@ class OcrRepositoryImpl(
             EngineType.GLENS -> {
                 glensEngine ?: GlensOcrEngine().also {
                     glensEngine = it
+                }
+            }
+            EngineType.OWOCR -> {
+                owOcrEngine ?: OwOcrEngine(context).also {
+                    owOcrEngine = it
                 }
             }
         }
@@ -217,6 +226,13 @@ class OcrRepositoryImpl(
                         image = bitmap,
                         modelKey = selectedModel,
                         type = EngineType.FAST,
+                    )
+                    OcrModel.OWOCR -> scanLocalOrFallback(
+                        chapterId = chapterId,
+                        pageIndex = pageIndex,
+                        image = bitmap,
+                        modelKey = selectedModel,
+                        type = EngineType.OWOCR,
                     )
                 }
             }
@@ -479,6 +495,9 @@ class OcrRepositoryImpl(
 
             glensEngine?.close()
             glensEngine = null
+
+            owOcrEngine?.close()
+            owOcrEngine = null
 
             detEngine?.close()
             detEngine = null
