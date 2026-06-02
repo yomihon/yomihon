@@ -73,7 +73,7 @@ internal class OwOcrEngine(context: Context) : OcrEngine {
 
     private val jsonParser = Json { ignoreUnknownKeys = true }
 
-    override suspend fun recognizeText(image: Bitmap): String = withContext(Dispatchers.IO) {
+    private suspend fun queryServer(image: Bitmap): String = withContext(Dispatchers.IO) {
         val address = ocrPreferences.owocrAddress().get().trim()
         if (address.isBlank()) {
             throw IOException("OwOCR address is blank. Please configure it in settings.")
@@ -137,8 +137,38 @@ internal class OwOcrEngine(context: Context) : OcrEngine {
         }
     }
 
+    override suspend fun recognizeText(image: Bitmap): String {
+        val rawResponse = queryServer(image)
+        val trimmed = rawResponse.trim()
+        val isJson = trimmed.startsWith("{") && trimmed.endsWith("}")
+
+        if (isJson) {
+            try {
+                val ocrResult = jsonParser.decodeFromString<OwOcrResult>(trimmed)
+                val textPostprocessor = TextPostprocessor()
+                val combinedText = ocrResult.paragraphs.joinToString("\n\n") { paragraph ->
+                    paragraph.lines.joinToString("\n") { line ->
+                        if (!line.text.isNullOrBlank()) {
+                            line.text
+                        } else {
+                            line.words.joinToString("") { word ->
+                                word.text + (word.separator ?: " ")
+                            }.trim()
+                        }
+                    }
+                }
+                return textPostprocessor.postprocess(combinedText)
+            } catch (e: Exception) {
+                // Fallback to raw response on parse failure
+            }
+        }
+
+        val textPostprocessor = TextPostprocessor()
+        return textPostprocessor.postprocess(rawResponse)
+    }
+
     suspend fun recognizePage(image: Bitmap): List<OcrRegion> {
-        val rawResponse = recognizeText(image)
+        val rawResponse = queryServer(image)
         val trimmed = rawResponse.trim()
         val isJson = trimmed.startsWith("{") && trimmed.endsWith("}")
 
