@@ -171,7 +171,7 @@ object ImageUtil {
                     decoder.cropX,
                     decoder.cropY,
                     decoder.cropX + decoder.width,
-                    decoder.cropY + decoder.height
+                    decoder.cropY + decoder.height,
                 )
             } else {
                 null

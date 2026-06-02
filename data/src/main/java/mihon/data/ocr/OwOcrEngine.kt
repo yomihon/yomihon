@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import mihon.domain.ocr.service.OcrPreferences
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -13,7 +14,6 @@ import okhttp3.WebSocketListener
 import okio.ByteString.Companion.toByteString
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import mihon.domain.ocr.service.OcrPreferences
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.util.concurrent.TimeUnit
