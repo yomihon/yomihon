@@ -35,6 +35,7 @@ class OcrRepositoryImpl(
 ) : OcrRepository {
     private val preferenceStore = AndroidPreferenceStore(context)
     private val ocrModelPref = preferenceStore.getEnum("pref_ocr_model", OcrModel.LEGACY)
+    private val useFallbackModelsPref = preferenceStore.getBoolean("pref_use_fallback_models", true)
 
     private val environmentResult by lazy {
         runCatching { Environment.create() }
@@ -170,6 +171,10 @@ class OcrRepositoryImpl(
         } catch (primaryError: Throwable) {
             if (primaryError is CancellationException) throw primaryError
 
+            if (!useFallbackModelsPref.get()) {
+                throw primaryError
+            }
+
             val fallback = fallbackFor(primary)
             if (fallback == primary) {
                 throw primaryError
@@ -301,6 +306,9 @@ class OcrRepositoryImpl(
                 type = type,
             )
         } catch (e: OcrException.DetectionUnavailable) {
+            if (!useFallbackModelsPref.get()) {
+                throw e
+            }
             logcat(LogPriority.WARN, e) {
                 "OCR scanning redirected to glens because local detection is unavailable"
             }

@@ -81,6 +81,10 @@ object OcrQueueScreen : Screen() {
         val owocrAddress by owocrAddressPreference
             .changes()
             .collectAsState(initial = owocrAddressPreference.get())
+        val useFallbackModelsPreference = remember { ocrPreferences.useFallbackModels() }
+        val useFallbackModels by useFallbackModelsPreference
+            .changes()
+            .collectAsState(initial = useFallbackModelsPreference.get())
 
         val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
         var fabExpanded by remember { mutableStateOf(true) }
@@ -212,6 +216,12 @@ object OcrQueueScreen : Screen() {
                     checked = autoOcrOnDownload,
                     title = stringResource(MR.strings.pref_auto_ocr_on_download),
                     onCheckedChanged = autoOcrOnDownloadPreference::set,
+                )
+                SwitchPreferenceWidget(
+                    checked = useFallbackModels,
+                    title = stringResource(MR.strings.pref_use_fallback_models),
+                    subtitle = stringResource(MR.strings.pref_use_fallback_models_summary),
+                    onCheckedChanged = useFallbackModelsPreference::set,
                 )
 
                 PreferenceGroupHeader(title = stringResource(MR.strings.ocr_queue_header))
