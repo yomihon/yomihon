@@ -9,4 +9,5 @@ val OcrModel.titleRes: StringResource
         OcrModel.LEGACY -> MR.strings.ocr_model_legacy
         OcrModel.FAST -> MR.strings.ocr_model_fast
         OcrModel.GLENS -> MR.strings.ocr_model_glens
+        OcrModel.OWOCR -> MR.strings.ocr_model_owocr
     }

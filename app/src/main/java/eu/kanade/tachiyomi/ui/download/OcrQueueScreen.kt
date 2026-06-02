@@ -42,6 +42,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
+import eu.kanade.presentation.more.settings.widget.EditTextPreferenceWidget
 import eu.kanade.presentation.more.settings.widget.ListPreferenceWidget
 import eu.kanade.presentation.more.settings.widget.PreferenceGroupHeader
 import eu.kanade.presentation.more.settings.widget.SwitchPreferenceWidget
@@ -76,6 +77,10 @@ object OcrQueueScreen : Screen() {
         val autoOcrOnDownload by autoOcrOnDownloadPreference
             .changes()
             .collectAsState(initial = autoOcrOnDownloadPreference.get())
+        val owocrAddressPreference = remember { ocrPreferences.owocrAddress() }
+        val owocrAddress by owocrAddressPreference
+            .changes()
+            .collectAsState(initial = owocrAddressPreference.get())
 
         val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
         var fabExpanded by remember { mutableStateOf(true) }
@@ -187,9 +192,22 @@ object OcrQueueScreen : Screen() {
                         OcrModel.LEGACY to stringResource(OcrModel.LEGACY.titleRes),
                         OcrModel.FAST to stringResource(OcrModel.FAST.titleRes),
                         OcrModel.GLENS to stringResource(OcrModel.GLENS.titleRes),
+                        OcrModel.OWOCR to stringResource(OcrModel.OWOCR.titleRes),
                     ),
                     onValueChange = ocrModelPreference::set,
                 )
+                if (ocrModel == OcrModel.OWOCR) {
+                    EditTextPreferenceWidget(
+                        title = stringResource(MR.strings.pref_owocr_address),
+                        subtitle = stringResource(MR.strings.pref_owocr_address_summary),
+                        icon = null,
+                        value = owocrAddress,
+                        onConfirm = {
+                            owocrAddressPreference.set(it)
+                            true
+                        },
+                    )
+                }
                 SwitchPreferenceWidget(
                     checked = autoOcrOnDownload,
                     title = stringResource(MR.strings.pref_auto_ocr_on_download),
