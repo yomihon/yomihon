@@ -232,12 +232,11 @@ class OcrRepositoryImpl(
                         modelKey = selectedModel,
                         type = EngineType.FAST,
                     )
-                    OcrModel.OWOCR -> scanLocalOrFallback(
+                    OcrModel.OWOCR -> scanWithOwOcr(
                         chapterId = chapterId,
                         pageIndex = pageIndex,
                         image = bitmap,
                         modelKey = selectedModel,
-                        type = EngineType.OWOCR,
                     )
                 }
             }
@@ -350,6 +349,38 @@ class OcrRepositoryImpl(
             imageWidth = image.width,
             imageHeight = image.height,
             regions = result.regions,
+        )
+    }
+
+    private suspend fun scanWithOwOcr(
+        chapterId: Long,
+        pageIndex: Int,
+        image: Bitmap,
+        modelKey: OcrModel,
+    ): OcrPageResult {
+        val result = try {
+            submitTask(PrioritizedTaskQueue.Priority.NORMAL) {
+                engineLocks.withTextEngineLock(EngineType.OWOCR) {
+                    val engine = owOcrEngine ?: OwOcrEngine(context).also {
+                        owOcrEngine = it
+                    }
+                    engine.recognizePage(image)
+                }
+            }
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            if (isConnectivityFailure(error)) {
+                throw OcrException.ConnectionError(error)
+            }
+            throw error
+        }
+        return OcrPageResult(
+            chapterId = chapterId,
+            pageIndex = pageIndex,
+            ocrModel = modelKey,
+            imageWidth = image.width,
+            imageHeight = image.height,
+            regions = result,
         )
     }
 

@@ -5,6 +5,11 @@ import android.graphics.Bitmap
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import mihon.domain.ocr.model.OcrBoundingBox
+import mihon.domain.ocr.model.OcrRegion
+import mihon.domain.ocr.model.OcrTextOrientation
 import mihon.domain.ocr.service.OcrPreferences
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -18,6 +23,42 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
+@Serializable
+internal data class OwOcrBoundingBox(
+    val center_x: Float,
+    val center_y: Float,
+    val width: Float,
+    val height: Float,
+    val rotation_z: Float? = null
+)
+
+@Serializable
+internal data class OwOcrWord(
+    val text: String,
+    val bounding_box: OwOcrBoundingBox,
+    val separator: String? = null
+)
+
+@Serializable
+internal data class OwOcrLine(
+    val bounding_box: OwOcrBoundingBox,
+    val words: List<OwOcrWord> = emptyList(),
+    val text: String? = null,
+    val writing_direction: String? = null
+)
+
+@Serializable
+internal data class OwOcrParagraph(
+    val bounding_box: OwOcrBoundingBox,
+    val lines: List<OwOcrLine> = emptyList(),
+    val writing_direction: String? = null
+)
+
+@Serializable
+internal data class OwOcrResult(
+    val paragraphs: List<OwOcrParagraph> = emptyList()
+)
+
 /**
  * OCR engine that communicates with a self-hosted OwOCR WebSocket endpoint.
  * Sends cropped bitmap images and receives recognized text.
@@ -29,6 +70,8 @@ internal class OwOcrEngine(context: Context) : OcrEngine {
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
+
+    private val jsonParser = Json { ignoreUnknownKeys = true }
 
     override suspend fun recognizeText(image: Bitmap): String = withContext(Dispatchers.IO) {
         val address = ocrPreferences.owocrAddress().get().trim()
@@ -92,6 +135,72 @@ internal class OwOcrEngine(context: Context) : OcrEngine {
             webSocket.cancel()
             throw t
         }
+    }
+
+    suspend fun recognizePage(image: Bitmap): List<OcrRegion> {
+        val rawResponse = recognizeText(image)
+        val trimmed = rawResponse.trim()
+        val isJson = trimmed.startsWith("{") && trimmed.endsWith("}")
+
+        if (isJson) {
+            try {
+                val ocrResult = jsonParser.decodeFromString<OwOcrResult>(trimmed)
+                val textPostprocessor = TextPostprocessor()
+                val regions = ocrResult.paragraphs.mapIndexedNotNull { index, paragraph ->
+                    val textBuilder = StringBuilder()
+                    paragraph.lines.forEachIndexed { lineIdx, line ->
+                        if (lineIdx > 0) textBuilder.append("\n")
+                        if (!line.text.isNullOrBlank()) {
+                            textBuilder.append(line.text)
+                        } else {
+                            line.words.forEach { word ->
+                                textBuilder.append(word.text)
+                                textBuilder.append(word.separator ?: " ")
+                            }
+                        }
+                    }
+                    val paragraphText = textBuilder.toString().trim()
+                    if (paragraphText.isBlank()) return@mapIndexedNotNull null
+
+                    val bbox = paragraph.bounding_box
+                    val left = (bbox.center_x - bbox.width / 2f).coerceIn(0f, 1f)
+                    val top = (bbox.center_y - bbox.height / 2f).coerceIn(0f, 1f)
+                    val right = (bbox.center_x + bbox.width / 2f).coerceIn(0f, 1f)
+                    val bottom = (bbox.center_y + bbox.height / 2f).coerceIn(0f, 1f)
+
+                    val boundingBox = OcrBoundingBox(left = left, top = top, right = right, bottom = bottom)
+                    if (!boundingBox.isValid()) return@mapIndexedNotNull null
+
+                    val isVertical = paragraph.writing_direction == "TOP_TO_BOTTOM" ||
+                        paragraph.lines.any { it.writing_direction == "TOP_TO_BOTTOM" }
+
+                    val orientation = if (isVertical) OcrTextOrientation.Vertical else OcrTextOrientation.Horizontal
+
+                    OcrRegion(
+                        order = index,
+                        text = textPostprocessor.postprocess(paragraphText),
+                        boundingBox = boundingBox,
+                        textOrientation = orientation
+                    )
+                }
+                if (regions.isNotEmpty()) {
+                    return regions
+                }
+            } catch (e: Exception) {
+                // Fallback to plain text treatment on parsing error
+            }
+        }
+
+        // Return a single region representing the whole page
+        val textPostprocessor = TextPostprocessor()
+        return listOf(
+            OcrRegion(
+                order = 0,
+                text = textPostprocessor.postprocess(rawResponse),
+                boundingBox = OcrBoundingBox(0f, 0f, 1f, 1f),
+                textOrientation = OcrTextOrientation.Horizontal
+            )
+        )
     }
 
     override fun close() {
