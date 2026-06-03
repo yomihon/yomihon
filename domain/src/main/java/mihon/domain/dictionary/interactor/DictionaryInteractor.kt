@@ -73,6 +73,18 @@ class DictionaryInteractor(
     }
 
     /**
+     * Auto-sorts all dictionaries using the recommended order from [DictionaryAutoSorter].
+     * Updates each dictionary's priority in the database.
+     */
+    suspend fun autoSortDictionaries() {
+        val dictionaries = dictionaryRepository.getAllDictionaries()
+        val sorted = DictionaryAutoSorter.sort(dictionaries)
+        for (dictionary in sorted) {
+            dictionaryRepository.updateDictionary(dictionary)
+        }
+    }
+
+    /**
      * Checks if a dictionary with the same title and revision already exists.
      */
     suspend fun isDictionaryAlreadyImported(title: String, revision: String): Boolean {
