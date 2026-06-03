@@ -140,93 +140,80 @@ internal class OwOcrEngine(context: Context) : OcrEngine {
 
     override suspend fun recognizeText(image: Bitmap): String {
         val rawResponse = queryServer(image)
-        val trimmed = rawResponse.trim()
-        val isJson = trimmed.startsWith("{") && trimmed.endsWith("}")
+        val trimmed = rawResponse.removePrefix("\uFEFF").trim()
 
-        if (isJson) {
-            try {
-                val ocrResult = jsonParser.decodeFromString<OwOcrResult>(trimmed)
-                val textPostprocessor = TextPostprocessor()
-                val combinedText = ocrResult.paragraphs.joinToString("\n\n") { paragraph ->
-                    paragraph.lines.joinToString("\n") { line ->
-                        if (!line.text.isNullOrBlank()) {
-                            line.text
-                        } else {
-                            line.words.joinToString("") { word ->
-                                word.text + (word.separator ?: " ")
-                            }.trim()
-                        }
+        try {
+            val ocrResult = jsonParser.decodeFromString<OwOcrResult>(trimmed)
+            val textPostprocessor = TextPostprocessor()
+            val combinedText = ocrResult.paragraphs.joinToString("\n\n") { paragraph ->
+                paragraph.lines.joinToString("\n") { line ->
+                    if (!line.text.isNullOrBlank()) {
+                        line.text
+                    } else {
+                        line.words.joinToString("") { word ->
+                            word.text + (word.separator ?: " ")
+                        }.trim()
                     }
                 }
-                return textPostprocessor.postprocess(combinedText)
-            } catch (e: Exception) {
-                // Fallback to raw response on parse failure
             }
+            return textPostprocessor.postprocess(combinedText)
+        } catch (e: Exception) {
+            // Fallback to raw response on parse failure
+            val textPostprocessor = TextPostprocessor()
+            return textPostprocessor.postprocess(rawResponse)
         }
-
-        val textPostprocessor = TextPostprocessor()
-        return textPostprocessor.postprocess(rawResponse)
     }
 
     suspend fun recognizePage(image: Bitmap): List<OcrRegion> {
         val rawResponse = queryServer(image)
-        val trimmed = rawResponse.trim()
-        val isJson = trimmed.startsWith("{") && trimmed.endsWith("}")
+        val trimmed = rawResponse.removePrefix("\uFEFF").trim()
 
-        if (!isJson) {
-            throw OcrException.DetectionUnavailable()
-        }
-
-        val ocrResult = try {
-            jsonParser.decodeFromString<OwOcrResult>(trimmed)
-        } catch (e: Exception) {
-            throw OcrException.DetectionUnavailable(e)
-        }
-
-        val textPostprocessor = TextPostprocessor()
-        val regions = ocrResult.paragraphs.mapIndexedNotNull { index, paragraph ->
-            val textBuilder = StringBuilder()
-            paragraph.lines.forEachIndexed { lineIdx, line ->
-                if (lineIdx > 0) textBuilder.append("\n")
-                if (!line.text.isNullOrBlank()) {
-                    textBuilder.append(line.text)
-                } else {
-                    line.words.forEach { word ->
-                        textBuilder.append(word.text)
-                        textBuilder.append(word.separator ?: " ")
+        try {
+            val ocrResult = jsonParser.decodeFromString<OwOcrResult>(trimmed)
+            val textPostprocessor = TextPostprocessor()
+            val regions = ocrResult.paragraphs.mapIndexedNotNull { index, paragraph ->
+                val textBuilder = StringBuilder()
+                paragraph.lines.forEachIndexed { lineIdx, line ->
+                    if (lineIdx > 0) textBuilder.append("\n")
+                    if (!line.text.isNullOrBlank()) {
+                        textBuilder.append(line.text)
+                    } else {
+                        line.words.forEach { word ->
+                            textBuilder.append(word.text)
+                            textBuilder.append(word.separator ?: " ")
+                        }
                     }
                 }
+                val paragraphText = textBuilder.toString().trim()
+                if (paragraphText.isBlank()) return@mapIndexedNotNull null
+
+                val bbox = paragraph.bounding_box
+                val left = (bbox.center_x - bbox.width / 2f).coerceIn(0f, 1f)
+                val top = (bbox.center_y - bbox.height / 2f).coerceIn(0f, 1f)
+                val right = (bbox.center_x + bbox.width / 2f).coerceIn(0f, 1f)
+                val bottom = (bbox.center_y + bbox.height / 2f).coerceIn(0f, 1f)
+
+                val boundingBox = OcrBoundingBox(left = left, top = top, right = right, bottom = bottom)
+                if (!boundingBox.isValid()) return@mapIndexedNotNull null
+
+                val isVertical = paragraph.writing_direction == "TOP_TO_BOTTOM" ||
+                    paragraph.lines.any { it.writing_direction == "TOP_TO_BOTTOM" }
+
+                val orientation = if (isVertical) OcrTextOrientation.Vertical else OcrTextOrientation.Horizontal
+
+                OcrRegion(
+                    order = index,
+                    text = textPostprocessor.postprocess(paragraphText),
+                    boundingBox = boundingBox,
+                    textOrientation = orientation,
+                )
             }
-            val paragraphText = textBuilder.toString().trim()
-            if (paragraphText.isBlank()) return@mapIndexedNotNull null
-
-            val bbox = paragraph.bounding_box
-            val left = (bbox.center_x - bbox.width / 2f).coerceIn(0f, 1f)
-            val top = (bbox.center_y - bbox.height / 2f).coerceIn(0f, 1f)
-            val right = (bbox.center_x + bbox.width / 2f).coerceIn(0f, 1f)
-            val bottom = (bbox.center_y + bbox.height / 2f).coerceIn(0f, 1f)
-
-            val boundingBox = OcrBoundingBox(left = left, top = top, right = right, bottom = bottom)
-            if (!boundingBox.isValid()) return@mapIndexedNotNull null
-
-            val isVertical = paragraph.writing_direction == "TOP_TO_BOTTOM" ||
-                paragraph.lines.any { it.writing_direction == "TOP_TO_BOTTOM" }
-
-            val orientation = if (isVertical) OcrTextOrientation.Vertical else OcrTextOrientation.Horizontal
-
-            OcrRegion(
-                order = index,
-                text = textPostprocessor.postprocess(paragraphText),
-                boundingBox = boundingBox,
-                textOrientation = orientation,
+            return regions
+        } catch (e: Exception) {
+            throw OcrException.DetectionUnavailable(
+                IOException("OwOCR server response does not contain coordinates or is not in JSON format", e),
             )
         }
-
-        if (regions.isEmpty()) {
-            throw OcrException.DetectionUnavailable()
-        }
-
-        return regions
     }
 
     override fun close() {

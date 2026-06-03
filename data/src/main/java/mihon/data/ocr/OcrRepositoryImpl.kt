@@ -352,35 +352,6 @@ class OcrRepositoryImpl(
         )
     }
 
-    private suspend fun scanOwOcrOrFallback(
-        chapterId: Long,
-        pageIndex: Int,
-        image: Bitmap,
-        modelKey: OcrModel,
-    ): OcrPageResult {
-        return try {
-            scanWithOwOcr(
-                chapterId = chapterId,
-                pageIndex = pageIndex,
-                image = image,
-                modelKey = modelKey,
-            )
-        } catch (e: OcrException.DetectionUnavailable) {
-            if (!useFallbackModelsPref.get()) {
-                throw e
-            }
-            logcat(LogPriority.WARN, e) {
-                "OWOCR page scanning lacks layout or coordinates. Redirecting to glens."
-            }
-            scanWithGlens(
-                chapterId = chapterId,
-                pageIndex = pageIndex,
-                image = image,
-                modelKey = modelKey,
-            )
-        }
-    }
-
     private suspend fun scanWithOwOcr(
         chapterId: Long,
         pageIndex: Int,
@@ -411,6 +382,36 @@ class OcrRepositoryImpl(
             imageHeight = image.height,
             regions = result,
         )
+    }
+
+    private suspend fun scanOwOcrOrFallback(
+        chapterId: Long,
+        pageIndex: Int,
+        image: Bitmap,
+        modelKey: OcrModel,
+    ): OcrPageResult {
+        return try {
+            scanWithOwOcr(
+                chapterId = chapterId,
+                pageIndex = pageIndex,
+                image = image,
+                modelKey = modelKey,
+            )
+        } catch (e: Throwable) {
+            if (e is CancellationException) throw e
+            if (!useFallbackModelsPref.get()) {
+                throw e
+            }
+            logcat(LogPriority.WARN, e) {
+                "OwOCR scanning failed, falling back to glens"
+            }
+            scanWithGlens(
+                chapterId = chapterId,
+                pageIndex = pageIndex,
+                image = image,
+                modelKey = modelKey,
+            )
+        }
     }
 
     private suspend fun scanLocally(
