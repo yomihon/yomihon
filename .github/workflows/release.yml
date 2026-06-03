@@ -46,8 +46,7 @@ jobs:
             mkdir -p "$(dirname "$LOCAL_PATH")"
             
             echo "Downloading $REMOTE_PATH from $REPO_PATH as $LOCAL_PATH..."
-            curl -L "https://huggingface.co/$REPO_PATH/resolve/main/$REMOTE_PATH?download=true" \
-                 -o "$LOCAL_PATH"
+            curl -L "https://huggingface.co/$REPO_PATH/resolve/main/$REMOTE_PATH" -o "$LOCAL_PATH"
 
             # Verification
             echo "$HASH  $LOCAL_PATH" | sha256sum -c - || { echo "Hash mismatch for $LOCAL_PATH"; exit 1; }

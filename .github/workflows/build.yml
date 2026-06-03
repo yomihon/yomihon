@@ -56,7 +56,7 @@ jobs:
             IFS=":" read -r REPO_PATH REMOTE_PATH LOCAL_PATH HASH <<< "$item"
             mkdir -p "$(dirname "$LOCAL_PATH")"
             echo "Downloading $REMOTE_PATH from $REPO_PATH..."
-            curl -sL "https://huggingface.co/$REPO_PATH/resolve/main/$REMOTE_PATH?download=true" -o "$LOCAL_PATH"
+            curl -sL "https://huggingface.co/$REPO_PATH/resolve/main/$REMOTE_PATH" -o "$LOCAL_PATH"
             echo "$HASH  $LOCAL_PATH" | sha256sum -c - || { echo "Hash mismatch for $LOCAL_PATH"; exit 1; }
           done
 
