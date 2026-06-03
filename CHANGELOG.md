@@ -10,6 +10,21 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - `Fixed` - for any bug fixes.
 - `Other` - for technical stuff.
 
+## [v0.3.2] - 2026-06-02
+
+### Added
+- Add self-hosted OwOCR server support
+- Add setting to enable/disable automatic OCR model fallback
+
+### Changed
+- Switch to yomihon/image-decoder
+  - Pass crop coords from the native decoder
+
+### Fixed
+- Fix OCR failure on AVIF and other image types
+- Fix inconsistent auto crop on AVIF and other image types
+- Fix offset OCR coordinates on some images when using auto crop
+
 ## [v0.3.1] - 2026-04-14
 
 ### Improved
