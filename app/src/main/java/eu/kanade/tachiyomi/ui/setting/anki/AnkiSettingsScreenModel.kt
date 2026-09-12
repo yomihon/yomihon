@@ -34,18 +34,14 @@ class AnkiSettingsScreenModel(
                 // Load saved preferences
                 val savedDeckId = ankiDroidPreferences.deckId().get()
                 val savedModelId = ankiDroidPreferences.modelId().get()
-                val savedDeckName = ankiDroidPreferences.deckName().get()
                 val savedModelName = ankiDroidPreferences.modelName().get()
-                val savedAdditionalTag = ankiDroidPreferences.additionalTag().get()
                 val savedFieldMappings = ankiDroidPreferences.fieldMappings().get()
 
                 mutableState.update {
                     it.copy(
                         selectedDeckId = savedDeckId,
                         selectedModelId = savedModelId,
-                        deckName = savedDeckName,
                         modelName = savedModelName,
-                        additionalTag = savedAdditionalTag,
                         fieldMappings = savedFieldMappings,
                     )
                 }
@@ -102,7 +98,7 @@ class AnkiSettingsScreenModel(
                 // Get current selections from state
                 var selectedDeckId = state.value.selectedDeckId
                 var selectedModelId = state.value.selectedModelId
-                val preferredDeckName = state.value.deckName
+                val preferredDeckName = ankiDroidPreferences.deckName().get()
                 val preferredModelName = state.value.modelName
 
                 // If deck ID is invalid or not in available decks, get or create the preferred deck
@@ -195,16 +191,6 @@ class AnkiSettingsScreenModel(
         }
     }
 
-    fun updateDeckName(name: String) {
-        mutableState.update { it.copy(deckName = name) }
-        ankiDroidPreferences.deckName().set(name)
-    }
-
-    fun updateAdditionalTag(tag: String) {
-        mutableState.update { it.copy(additionalTag = tag) }
-        ankiDroidPreferences.additionalTag().set(tag)
-    }
-
     fun updateFieldMapping(ankiField: String, appVariable: String) {
         mutableState.update { currentState ->
             val updatedMappings = currentState.fieldMappings.toMutableMap()
@@ -212,6 +198,14 @@ class AnkiSettingsScreenModel(
             ankiDroidPreferences.fieldMappings().set(updatedMappings)
             currentState.copy(fieldMappings = updatedMappings)
         }
+    }
+
+    fun deckNamePreference(): Preference<String> {
+        return ankiDroidPreferences.deckName()
+    }
+
+    fun additionalTagPreference(): Preference<String> {
+        return ankiDroidPreferences.additionalTag()
     }
 
     fun audioPrefillPreference(): Preference<Boolean> {
@@ -242,9 +236,7 @@ class AnkiSettingsScreenModel(
         val termDictionaryIds: Set<Long> = emptySet(),
         val selectedDeckId: Long = -1L,
         val selectedModelId: Long = -1L,
-        val deckName: String = "Yomihon",
         val modelName: String = "Yomihon Card",
-        val additionalTag: String = "",
         val fieldMappings: Map<String, String> = emptyMap(),
         val isLoading: Boolean = true,
         val error: String? = null,

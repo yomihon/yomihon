@@ -158,9 +158,10 @@ internal fun PreferenceItem(
                 val values by item.preference.collectAsState()
                 EditTextPreferenceWidget(
                     title = item.title,
-                    subtitle = item.subtitle,
+                    subtitle = item.subtitleProvider(values),
                     icon = item.icon,
                     value = values,
+                    canBeBlank = item.canBeBlank,
                     onConfirm = {
                         val accepted = item.onValueChanged(it)
                         if (accepted) item.preference.set(it)

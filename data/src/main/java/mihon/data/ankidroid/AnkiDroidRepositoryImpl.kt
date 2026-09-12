@@ -19,9 +19,22 @@ import mihon.domain.dictionary.model.DictionaryTermCard
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.domain.ankidroid.service.AnkiDroidPreferences
 
+private val TAG_DELIMITERS = "[,\\s]+".toRegex()
+private val DISALLOWED_TAG_CHARS = "[\"\\u0000-\\u001F\\u007F]".toRegex()
+
+internal fun sanitizeAnkiTag(rawTag: String): String {
+    return rawTag
+        .replace(DISALLOWED_TAG_CHARS, "")
+        .trim(':', ' ')
+}
+
 internal fun addAdditionalAnkiTag(tags: Set<String>, additionalTag: String): Set<String> {
-    val trimmedTag = additionalTag.trim()
-    return if (trimmedTag.isEmpty()) tags else tags + trimmedTag
+    if (additionalTag.isBlank()) return tags
+    val newTags = additionalTag
+        .split(TAG_DELIMITERS)
+        .map { sanitizeAnkiTag(it) }
+        .filter { it.isNotBlank() }
+    return tags + newTags
 }
 
 class AnkiDroidRepositoryImpl(

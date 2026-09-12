@@ -1176,8 +1176,8 @@
     <string name="anki_deck_name">Deck name</string>
     <string name="anki_note_type_selection">Note Type Selection</string>
     <string name="anki_note_type_name">Note type name</string>
-    <string name="anki_additional_tag">Additional tag</string>
-    <string name="anki_additional_tag_summary">Add this tag to every new card created by Yomihon</string>
+    <string name="anki_additional_tag">Additional tags</string>
+    <string name="anki_additional_tag_summary">Add tags to every new card created by Yomihon (separated by spaces or commas)</string>
     <string name="anki_media_settings">Media</string>
     <string name="anki_dictionary_audio_prefill">Prefill dictionary audio</string>
     <string name="anki_dictionary_audio_prefill_summary">Attach fetched dictionary audio to Anki exports when available</string>

@@ -31,13 +31,14 @@ fun EditTextPreferenceWidget(
     subtitle: String?,
     icon: ImageVector?,
     value: String,
+    canBeBlank: Boolean = false,
     onConfirm: suspend (String) -> Boolean,
 ) {
     var isDialogShown by remember { mutableStateOf(false) }
 
     TextPreferenceWidget(
         title = title,
-        subtitle = subtitle?.format(value),
+        subtitle = subtitle,
         icon = icon,
         onPreferenceClick = { isDialogShown = true },
     )
@@ -48,6 +49,7 @@ fun EditTextPreferenceWidget(
         var textFieldValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
             mutableStateOf(TextFieldValue(value))
         }
+        val isError = !canBeBlank && textFieldValue.text.isBlank()
         AlertDialog(
             onDismissRequest = onDismissRequest,
             title = { Text(text = title) },
@@ -56,15 +58,15 @@ fun EditTextPreferenceWidget(
                     value = textFieldValue,
                     onValueChange = { textFieldValue = it },
                     trailingIcon = {
-                        if (textFieldValue.text.isBlank()) {
+                        if (isError) {
                             Icon(imageVector = Icons.Filled.Error, contentDescription = null)
-                        } else {
+                        } else if (textFieldValue.text.isNotEmpty()) {
                             IconButton(onClick = { textFieldValue = TextFieldValue("") }) {
                                 Icon(imageVector = Icons.Filled.Cancel, contentDescription = null)
                             }
                         }
                     },
-                    isError = textFieldValue.text.isBlank(),
+                    isError = isError,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -74,7 +76,7 @@ fun EditTextPreferenceWidget(
             ),
             confirmButton = {
                 TextButton(
-                    enabled = textFieldValue.text != value && textFieldValue.text.isNotBlank(),
+                    enabled = textFieldValue.text != value && (canBeBlank || textFieldValue.text.isNotBlank()),
                     onClick = {
                         scope.launch {
                             if (onConfirm(textFieldValue.text)) {
