@@ -6,6 +6,71 @@ import org.junit.jupiter.api.Test
 class AnkiDroidRepositoryImplTest {
 
     @Test
+    fun `addAdditionalAnkiTag preserves existing tags and adds configured tag`() {
+        val result = addAdditionalAnkiTag(setOf("yomihon", "jmdict"), "  my-tag  ")
+
+        assertEquals(setOf("yomihon", "jmdict", "my-tag"), result)
+    }
+
+    @Test
+    fun `addAdditionalAnkiTag splits tags by whitespace`() {
+        val result = addAdditionalAnkiTag(setOf("yomihon"), "reading vocab  japanese")
+
+        assertEquals(setOf("yomihon", "reading", "vocab", "japanese"), result)
+    }
+
+    @Test
+    fun `addAdditionalAnkiTag splits tags by comma`() {
+        val result = addAdditionalAnkiTag(setOf("yomihon"), "reading,vocab,japanese")
+
+        assertEquals(setOf("yomihon", "reading", "vocab", "japanese"), result)
+    }
+
+    @Test
+    fun `addAdditionalAnkiTag splits tags by mixed commas and whitespace`() {
+        val result = addAdditionalAnkiTag(setOf("yomihon"), "reading,  vocab jmdict,  grammar")
+
+        assertEquals(setOf("yomihon", "reading", "vocab", "jmdict", "grammar"), result)
+    }
+
+    @Test
+    fun `addAdditionalAnkiTag strips double quotes and control characters`() {
+        val result = addAdditionalAnkiTag(
+            tags = setOf("yomihon"),
+            additionalTag = "\"reading\" \"vocab\"\u0000 \u001Ftag\u007F",
+        )
+
+        assertEquals(setOf("yomihon", "reading", "vocab", "tag"), result)
+    }
+
+    @Test
+    fun `addAdditionalAnkiTag preserves hierarchical tags but trims edge colons`() {
+        val result = addAdditionalAnkiTag(
+            tags = setOf("yomihon"),
+            additionalTag = "manga::vocab :::anime::grammar::: ::empty::",
+        )
+
+        assertEquals(setOf("yomihon", "manga::vocab", "anime::grammar", "empty"), result)
+    }
+
+    @Test
+    fun `addAdditionalAnkiTag avoids duplicates with existing tags`() {
+        val result = addAdditionalAnkiTag(setOf("yomihon", "vocab"), "yomihon reading vocab")
+
+        assertEquals(setOf("yomihon", "vocab", "reading"), result)
+    }
+
+    @Test
+    fun `addAdditionalAnkiTag ignores blank configured tag`() {
+        val tags = setOf("yomihon")
+
+        assertEquals(tags, addAdditionalAnkiTag(tags, "   "))
+        assertEquals(tags, addAdditionalAnkiTag(tags, ""))
+        assertEquals(tags, addAdditionalAnkiTag(tags, ",,,   ,,,"))
+        assertEquals(tags, addAdditionalAnkiTag(tags, "\"\" \"  \" :::"))
+    }
+
+    @Test
     fun `formatFurigana only applies ruby to kanji spans`() {
         val formatted = formatFurigana("食べる", "たべる")
 

@@ -138,7 +138,11 @@ sealed class Preference {
             val preference: PreferenceData<String>,
             override val title: String,
             override val subtitle: String? = "%s",
+            val subtitleProvider: @Composable (value: String) -> String? = { v ->
+                if (v.isBlank()) null else subtitle?.format(v)
+            },
             override val enabled: Boolean = true,
+            val canBeBlank: Boolean = false,
             override val onValueChanged: suspend (value: String) -> Boolean = { true },
         ) : PreferenceItem<String, Boolean>() {
             override val icon: ImageVector? = null

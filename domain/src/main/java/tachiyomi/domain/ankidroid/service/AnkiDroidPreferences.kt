@@ -10,6 +10,7 @@ class AnkiDroidPreferences(
     fun modelId() = preferenceStore.getLong("ankidroid_model_id", -1L)
     fun deckName() = preferenceStore.getString("ankidroid_deck_name", "Yomihon")
     fun modelName() = preferenceStore.getString("ankidroid_model_name", "Yomihon Card")
+    fun additionalTag() = preferenceStore.getString("ankidroid_additional_tag", "")
     fun dictionaryAudioPrefill() = preferenceStore.getBoolean("pref_anki_dictionary_audio_prefill", true)
     fun croppedImageExport() = preferenceStore.getBoolean("pref_cropped_image_export", false)
     fun boldSentenceWord() = preferenceStore.getBoolean("pref_anki_bold_sentence_word", false)

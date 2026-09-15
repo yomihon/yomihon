@@ -19,6 +19,24 @@ import mihon.domain.dictionary.model.DictionaryTermCard
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.domain.ankidroid.service.AnkiDroidPreferences
 
+private val TAG_DELIMITERS = "[,\\s]+".toRegex()
+private val DISALLOWED_TAG_CHARS = "[\"\\u0000-\\u001F\\u007F]".toRegex()
+
+internal fun sanitizeAnkiTag(rawTag: String): String {
+    return rawTag
+        .replace(DISALLOWED_TAG_CHARS, "")
+        .trim(':', ' ')
+}
+
+internal fun addAdditionalAnkiTag(tags: Set<String>, additionalTag: String): Set<String> {
+    if (additionalTag.isBlank()) return tags
+    val newTags = additionalTag
+        .split(TAG_DELIMITERS)
+        .map { sanitizeAnkiTag(it) }
+        .filter { it.isNotBlank() }
+    return tags + newTags
+}
+
 class AnkiDroidRepositoryImpl(
     context: Context,
     private val ankiDroidPreferences: AnkiDroidPreferences,
@@ -65,7 +83,11 @@ class AnkiDroidRepositoryImpl(
 
             val fieldValues = buildFieldValues(card, modelFields, fieldMappings, pictureFilename, audioFilename)
 
-            val added = api.addNote(modelId, deckId, fieldValues, card.tags)
+            val tags = addAdditionalAnkiTag(
+                tags = card.tags,
+                additionalTag = ankiDroidPreferences.additionalTag().get(),
+            )
+            val added = api.addNote(modelId, deckId, fieldValues, tags)
 
             if (added != null && added > 0) AnkiDroidRepository.Result.Added else AnkiDroidRepository.Result.Error()
         } catch (e: Exception) {
