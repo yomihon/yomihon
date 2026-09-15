@@ -563,6 +563,16 @@ class MainActivity : BaseActivity() {
                 }
                 null
             }
+            Intent.ACTION_TRANSLATE -> {
+                // System "translate" action: look the text up in the dictionary tab
+                val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+                if (text.isNullOrBlank()) {
+                    null
+                } else {
+                    navigator.popUntilRoot()
+                    HomeScreen.Tab.Dictionary(initialQuery = text)
+                }
+            }
             Intent.ACTION_VIEW -> {
                 // Handling opening of backup files
                 if (intent.data.toString().endsWith(".tachibk")) {

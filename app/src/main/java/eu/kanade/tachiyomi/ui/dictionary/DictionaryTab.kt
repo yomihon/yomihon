@@ -21,7 +21,10 @@ import eu.kanade.presentation.dictionary.DictionarySearchScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -104,5 +107,18 @@ data object DictionaryTab : Tab {
         LaunchedEffect(Unit) {
             (context as? MainActivity)?.ready = true
         }
+
+        LaunchedEffect(Unit) {
+            queryEvent.receiveAsFlow().collectLatest { query ->
+                // Wait until dictionaries are loaded so the search can find enabled ones
+                screenModel.state.first { !it.isLoading }
+                screenModel.updateQuery(query)
+                screenModel.search(query)
+            }
+        }
     }
+
+    // For invoking search from other screens
+    private val queryEvent = Channel<String>()
+    suspend fun search(query: String) = queryEvent.send(query)
 }

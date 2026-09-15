@@ -164,7 +164,7 @@ object HomeScreen : Screen() {
                                 }
                                 BrowseTab
                             }
-                            Tab.Dictionary -> DictionaryTab
+                            is Tab.Dictionary -> DictionaryTab
                             is Tab.More -> MoreTab
                         }
 
@@ -173,6 +173,9 @@ object HomeScreen : Screen() {
                         }
                         if (it is Tab.More && it.toDownloads) {
                             navigator.push(DownloadQueueScreen)
+                        }
+                        if (it is Tab.Dictionary) {
+                            it.initialQuery?.let { query -> DictionaryTab.search(query) }
                         }
                     }
                 }
@@ -310,7 +313,7 @@ object HomeScreen : Screen() {
         data object Updates : Tab
         data object History : Tab
         data class Browse(val toExtensions: Boolean = false) : Tab
-        data object Dictionary : Tab
+        data class Dictionary(val initialQuery: String? = null) : Tab
         data class More(val toDownloads: Boolean) : Tab
     }
 }
