@@ -10,6 +10,14 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - `Fixed` - for any bug fixes.
 - `Other` - for technical stuff.
 
+## [v0.4.2] - 2026-09-20
+
+### Improved
+- Update LiteRT to latest (v2.2.0)
+
+### Fixed
+- Fix failed FOSS build
+
 ## [v0.4.1] - 2026-09-20
 
 ### Added

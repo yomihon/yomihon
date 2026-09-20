@@ -52,7 +52,7 @@ body:
       label: Yomihon version
       description: You can find your Yomihon version in **More → About**.
       placeholder: |
-        Example: "0.4.1"
+        Example: "0.4.2"
     validations:
       required: true
 
