@@ -32,12 +32,16 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Sort
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -118,14 +122,21 @@ object SettingsDictionaryScreen : Screen {
             isPopup = ocrResultPresentation == OcrResultPresentation.POPUP,
         )
 
-        // File picker for dictionary import
-        val pickDictionary = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.GetContent(),
+        // Multi-file picker for dictionary import
+        val pickMultipleFiles = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenMultipleDocuments(),
+        ) { uris ->
+            if (uris.isNotEmpty()) {
+                screenModel.importDictionariesFromUris(uris)
+            }
+        }
+
+        // Folder picker for dictionary import
+        val pickFolder = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocumentTree(),
         ) { uri ->
             if (uri != null) {
-                screenModel.importDictionaryFromUri(uri)
-            } else {
-                context.toast(MR.strings.file_null_uri_error)
+                screenModel.importDictionariesFromFolder(uri)
             }
         }
 
@@ -285,27 +296,62 @@ object SettingsDictionaryScreen : Screen {
                     }
                 }
 
-                // Import button
+                // Import buttons
                 item {
-                    OutlinedButton(
-                        onClick = {
-                            try {
-                                pickDictionary.launch("application/zip")
-                            } catch (e: ActivityNotFoundException) {
-                                context.toast(MR.strings.file_picker_error)
-                            }
-                        },
+                    var showImportMenu by rememberSaveable { mutableStateOf(false) }
+                    val importEnabled = !state.isImporting && !state.isDeleting && !state.isMigrating
+
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
-                        enabled = !state.isImporting && !state.isDeleting && !state.isMigrating,
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Add,
-                            contentDescription = null,
-                            modifier = Modifier.padding(end = 8.dp),
-                        )
-                        Text(stringResource(MR.strings.import_dictionary_file))
+                        OutlinedButton(
+                            onClick = { showImportMenu = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = importEnabled,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Add,
+                                contentDescription = null,
+                                modifier = Modifier.padding(end = 8.dp),
+                            )
+                            Text(stringResource(MR.strings.import_dictionary_file))
+                        }
+
+                        DropdownMenu(
+                            expanded = showImportMenu,
+                            onDismissRequest = { showImportMenu = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(MR.strings.import_dictionary_files)) },
+                                leadingIcon = {
+                                    Icon(Icons.Outlined.Add, contentDescription = null)
+                                },
+                                onClick = {
+                                    showImportMenu = false
+                                    try {
+                                        pickMultipleFiles.launch(arrayOf("application/zip"))
+                                    } catch (e: ActivityNotFoundException) {
+                                        context.toast(MR.strings.file_picker_error)
+                                    }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(MR.strings.import_dictionary_from_folder)) },
+                                leadingIcon = {
+                                    Icon(Icons.Outlined.FolderOpen, contentDescription = null)
+                                },
+                                onClick = {
+                                    showImportMenu = false
+                                    try {
+                                        pickFolder.launch(null)
+                                    } catch (e: ActivityNotFoundException) {
+                                        context.toast(MR.strings.file_picker_error)
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
 
@@ -327,7 +373,15 @@ object SettingsDictionaryScreen : Screen {
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 Text(
-                                    text = stringResource(MR.strings.importing_dictionary),
+                                    text = if (state.batchTotal > 1) {
+                                        stringResource(
+                                            MR.strings.importing_dictionaries_batch,
+                                            state.batchCompleted,
+                                            state.batchTotal,
+                                        )
+                                    } else {
+                                        stringResource(MR.strings.importing_dictionary)
+                                    },
                                     style = MaterialTheme.typography.titleMedium,
                                 )
                                 Text(
@@ -476,12 +530,30 @@ object SettingsDictionaryScreen : Screen {
                     }
                 } else {
                     item {
-                        Text(
-                            text = stringResource(MR.strings.installed_dictionaries),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = stringResource(MR.strings.installed_dictionaries),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            OutlinedButton(
+                                onClick = { screenModel.autoSortDictionaries(context) },
+                                enabled = !state.isImporting && !state.isDeleting && !state.isMigrating,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Sort,
+                                    contentDescription = null,
+                                    modifier = Modifier.padding(end = 4.dp),
+                                )
+                                Text(stringResource(MR.strings.dictionary_auto_sort))
+                            }
+                        }
                     }
 
                     itemsIndexed(
