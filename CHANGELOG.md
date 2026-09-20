@@ -10,6 +10,13 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - `Fixed` - for any bug fixes.
 - `Other` - for technical stuff.
 
+## [v0.4.1] - 2026-09-20
+
+### Added
+- Custom Anki tags feature (configurable in Anki settings) (@TheWeebSamurai)
+- Quick dictionary lookups for text from external apps (@neXyon)
+  - Highlight text -> tap 3 dots or translate -> select Yomihon
+
 ## [v0.4.0] - 2026-07-28
 
 ### Added
