@@ -38,7 +38,7 @@ directionalViewPager = "1.0.0"
 diskLruCache = "2.0.2"
 firebase-bom = "34.15.0"
 firebase-crashlytics = "3.0.7"
-flexibleAdapter = "c8013533"
+flexibleAdapter = "5.1.0"
 furiganable = "v0.1.2"
 google-services = "4.5.0"
 hoshidicts = "v1.4.1"
@@ -135,7 +135,7 @@ diskLruCache = { module = "com.jakewharton:disklrucache", version.ref = "diskLru
 firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
 firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics" }
-flexibleAdapter = { module = "com.github.arkon.FlexibleAdapter:flexible-adapter", version.ref = "flexibleAdapter" }
+flexibleAdapter = { module = "eu.davidea:flexible-adapter", version.ref = "flexibleAdapter" }
 furiganable = { module = "com.github.yomihon.Furiganable:compose-m3", version.ref = "furiganable" }
 hoshidicts = { module = "com.github.yomihon:hoshidicts", version.ref = "hoshidicts" }
 image-decoder = { module = "com.github.yomihon:image-decoder", version.ref = "image-decoder" }
