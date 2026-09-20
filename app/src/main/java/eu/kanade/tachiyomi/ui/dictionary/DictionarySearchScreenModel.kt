@@ -113,7 +113,16 @@ class DictionarySearchScreenModel(
     }
 
     fun updateQuery(query: String) {
-        mutableState.update { it.copy(query = query) }
+        mutableState.update { it.copy(query = query, isFromExternal = false) }
+    }
+
+    fun searchFromExternal(query: String) {
+        mutableState.update { it.copy(query = query, isFromExternal = true) }
+        search(query)
+    }
+
+    fun clearExternal() {
+        mutableState.update { it.copy(isFromExternal = false) }
     }
 
     /**
@@ -421,6 +430,7 @@ class DictionarySearchScreenModel(
     @Immutable
     data class State(
         val query: String = "",
+        val isFromExternal: Boolean = false,
         val results: SearchResults? = null,
         val dictionaries: List<Dictionary> = emptyList(),
         val enabledDictionaryIds: List<Long> = emptyList(),
